@@ -26,12 +26,12 @@ public class AsyncSearchResponseHandler {
         return asyncSearchResponseHandler;
     }
 
-    public static void scheduleResponse(ActionListener<SearchResponse> listener, Supplier<SearchResponse> searchResponse) {
+    public static void scheduleResponse(ActionListener<AsyncSearchResponse> listener, Supplier<SearchResponse> searchResponse) {
         logger.warn("Scheduling a search Response");
         threadPool.schedule(
                 () -> {
                     logger.warn("Responding with a search response after 5s");
-                    listener.onResponse(searchResponse.get());
+                    //listener.onResponse(searchResponse.get());
                 },
                 TimeValue.timeValueSeconds(5), ThreadPool.Names.GENERIC);
     }

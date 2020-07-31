@@ -14,6 +14,8 @@
  */
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
@@ -21,6 +23,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
+import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 
@@ -30,12 +33,17 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     private final Logger logger = LogManager.getLogger(getClass());
 
-    private ActionListener<SearchResponse> originalListener;
+    private ActionListener<AsyncSearchResponse> originalListener;
     private SearchResponse searchResponse;
 
     @Override
     protected void onListShards(List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters, boolean fetchPhase) {
         logger.warn("onListShards --> shards :{}, skippedShards: {}, clusters: {}, fetchPhase: {}", shards, skippedShards, clusters, fetchPhase);
+    }
+
+    @Override
+    protected void onPartialReduce(List<SearchShard> shards, TotalHits totalHits, DelayableWriteable.Serialized<InternalAggregations> aggs, int reducePhase) {
+        logger.warn("onPartialReduce --> shards; {}, totalHits: {}, aggs: {}, reducePhase: {}",shards, totalHits, aggs, reducePhase );
     }
 
     @Override
@@ -48,10 +56,6 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         logger.warn("onFetchResult --> shardIndex: {}", shardIndex);
     }
 
-    @Override
-    protected void onPartialReduce(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
-        logger.warn("onPartialReduce --> shards; {}, totalHits: {}, aggs: {}, reducePhase: {}",shards, totalHits, aggs, reducePhase );
-    }
 
     @Override
     protected void onFinalReduce(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
@@ -79,7 +83,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         logger.warn("Don't send back the actual failure", e);
     }
 
-    public void setOriginalListener(ActionListener<SearchResponse> originalListener) {
+    public void setOriginalListener(ActionListener<AsyncSearchResponse> originalListener) {
         this.originalListener =  originalListener;
         AsyncSearchResponseHandler.scheduleResponse(originalListener, this::getSearchResponse);
     }

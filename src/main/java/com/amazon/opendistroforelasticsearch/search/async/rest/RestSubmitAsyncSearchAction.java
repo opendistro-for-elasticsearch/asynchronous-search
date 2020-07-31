@@ -15,7 +15,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchRequest;
-import org.elasticsearch.action.search.SearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchAction;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.Booleans;
@@ -65,16 +65,16 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
 
     @Override
     public String getName() {
-        return "search_action";
+        return "async_search_action";
     }
 
     @Override
     public List<Route> routes() {
         return Arrays.asList(
-                new Route(GET, "/_async-search"),
-                new Route(POST, "/_async-search"),
-                new Route(GET, "/{index}/_async-search"),
-                new Route(POST, "/{index}/_async-search"));
+                new Route(GET, "/_async_search"),
+                new Route(POST, "/_async_search"),
+                new Route(GET, "/{index}/_async_search"),
+                new Route(POST, "/{index}/_async_search"));
     }
 
     @Override
@@ -98,7 +98,7 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
 
         return channel -> {
             RestCancellableNodeClient cancelClient = new RestCancellableNodeClient(client, request.getHttpChannel());
-            cancelClient.execute(SearchAction.INSTANCE, searchRequest, new RestStatusToXContentListener<>(channel));
+            cancelClient.execute(AsyncSearchAction.INSTANCE, searchRequest, new RestStatusToXContentListener<>(channel));
         };
     }
 

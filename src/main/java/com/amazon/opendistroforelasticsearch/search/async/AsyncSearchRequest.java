@@ -5,6 +5,7 @@ import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.tasks.TaskId;
 
 import java.util.Map;
@@ -18,6 +19,14 @@ public class AsyncSearchRequest extends SearchRequest {
 
     private int batchedReduceSize = DEFAULT_BATCHED_REDUCE_SIZE;
     private long waitForCompletionTimeout;
+
+    public AsyncSearchRequest() {
+        super();
+    }
+
+    public AsyncSearchRequest(StreamInput streamInput) {
+        super();
+    }
 
     @Override
     public AsyncSearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {

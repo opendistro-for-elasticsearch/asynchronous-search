@@ -14,17 +14,16 @@
  */
 package com.amazon.opendistroforelasticsearch.search.async.action;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.elasticsearch.action.ActionType;
-import org.elasticsearch.action.search.SearchResponse;
 
-//Unused so far
-public class AsyncSearchAction extends ActionType<SearchResponse> {
+public class AsyncSearchAction extends ActionType<AsyncSearchResponse> {
 
     public static final AsyncSearchAction INSTANCE = new AsyncSearchAction();
     public static final String NAME = "indices:data/read/async_search";
 
     private AsyncSearchAction() {
-        super(NAME, SearchResponse::new);
+        super(NAME, AsyncSearchResponse::new);
     }
 
 }

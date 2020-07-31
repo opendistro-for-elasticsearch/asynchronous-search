@@ -3,7 +3,7 @@ package com.amazon.opendistroforelasticsearch.search.async.plugin;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchResponseHandler;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchAction1;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchAction;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.ActionType;
@@ -24,6 +24,7 @@ import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
 import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.Plugin;
+import org.elasticsearch.repositories.RepositoriesService;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestHandler;
 import org.elasticsearch.script.ScriptService;
@@ -44,19 +45,14 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin {
     }
 
     @Override
-    public Collection<Object> createComponents(Client client, ClusterService clusterService, ThreadPool threadPool, ResourceWatcherService resourceWatcherService, ScriptService scriptService, NamedXContentRegistry xContentRegistry, Environment environment, NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry, IndexNameExpressionResolver indexNameExpressionResolver) {
+    public Collection<Object> createComponents(Client client, ClusterService clusterService, ThreadPool threadPool, ResourceWatcherService resourceWatcherService, ScriptService scriptService, NamedXContentRegistry xContentRegistry, Environment environment, NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry, IndexNameExpressionResolver indexNameExpressionResolver, Supplier<RepositoriesService> repositoriesServiceSupplier) {
         AsyncSearchResponseHandler.initialize(threadPool);
         return Collections.singleton(AsyncSearchResponseHandler.getInstance());
     }
 
-/*    @Override
-    public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
-        return Arrays.asList(new ActionHandler<>(AsyncSearchAction.INSTANCE, TransportAsyncSearchAction1.class));
-    }*/
-
     @Override
-    public List<ActionFilter> getActionFilters() {
-        return Collections.singletonList(new AsyncSearchActionFilter());
+    public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
+        return Arrays.asList(new ActionHandler<>(AsyncSearchAction.INSTANCE, TransportAsyncSearchAction.class));
     }
 
     @Override
