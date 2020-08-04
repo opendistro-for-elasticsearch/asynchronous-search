@@ -12,10 +12,10 @@
  *   express or implied. See the License for the specific language governing
  *   permissions and limitations under the License.
  */
+
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
-import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
@@ -31,10 +31,14 @@ import java.util.List;
 
 public class AsyncSearchProgressActionListener extends SearchProgressActionListener {
 
+    private ActionListener<AsyncSearchResponse> asyncSearchResponseListener;
+    private SearchResponse searchResponse;
+
     private final Logger logger = LogManager.getLogger(getClass());
 
-    private ActionListener<AsyncSearchResponse> originalListener;
-    private SearchResponse searchResponse;
+    public AsyncSearchProgressActionListener(ActionListener<AsyncSearchResponse> asyncSearchResponseListener) {
+        this.asyncSearchResponseListener = asyncSearchResponseListener;
+    }
 
     @Override
     protected void onListShards(List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters, boolean fetchPhase) {
@@ -75,20 +79,14 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     @Override
     public void onResponse(SearchResponse searchResponse) {
         this.searchResponse = searchResponse;
-        logger.warn("Don't send back the actual response {}", searchResponse);
+        logger.info("Search response completed {}", searchResponse);
+        asyncSearchResponseListener.onResponse(null);
     }
 
     @Override
     public void onFailure(Exception e) {
-        logger.warn("Don't send back the actual failure", e);
-    }
-
-    public void setOriginalListener(ActionListener<AsyncSearchResponse> originalListener) {
-        this.originalListener =  originalListener;
-        AsyncSearchResponseHandler.scheduleResponse(originalListener, this::getSearchResponse);
-    }
-
-    private SearchResponse getSearchResponse() {
-        return searchResponse;
+        logger.info("Search response failure", e);
+        asyncSearchResponseListener.onFailure(e);
     }
 }
+
