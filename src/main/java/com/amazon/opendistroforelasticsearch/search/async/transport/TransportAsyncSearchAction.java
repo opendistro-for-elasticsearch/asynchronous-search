@@ -67,7 +67,7 @@ public class TransportAsyncSearchAction extends HandledTransportAction<AsyncSear
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(wrappedListener);
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
             ((AsyncSearchTask)task).setProgressListener(progressActionListener);
-            transportSearchAction.execute(task, asyncSearchRequest, progressActionListener);
+            transportSearchAction.execute(task, asyncSearchRequest.getSearchRequest(), progressActionListener);
         } catch (Exception e) {
             listener.onFailure(e);
         }

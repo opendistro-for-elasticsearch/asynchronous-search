@@ -16,6 +16,7 @@ package com.amazon.opendistroforelasticsearch.search.async.rest;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchAction;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.Booleans;
@@ -79,7 +80,8 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
 
     @Override
     public RestChannelConsumer prepareRequest(final RestRequest request, final NodeClient client) throws IOException {
-        AsyncSearchRequest searchRequest = new AsyncSearchRequest();
+        AsyncSearchRequest asyncSearchRequest = new AsyncSearchRequest();
+        SearchRequest searchRequest = asyncSearchRequest.getSearchRequest();
         /*
          * We have to pull out the call to `source().size(size)` because
          * _update_by_query and _delete_by_query uses this same parsing
@@ -109,7 +111,7 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
      *        parameter
      * @param setSize how the size url parameter is handled. {@code udpate_by_query} and regular search differ here.
      */
-    public static void parseSearchRequest(AsyncSearchRequest searchRequest, RestRequest request,
+    public static void parseSearchRequest(SearchRequest searchRequest, RestRequest request,
                                           XContentParser requestContentParser,
                                           IntConsumer setSize) throws IOException {
 
@@ -285,7 +287,7 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
      * is used in conjunction with a lower bound value (other than {@link SearchContext#DEFAULT_TRACK_TOTAL_HITS_UP_TO})
      * for the track_total_hits option.
      */
-    public static void checkRestTotalHits(RestRequest restRequest, AsyncSearchRequest searchRequest) {
+    public static void checkRestTotalHits(RestRequest restRequest, SearchRequest searchRequest) {
         boolean totalHitsAsInt = restRequest.paramAsBoolean(TOTAL_HITS_AS_INT_PARAM, false);
         if (totalHitsAsInt == false) {
             return;

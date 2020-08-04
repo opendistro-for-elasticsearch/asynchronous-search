@@ -34,6 +34,7 @@ public class AsyncSearchRequest extends ActionRequest implements IndicesRequest.
 
     private int batchedReduceSize = DEFAULT_BATCHED_REDUCE_SIZE;
     private TimeValue waitForCompletionTimeout;
+
     private SearchRequest searchRequest;
 
     public AsyncSearchRequest() {
@@ -91,5 +92,9 @@ public class AsyncSearchRequest extends ActionRequest implements IndicesRequest.
     @Override
     public IndicesOptions indicesOptions() {
         return null;
+    }
+
+    public SearchRequest getSearchRequest() {
+        return searchRequest;
     }
 }
