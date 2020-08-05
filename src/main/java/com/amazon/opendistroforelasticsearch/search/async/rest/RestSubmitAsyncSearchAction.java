@@ -14,8 +14,8 @@
  */
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchRequest;
-import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.node.NodeClient;
@@ -80,8 +80,8 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
 
     @Override
     public RestChannelConsumer prepareRequest(final RestRequest request, final NodeClient client) throws IOException {
-        AsyncSearchRequest asyncSearchRequest = new AsyncSearchRequest();
-        SearchRequest searchRequest = asyncSearchRequest.getSearchRequest();
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest();
+        SearchRequest searchRequest = submitAsyncSearchRequest.getSearchRequest();
         /*
          * We have to pull out the call to `source().size(size)` because
          * _update_by_query and _delete_by_query uses this same parsing
@@ -100,7 +100,7 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
 
         return channel -> {
             RestCancellableNodeClient cancelClient = new RestCancellableNodeClient(client, request.getHttpChannel());
-            cancelClient.execute(AsyncSearchAction.INSTANCE, searchRequest, new RestStatusToXContentListener<>(channel));
+            cancelClient.execute(SubmitAsyncSearchAction.INSTANCE, searchRequest, new RestStatusToXContentListener<>(channel));
         };
     }
 
@@ -125,7 +125,7 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
 
         final int batchedReduceSize = request.paramAsInt("batched_reduce_size", searchRequest.getBatchedReduceSize());
         searchRequest.setBatchedReduceSize(batchedReduceSize);
-        searchRequest.setPreFilterShardSize(AsyncSearchRequest.DEFAULT_PRE_FILTER_SHARD_SIZE);
+        searchRequest.setPreFilterShardSize(SubmitAsyncSearchRequest.DEFAULT_PRE_FILTER_SHARD_SIZE);
 
         if (request.hasParam("max_concurrent_shard_requests")) {
             // only set if we have the parameter since we auto adjust the max concurrency on the coordinator

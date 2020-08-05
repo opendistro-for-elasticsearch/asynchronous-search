@@ -15,47 +15,72 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
-import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportSubmitAsyncSearchAction;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.IndexScopedSettings;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.settings.SettingsFilter;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.env.Environment;
+import org.elasticsearch.env.NodeEnvironment;
 import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.Plugin;
+import org.elasticsearch.repositories.RepositoriesService;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestHandler;
+import org.elasticsearch.script.ScriptService;
+import org.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.watcher.ResourceWatcherService;
 
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin {
 
     @Override
-    public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings, IndexScopedSettings indexScopedSettings, SettingsFilter settingsFilter, IndexNameExpressionResolver indexNameExpressionResolver, Supplier<DiscoveryNodes> nodesInCluster) {
-        return Arrays.asList(new RestSubmitAsyncSearchAction());
+    public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
+                                             IndexScopedSettings indexScopedSettings, SettingsFilter settingsFilter,
+                                             IndexNameExpressionResolver indexNameExpressionResolver, Supplier<DiscoveryNodes> nodesInCluster) {
+        return Arrays.asList(new RestSubmitAsyncSearchAction(), new RestGetAsyncSearchAction());
     }
 
-/*    @Override
-    public Collection<Object> createComponents(Client client, ClusterService clusterService, ThreadPool threadPool, ResourceWatcherService resourceWatcherService, ScriptService scriptService, NamedXContentRegistry xContentRegistry, Environment environment, NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry, IndexNameExpressionResolver indexNameExpressionResolver, Supplier<RepositoriesService> repositoriesServiceSupplier) {
-        AsyncSearchResponseHandler.initialize(threadPool);
-        return Collections.singleton(AsyncSearchResponseHandler.getInstance());
-    }*/
+    @Override
+    public Collection<Object> createComponents(Client client, ClusterService clusterService, ThreadPool threadPool,
+                                               ResourceWatcherService resourceWatcherService, ScriptService scriptService,
+                                               NamedXContentRegistry xContentRegistry, Environment environment,
+                                               NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry,
+                                               IndexNameExpressionResolver indexNameExpressionResolver,
+                                               Supplier<RepositoriesService> repositoriesServiceSupplier) {
+        return Collections.singleton(new AsyncSearchService(clusterService, threadPool));
+    }
 
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
-        return Arrays.asList(new ActionHandler<>(AsyncSearchAction.INSTANCE, TransportAsyncSearchAction.class));
+        return Arrays.asList(new ActionHandler<>(SubmitAsyncSearchAction.INSTANCE, TransportSubmitAsyncSearchAction.class),
+                new ActionHandler<>(GetAsyncSearchAction.INSTANCE, TransportGetAsyncSearchAction.class));
     }
 
     @Override
     public List<Setting<?>> getSettings() {
-        return super.getSettings();
+        return Arrays.asList(AsyncSearchService.DEFAULT_KEEPALIVE_SETTING,
+                AsyncSearchService.MAX_KEEPALIVE_SETTING,
+                AsyncSearchService.KEEPALIVE_INTERVAL_SETTING);
     }
 }

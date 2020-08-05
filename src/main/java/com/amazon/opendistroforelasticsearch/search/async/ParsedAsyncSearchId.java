@@ -19,11 +19,15 @@ public class ParsedAsyncSearchId {
 
     private final String source;
     private final String node;
+    private final long id;
 
-    public ParsedAsyncSearchId(String source, String node) {
+    public ParsedAsyncSearchId(String source, String node, long id) {
         this.source = source;
         this.node = node;
+        this.id = id;
     }
+
+    public long getId() { return id; }
 
     public String getSource() {
         return source;

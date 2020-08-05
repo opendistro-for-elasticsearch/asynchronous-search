@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -31,13 +32,12 @@ import java.util.List;
 
 public class AsyncSearchProgressActionListener extends SearchProgressActionListener {
 
-    private ActionListener<AsyncSearchResponse> asyncSearchResponseListener;
-    private SearchResponse searchResponse;
-
     private final Logger logger = LogManager.getLogger(getClass());
 
-    public AsyncSearchProgressActionListener(ActionListener<AsyncSearchResponse> asyncSearchResponseListener) {
-        this.asyncSearchResponseListener = asyncSearchResponseListener;
+    private AsyncSearchContext asyncSearchContext;
+
+    public AsyncSearchProgressActionListener(AsyncSearchContext asyncSearchContext) {
+        this.asyncSearchContext = asyncSearchContext;
     }
 
     @Override
@@ -47,7 +47,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     @Override
     protected void onPartialReduce(List<SearchShard> shards, TotalHits totalHits, DelayableWriteable.Serialized<InternalAggregations> aggs, int reducePhase) {
-        logger.warn("onPartialReduce --> shards; {}, totalHits: {}, aggs: {}, reducePhase: {}",shards, totalHits, aggs, reducePhase );
+        logger.warn("onPartialReduce --> shards; {}, totalHits: {}, aggs: {}, reducePhase: {}", shards, totalHits, aggs, reducePhase );
     }
 
     @Override
@@ -78,15 +78,18 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     @Override
     public void onResponse(SearchResponse searchResponse) {
-        this.searchResponse = searchResponse;
         logger.info("Search response completed {}", searchResponse);
-        asyncSearchResponseListener.onResponse(null);
+        for (ActionListener<AsyncSearchResponse> listener : asyncSearchContext.getListeners()) {
+            listener.onResponse(null);
+        }
     }
 
     @Override
     public void onFailure(Exception e) {
         logger.info("Search response failure", e);
-        asyncSearchResponseListener.onFailure(e);
+        for (ActionListener<AsyncSearchResponse> listener : asyncSearchContext.getListeners()) {
+            listener.onFailure(e);
+        }
     }
 }
 

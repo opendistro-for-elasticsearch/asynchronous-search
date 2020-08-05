@@ -15,10 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchStateManager;
-import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
@@ -34,40 +35,42 @@ import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
-public class TransportAsyncSearchAction extends HandledTransportAction<AsyncSearchRequest, AsyncSearchResponse> {
+public class TransportSubmitAsyncSearchAction extends HandledTransportAction<SubmitAsyncSearchRequest, AsyncSearchResponse> {
 
     private ThreadPool threadPool;
     private TransportService transportService;
     private ClusterService clusterService;
     private IndexNameExpressionResolver indexNameExpressionResolver;
     private final TransportSearchAction transportSearchAction;
-    private final AsyncSearchStateManager asyncSearchStateManager;
+    private final AsyncSearchService asyncSearchService;
 
     @Inject
-    public TransportAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
-                                      ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver, AsyncSearchStateManager asyncSearchStateManager,
-                                      TransportSearchAction transportSearchAction) {
-        super(AsyncSearchAction.NAME, transportService, actionFilters, (Writeable.Reader<AsyncSearchRequest>) AsyncSearchRequest::new);
+    public TransportSubmitAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
+                                            ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
+                                            AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction) {
+        super(SubmitAsyncSearchAction.NAME, transportService, actionFilters, (Writeable.Reader<SubmitAsyncSearchRequest>) SubmitAsyncSearchRequest::new);
         this.threadPool = threadPool;
         this.transportService = transportService;
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
-        this.asyncSearchStateManager = asyncSearchStateManager;
+        this.asyncSearchService = asyncSearchService;
         this.transportSearchAction = transportSearchAction;
     }
 
     @Override
-    protected void doExecute(Task task, AsyncSearchRequest asyncSearchRequest, ActionListener<AsyncSearchResponse> listener) {
+    protected void doExecute(Task task, SubmitAsyncSearchRequest submitAsyncSearchRequest, ActionListener<AsyncSearchResponse> listener) {
         try {
+            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(submitAsyncSearchRequest);
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                    asyncSearchRequest.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, () -> {
+                    submitAsyncSearchRequest.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, () -> {
                 //Replace with actual async search response
                 listener.onResponse(null);
-            });
-            AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(wrappedListener);
+            }, asyncSearchContext::removeListener);
+            asyncSearchContext.addListener(wrappedListener);
+            AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext);
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
             ((AsyncSearchTask)task).setProgressListener(progressActionListener);
-            transportSearchAction.execute(task, asyncSearchRequest.getSearchRequest(), progressActionListener);
+            transportSearchAction.execute(task, submitAsyncSearchRequest.getSearchRequest(), progressActionListener);
         } catch (Exception e) {
             listener.onFailure(e);
         }

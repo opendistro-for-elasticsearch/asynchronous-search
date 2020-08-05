@@ -27,7 +27,7 @@ import org.elasticsearch.tasks.TaskId;
 
 import java.util.Map;
 
-public class AsyncSearchRequest extends ActionRequest implements IndicesRequest.Replaceable {
+public class SubmitAsyncSearchRequest extends ActionRequest implements IndicesRequest.Replaceable {
 
     public static final int DEFAULT_PRE_FILTER_SHARD_SIZE = 1;
     public static final int DEFAULT_BATCHED_REDUCE_SIZE = 5;
@@ -37,11 +37,11 @@ public class AsyncSearchRequest extends ActionRequest implements IndicesRequest.
 
     private SearchRequest searchRequest;
 
-    public AsyncSearchRequest() {
+    public SubmitAsyncSearchRequest() {
         super();
     }
 
-    public AsyncSearchRequest(StreamInput streamInput) {
+    public SubmitAsyncSearchRequest(StreamInput streamInput) {
         super();
     }
 

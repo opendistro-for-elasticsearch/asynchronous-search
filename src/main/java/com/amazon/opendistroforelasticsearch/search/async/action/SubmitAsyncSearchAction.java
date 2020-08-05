@@ -17,12 +17,12 @@ package com.amazon.opendistroforelasticsearch.search.async.action;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.elasticsearch.action.ActionType;
 
-public class AsyncSearchAction extends ActionType<AsyncSearchResponse> {
+public class SubmitAsyncSearchAction extends ActionType<AsyncSearchResponse> {
 
-    public static final AsyncSearchAction INSTANCE = new AsyncSearchAction();
-    public static final String NAME = "indices:data/read/async_search";
+    public static final SubmitAsyncSearchAction INSTANCE = new SubmitAsyncSearchAction();
+    public static final String NAME = "indices:data/read/submit_async_search";
 
-    private AsyncSearchAction() {
+    private SubmitAsyncSearchAction() {
         super(NAME, AsyncSearchResponse::new);
     }
 

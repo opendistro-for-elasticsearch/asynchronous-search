@@ -22,14 +22,16 @@ import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 
 public class AsyncSearchTimeoutWrapper {
 
     public static ActionListener<AsyncSearchResponse> wrapScheduledTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
                                                                            ActionListener<AsyncSearchResponse> actionListener,
-                                                                           TimeoutListener timeoutListener) {
-        CompletionTimeoutListener completionTimeoutListener = new CompletionTimeoutListener(actionListener, timeoutListener);
+                                                                           TimeoutListener timeoutListener,
+                                                                           Consumer<ActionListener<AsyncSearchResponse>> removeListener) {
+        CompletionTimeoutListener completionTimeoutListener = new CompletionTimeoutListener(actionListener, timeoutListener, removeListener);
         completionTimeoutListener.cancellable = threadPool.schedule(completionTimeoutListener, timeout, executor);
         return completionTimeoutListener;
     }
@@ -39,10 +41,13 @@ public class AsyncSearchTimeoutWrapper {
         private final TimeoutListener timeoutListener;
         private volatile Scheduler.ScheduledCancellable cancellable;
         private final AtomicBoolean complete = new AtomicBoolean(false);
+        private final Consumer<ActionListener<AsyncSearchResponse>> removeListener;
 
-        public CompletionTimeoutListener(ActionListener<AsyncSearchResponse> actionListener, TimeoutListener timeoutListener) {
+        public CompletionTimeoutListener(ActionListener<AsyncSearchResponse> actionListener, TimeoutListener timeoutListener,
+                                         Consumer<ActionListener<AsyncSearchResponse>> removeListener) {
             this.actionListener = actionListener;
             this.timeoutListener = timeoutListener;
+            this.removeListener = removeListener;
         }
 
         boolean cancel() {
@@ -60,6 +65,7 @@ public class AsyncSearchTimeoutWrapper {
                 if (cancellable != null && cancellable.isCancelled()) {
                     return;
                 }
+                removeListener.accept(this);
                 timeoutListener.onTimeout();
             }
         }
@@ -67,6 +73,7 @@ public class AsyncSearchTimeoutWrapper {
         @Override
         public void onResponse(AsyncSearchResponse asyncSearchResponse) {
             if (cancel()) {
+                removeListener.accept(this);
                 actionListener.onResponse(asyncSearchResponse);
             }
         }
@@ -74,6 +81,7 @@ public class AsyncSearchTimeoutWrapper {
         @Override
         public void onFailure(Exception e) {
             if (cancel()) {
+                removeListener.accept(this);
                 actionListener.onFailure(e);
             }
         }
