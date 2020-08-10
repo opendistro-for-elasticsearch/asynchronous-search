@@ -27,9 +27,11 @@ import java.io.IOException;
 
 public class AsyncSearchResponse extends ActionResponse implements StatusToXContentObject {
 
-    private String asyncSearchId;
+    private AsyncSearchId asyncSearchId;
     private boolean isPartial;
     private boolean isRunning;
+    private long startTimeMillis;
+    private long expirationTimeMillis;
     private SearchResponse searchResponse;
 
 

@@ -13,12 +13,8 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async.transport;
+package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.SubmitAsyncSearchRequest;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
@@ -30,10 +26,12 @@ import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.io.stream.Writeable;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
+
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 
 public class TransportSubmitAsyncSearchAction extends HandledTransportAction<SubmitAsyncSearchRequest, AsyncSearchResponse> {
 
@@ -48,7 +46,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     public TransportSubmitAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
                                             ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
                                             AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction) {
-        super(SubmitAsyncSearchAction.NAME, transportService, actionFilters, (Writeable.Reader<SubmitAsyncSearchRequest>) SubmitAsyncSearchRequest::new);
+        super(SubmitAsyncSearchAction.NAME, transportService, actionFilters, SubmitAsyncSearchRequest::new);
         this.threadPool = threadPool;
         this.transportService = transportService;
         this.clusterService = clusterService;
@@ -58,21 +56,57 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     }
 
     @Override
-    protected void doExecute(Task task, SubmitAsyncSearchRequest submitAsyncSearchRequest, ActionListener<AsyncSearchResponse> listener) {
+    protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
-            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(submitAsyncSearchRequest);
-            ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                    submitAsyncSearchRequest.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, () -> {
-                //Replace with actual async search response
-                listener.onResponse(null);
-            }, asyncSearchContext::removeListener);
-            asyncSearchContext.addListener(wrappedListener);
+            final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, ((AsyncSearchTask)task), timeProvider);
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext);
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
             ((AsyncSearchTask)task).setProgressListener(progressActionListener);
-            transportSearchAction.execute(task, submitAsyncSearchRequest.getSearchRequest(), progressActionListener);
+            logger.info("Initiating sync search request");
+            transportSearchAction.execute(task, request.getSearchRequest(), progressActionListener);
+            ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+                    request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
+                        //Replace with actual async search response
+                        logger.info("Timeout triggered for async search");
+                        listener.onResponse(null);
+                        asyncSearchContext.removeListener(contextListener);
+                    });
+            asyncSearchContext.addListener(wrappedListener);
         } catch (Exception e) {
             listener.onFailure(e);
+        }
+    }
+
+    /**
+     * Search operations need two clocks. One clock is to fulfill real clock needs (e.g., resolving
+     * "now" to an index name). Another clock is needed for measuring how long a search operation
+     * took. These two uses are at odds with each other. There are many issues with using a real
+     * clock for measuring how long an operation took (they often lack precision, they are subject
+     * to moving backwards due to NTP and other such complexities, etc.). There are also issues with
+     * using a relative clock for reporting real time. Thus, we simply separate these two uses.
+     */
+    static class SearchTimeProvider {
+
+        private final long absoluteStartMillis;
+        private final long relativeStartNanos;
+        private final LongSupplier relativeCurrentNanosProvider;
+
+        SearchTimeProvider(
+                final long absoluteStartMillis,
+                final long relativeStartNanos,
+                final LongSupplier relativeCurrentNanosProvider) {
+            this.absoluteStartMillis = absoluteStartMillis;
+            this.relativeStartNanos = relativeStartNanos;
+            this.relativeCurrentNanosProvider = relativeCurrentNanosProvider;
+        }
+
+        long getAbsoluteStartMillis() {
+            return absoluteStartMillis;
+        }
+
+        long buildTookInMillis() {
+            return TimeUnit.NANOSECONDS.toMillis(relativeCurrentNanosProvider.getAsLong() - relativeStartNanos);
         }
     }
 }

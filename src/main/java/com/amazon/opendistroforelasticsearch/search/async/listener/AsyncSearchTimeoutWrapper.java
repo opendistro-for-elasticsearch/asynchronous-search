@@ -15,7 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.Scheduler;
@@ -27,27 +28,25 @@ import java.util.function.Consumer;
 
 public class AsyncSearchTimeoutWrapper {
 
-    public static ActionListener<AsyncSearchResponse> wrapScheduledTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
-                                                                           ActionListener<AsyncSearchResponse> actionListener,
-                                                                           TimeoutListener timeoutListener,
-                                                                           Consumer<ActionListener<AsyncSearchResponse>> removeListener) {
-        CompletionTimeoutListener completionTimeoutListener = new CompletionTimeoutListener(actionListener, timeoutListener, removeListener);
+    private static final Logger logger = LogManager.getLogger(AsyncSearchTimeoutWrapper.class);
+
+    public static <Response> ActionListener<Response> wrapScheduledTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
+                                                                           ActionListener<Response> actionListener,
+                                                                           Consumer<ActionListener<Response>> timeoutConsumer) {
+        CompletionTimeoutListener<Response> completionTimeoutListener = new CompletionTimeoutListener<>(actionListener, timeoutConsumer);
         completionTimeoutListener.cancellable = threadPool.schedule(completionTimeoutListener, timeout, executor);
         return completionTimeoutListener;
     }
 
-    static class CompletionTimeoutListener implements ActionListener<AsyncSearchResponse>, Runnable {
-        private final ActionListener<AsyncSearchResponse> actionListener;
-        private final TimeoutListener timeoutListener;
+    static class CompletionTimeoutListener<Response> implements ActionListener<Response>, Runnable {
+        private final ActionListener<Response> actionListener;
         private volatile Scheduler.ScheduledCancellable cancellable;
         private final AtomicBoolean complete = new AtomicBoolean(false);
-        private final Consumer<ActionListener<AsyncSearchResponse>> removeListener;
+        private final Consumer<ActionListener<Response>> timeoutConsumer;
 
-        public CompletionTimeoutListener(ActionListener<AsyncSearchResponse> actionListener, TimeoutListener timeoutListener,
-                                         Consumer<ActionListener<AsyncSearchResponse>> removeListener) {
+        public CompletionTimeoutListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
             this.actionListener = actionListener;
-            this.timeoutListener = timeoutListener;
-            this.removeListener = removeListener;
+            this.timeoutConsumer = timeoutConsumer;
         }
 
         boolean cancel() {
@@ -65,24 +64,22 @@ public class AsyncSearchTimeoutWrapper {
                 if (cancellable != null && cancellable.isCancelled()) {
                     return;
                 }
-                removeListener.accept(this);
-                timeoutListener.onTimeout();
+                timeoutConsumer.accept(this);
             }
         }
 
         @Override
-        public void onResponse(AsyncSearchResponse asyncSearchResponse) {
+        public void onResponse(Response response) {
             if (cancel()) {
-                removeListener.accept(this);
-                actionListener.onResponse(asyncSearchResponse);
+                logger.info("Invoking onResponse after cancel");
+                actionListener.onResponse(response);
             }
         }
 
         @Override
         public void onFailure(Exception e) {
             if (cancel()) {
-                removeListener.accept(this);
-                actionListener.onFailure(e);
+               actionListener.onFailure(e);
             }
         }
     }

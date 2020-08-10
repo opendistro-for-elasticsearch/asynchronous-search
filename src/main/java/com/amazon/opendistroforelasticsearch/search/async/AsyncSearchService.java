@@ -15,17 +15,19 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.ConcurrentCollections;
 import org.elasticsearch.common.util.concurrent.ConcurrentMapLong;
-import org.elasticsearch.search.SearchContextMissingException;
 import org.elasticsearch.search.SearchService;
+import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -39,13 +41,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
 
     private static final Logger logger = LogManager.getLogger(SearchService.class);
 
-    // we can have 5 minutes here, since we make sure to clean with search requests and when shard/index closes
     public static final Setting<TimeValue> DEFAULT_KEEPALIVE_SETTING =
-            Setting.positiveTimeSetting("search.default_keep_alive", timeValueMinutes(5), Setting.Property.NodeScope, Setting.Property.Dynamic);
+            Setting.positiveTimeSetting("async_search.default_keep_alive", timeValueMinutes(5), Setting.Property.NodeScope, Setting.Property.Dynamic);
     public static final Setting<TimeValue> MAX_KEEPALIVE_SETTING =
-            Setting.positiveTimeSetting("search.max_keep_alive", timeValueHours(24), Setting.Property.NodeScope, Setting.Property.Dynamic);
+            Setting.positiveTimeSetting("async_search.max_keep_alive", timeValueHours(24), Setting.Property.NodeScope, Setting.Property.Dynamic);
     public static final Setting<TimeValue> KEEPALIVE_INTERVAL_SETTING =
-            Setting.positiveTimeSetting("search.keep_alive_interval", timeValueMinutes(1), Setting.Property.NodeScope);
+            Setting.positiveTimeSetting("async_search.keep_alive_interval", timeValueMinutes(1), Setting.Property.NodeScope);
 
     private volatile long defaultKeepAlive;
 
@@ -86,19 +87,47 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
         this.maxKeepAlive = maxKeepAlive.millis();
     }
 
-    public AsyncSearchContext getContext(AsyncSearchContextId contextId) {
+    private AsyncSearchContext getContext(AsyncSearchContextId contextId) {
+        final AsyncSearchContext context = activeContexts.get(contextId.getId());
+        if (context == null) {
+            return null;
+        }
+        if (context.getAsyncSearchContextId().getContextId().equals(contextId.getContextId())) {
+            return context;
+        }
         return null;
     }
 
-    public AsyncSearchContext findContext(AsyncSearchContextId asyncSearchContextId) throws SearchContextMissingException {
-        return  null;
+    public AsyncSearchContext findContext(AsyncSearchContextId asyncSearchContextId) throws AsyncSearchContextMissingException {
+        final AsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
+        if (asyncSearchContext == null) {
+            throw new AsyncSearchContextMissingException(asyncSearchContextId);
+        }
+        return asyncSearchContext;
     }
 
     protected void putContext(AsyncSearchContext asyncSearchContext) {
+        activeContexts.put(asyncSearchContext.getAsyncSearchContextId().getId(), asyncSearchContext);
     }
 
-    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest) throws IOException {
-        return null;
+    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, AsyncSearchTask task,
+                                                        TransportSubmitAsyncSearchAction.SearchTimeProvider timeProvider) throws IOException {
+        AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
+        AsyncSearchContext asyncSearchContext = new AsyncSearchContext(asyncSearchContextId, submitAsyncSearchRequest.getKeepAlive(),
+                submitAsyncSearchRequest.keepOnCompletion(), task, timeProvider);
+        putContext(asyncSearchContext);
+        return asyncSearchContext;
+    }
+
+
+    public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
+        AsyncSearchContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
+        if (asyncSearchContext != null) {
+            activeContexts.remove(asyncSearchContextId.getId());
+            //TODO on free context
+            return true;
+        }
+        return false;
     }
 
 
@@ -109,7 +138,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
     @Override
     protected void doStop() {
         for (final AsyncSearchContext context : activeContexts.values()) {
-            //remove context
+            freeContext(context.getAsyncSearchContextId());
         }
     }
 
@@ -123,7 +152,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
         @Override
         public void run() {
             final long time = threadPool.relativeTimeInMillis();
-            // reaper logic
+            //TODO reaper logic
         }
     }
 }

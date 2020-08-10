@@ -9,14 +9,14 @@ import java.io.IOException;
 
 public class AsyncSearchContextMissingException extends ElasticsearchException {
 
-    private final ParsedAsyncSearchId contextId;
+    private final AsyncSearchContextId contextId;
 
-    public AsyncSearchContextMissingException(ParsedAsyncSearchId contextId) {
-        super("No search context found for id [" + contextId.getId() + "]");
+    public AsyncSearchContextMissingException(AsyncSearchContextId contextId) {
+        super("No async search context found for id [" + contextId.getId() + "]");
         this.contextId = contextId;
     }
 
-    public ParsedAsyncSearchId contextId() {
+    public AsyncSearchContextId contextId() {
         return this.contextId;
     }
 
@@ -25,15 +25,15 @@ public class AsyncSearchContextMissingException extends ElasticsearchException {
         return RestStatus.NOT_FOUND;
     }
 
-    public AsyncSearchContextMissingException(StreamInput in, ParsedAsyncSearchId contextId) throws IOException {
+    public AsyncSearchContextMissingException(StreamInput in, AsyncSearchContextId contextId) throws IOException {
         super(in);
-        //contextId = new ParsedAsyncSearchId(in);
+        contextId = new AsyncSearchContextId(in);
         this.contextId = contextId;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        //contextId.writeTo(out);
+        contextId.writeTo(out);
     }
 }

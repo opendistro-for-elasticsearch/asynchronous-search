@@ -8,17 +8,17 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.elasticsearch.rest.RestRequest.Method.GET;
+import static org.elasticsearch.rest.RestRequest.Method.DELETE;
 
-public class RestGetAsyncSearchAction extends BaseRestHandler {
+public class RestDeleteAsyncSearchAction extends BaseRestHandler {
     @Override
     public String getName() {
-        return "get_async_search";
+        return "delete_async_search";
     }
 
     @Override
     public List<Route> routes() {
-        return Arrays.asList(new Route(GET, "/_async_search"));
+        return Arrays.asList(new Route(DELETE, "/_async_search"));
     }
 
     @Override
