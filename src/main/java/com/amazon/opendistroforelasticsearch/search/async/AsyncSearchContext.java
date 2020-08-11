@@ -41,6 +41,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private long startTimeMillis;
     private long expirationTimeMillis;
     private TimeValue keepAlive;
+    private String nodeId;
 
     private Boolean keepOnCompletion;
 
@@ -50,9 +51,10 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private Collection<ActionListener<AsyncSearchResponse>> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 
-    public AsyncSearchContext(AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, AsyncSearchTask task,
+    public AsyncSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, AsyncSearchTask task,
                               TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider) {
         super("async_search_context");
+        this.nodeId = nodeId;
         this.asyncSearchContextId = asyncSearchContextId;
         this.task = task;
         this.keepAlive = keepAlive;

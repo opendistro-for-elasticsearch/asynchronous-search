@@ -113,7 +113,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
     public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, AsyncSearchTask task,
                                                         TransportSubmitAsyncSearchAction.SearchTimeProvider timeProvider) throws IOException {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
-        AsyncSearchContext asyncSearchContext = new AsyncSearchContext(asyncSearchContextId, submitAsyncSearchRequest.getKeepAlive(),
+        AsyncSearchContext asyncSearchContext = new AsyncSearchContext(clusterService.getNodeName(), asyncSearchContextId, submitAsyncSearchRequest.getKeepAlive(),
                 submitAsyncSearchRequest.keepOnCompletion(), task, timeProvider);
         putContext(asyncSearchContext);
         return asyncSearchContext;

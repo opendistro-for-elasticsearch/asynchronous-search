@@ -1,27 +1,18 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchActionHandler;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ActionListenerResponseHandler;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
-import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.node.NodeClosedException;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.transport.ConnectTransportException;
-import org.elasticsearch.transport.RemoteTransportException;
-import org.elasticsearch.transport.TransportException;
 import org.elasticsearch.transport.TransportService;
-
-import java.io.IOException;
 
 public class TransportGetAsyncSearchAction extends HandledTransportAction<GetAsyncSearchRequest, AsyncSearchResponse> {
 
@@ -49,6 +40,9 @@ public class TransportGetAsyncSearchAction extends HandledTransportAction<GetAsy
     protected void doExecute(Task task, GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
             AsyncSearchId asyncSearchId = AsyncSearchId.parseAsyncId(request.getId());
+            GetAsyncSearchActionHandler getAsyncSearchActionHandler = new GetAsyncSearchActionHandler(clusterService, transportService,
+                    asyncSearchService, threadPool);
+            getAsyncSearchActionHandler.handleRequest(asyncSearchId, request, listener);
             AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                     request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
@@ -63,32 +57,5 @@ public class TransportGetAsyncSearchAction extends HandledTransportAction<GetAsy
         } catch (Exception e) {
             listener.onFailure(e);
         }
-    }
-
-    /**
-     * Forwards request to the appropriate coordinator running the async search
-     */
-    private void forwardRequest(DiscoveryNode discoveryNode, GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
-        transportService.sendRequest(discoveryNode, GetAsyncSearchAction.NAME, request,
-                new ActionListenerResponseHandler<AsyncSearchResponse>(listener, this::read) {
-                    @Override
-                    public void handleException(final TransportException exp) {
-                        Throwable cause = exp.unwrapCause();
-                        if (cause instanceof ConnectTransportException ||
-                                (exp instanceof RemoteTransportException && cause instanceof NodeClosedException)) {
-                            // we want to retry here a bit to see if a new master is elected
-                            logger.debug("connection exception while trying to forward request with action name [{}] to " +
-                                            "master node [{}], scheduling a retry. Error: [{}]",
-                                    actionName, discoveryNode, exp.getDetailedMessage());
-                            //TODO add retries
-                        } else {
-                            listener.onFailure(exp);
-                        }
-                    }
-                });
-    }
-
-    private AsyncSearchResponse read(StreamInput in) throws IOException {
-        return new AsyncSearchResponse(in);
     }
 }

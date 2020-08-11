@@ -10,7 +10,6 @@ import java.util.Optional;
 
 public class GetAsyncSearchRequest extends ActionRequest {
 
-
     private TimeValue waitForCompletion;
     private TimeValue keepAlive;
 

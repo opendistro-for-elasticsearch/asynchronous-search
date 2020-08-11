@@ -1,0 +1,54 @@
+package com.amazon.opendistroforelasticsearch.search.async.action;
+
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.GetAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.transport.TransportService;
+
+import java.io.IOException;
+
+public class GetAsyncSearchActionHandler extends AbstractAsyncSearchAction<GetAsyncSearchRequest, AsyncSearchResponse> {
+
+    private ClusterService clusterService;
+    private TransportService transportService;
+    private AsyncSearchService asyncSearchService;
+    private ThreadPool threadPool;
+
+    public GetAsyncSearchActionHandler(ClusterService clusterService, TransportService transportService,
+                                       AsyncSearchService asyncSearchService, ThreadPool threadPool) {
+        super(transportService, asyncSearchService);
+        this.clusterService = clusterService;
+        this.transportService = transportService;
+        this.asyncSearchService = asyncSearchService;
+        this.threadPool = threadPool;
+    }
+
+    @Override
+    public void handleRequest(AsyncSearchId asyncSearchId, GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
+        if (clusterService.localNode().getId().equals(asyncSearchId.getNode()) == false) {
+            forwardRequest(clusterService.state().getNodes().get(asyncSearchId.getNode()), request, listener, this::read, GetAsyncSearchAction.NAME);
+        }
+        AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
+        ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+                request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
+                    //TODO Replace with actual async search response
+                    listener.onResponse(null);
+                    asyncSearchContext.removeListener(contextListener);
+                });
+        //Here we want to be listen onto onFailure/onResponse ONLY or a timeout whichever happens earlier.
+        //The original progress listener is responsible for updating the context. So whenever we search finishes or
+        // times out we return the most upto state from the AsyncContext
+        asyncSearchContext.addListener(wrappedListener);
+    }
+
+    private AsyncSearchResponse read(StreamInput in) throws IOException {
+        return new AsyncSearchResponse(in);
+    }
+}
