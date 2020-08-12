@@ -22,23 +22,19 @@ import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
+import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 
 import java.util.List;
 
+//TODO update isPartial and isRunning from events.
 public class AsyncSearchProgressActionListener extends SearchProgressActionListener {
 
     private final Logger logger = LogManager.getLogger(getClass());
 
     private AsyncSearchContext asyncSearchContext;
-
-    private List<SearchShard> shards;
-
-    private List<SearchShard> skippedShards;
-
-    private SearchResponse.Clusters clusters;
 
     public AsyncSearchProgressActionListener(AsyncSearchContext asyncSearchContext) {
         this.asyncSearchContext = asyncSearchContext;
@@ -46,20 +42,29 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     @Override
     protected void onListShards(List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters, boolean fetchPhase) {
-        this.shards = shards;
-        this.skippedShards = skippedShards;
-        this.clusters = clusters;
         logger.warn("onListShards --> shards :{}, skippedShards: {}, clusters: {}, fetchPhase: {}", shards, skippedShards, clusters, fetchPhase);
+        asyncSearchContext.getResultsHolder().initialiseResultHolderShardLists(shards, skippedShards, clusters, fetchPhase);
     }
 
+    //FIXME : Delay deserializing aggregations up until partial SearchResponse has to be built.
     @Override
     protected void onPartialReduce(List<SearchShard> shards, TotalHits totalHits, DelayableWriteable.Serialized<InternalAggregations> aggs, int reducePhase) {
         logger.warn("onPartialReduce --> shards; {}, totalHits: {}, aggs: {}, reducePhase: {}", shards, totalHits, aggs, reducePhase );
+        asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs.expand(), reducePhase);
+    }
+
+
+    @Override
+    protected void onFinalReduce(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
+        logger.warn("onFinalReduce --> shards: {}, totalHits: {}, aggs :{}, reducePhase:{}", shards, totalHits, aggs, reducePhase);
+        asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs, reducePhase);
     }
 
     @Override
     protected void onFetchFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
         logger.warn("onFetchFailure --> shardIndex :{}, shardTarget: {}", exc);
+        ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
+        asyncSearchContext.getResultsHolder().addShardFailure(shardSearchFailure);
     }
 
     @Override
@@ -67,15 +72,11 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         logger.warn("onFetchResult --> shardIndex: {}", shardIndex);
     }
 
-
-    @Override
-    protected void onFinalReduce(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
-        logger.warn("onFinalReduce --> shards: {}, totalHits: {}, aggs :{}, reducePhase:{}", shards, totalHits, aggs, reducePhase);
-    }
-
     @Override
     protected void onQueryFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
         logger.warn("onQueryFailure --> shardIndex: {}, searchTarget: {}",shardIndex, shardTarget, exc );
+        ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
+        asyncSearchContext.getResultsHolder().addShardFailure(shardSearchFailure);
     }
 
     @Override
@@ -88,6 +89,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         logger.info("Search response completed {}", searchResponse);
         asyncSearchContext.getListeners().forEach(listener -> listener.onResponse(null));
         asyncSearchContext.completeContext(searchResponse);
+
     }
 
     @Override

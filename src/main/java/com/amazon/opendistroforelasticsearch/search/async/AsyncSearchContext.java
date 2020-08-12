@@ -15,28 +15,38 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchResponseSections;
+import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.AbstractRefCounted;
+import org.elasticsearch.index.shard.IndexShard;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.internal.InternalSearchResponse;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class AsyncSearchContext extends AbstractRefCounted implements Releasable {
 
+    private static final Logger logger = LogManager.getLogger(AsyncSearchContext.class);
     private AsyncSearchTask task;
     private boolean isRunning;
+    private boolean isPartial;
     private ResultsHolder resultsHolder;
     private long startTimeMillis;
     private long expirationTimeMillis;
@@ -129,20 +139,53 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     }
 
-    static class ResultsHolder {
-        private SearchHits searchHits;
-        private InternalAggregations internalAggregations;
-        private InternalSearchResponse internalSearchResponse;
-        private SearchResponse searchResponse;
-        private SearchResponse.Clusters clusters;
-        private AtomicLong version = new AtomicLong();
+   public static class ResultsHolder {
+       private SearchResponse searchResponse;
+       private AtomicLong version = new AtomicLong();
+
+       private final List<ShardSearchFailure> shardSearchFailuresFailures = new ArrayList<>();
+
+       private int reducePhase;
+       private TotalHits totalHits;
+       private InternalAggregations internalAggregations;
+
+       private List<SearchShard> totalShards ;
+       private List<SearchShard> successfulShards;
+       private List<SearchShard> skippedShards;
+       private SearchResponse.Clusters clusters;
+
 
         ResultsHolder(TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider) {
-            this.searchHits = new SearchHits(new SearchHit[0], new TotalHits(0L, TotalHits.Relation.EQUAL_TO), Float.NaN);
+            SearchHits searchHits = new SearchHits(new SearchHit[0], new TotalHits(0L, TotalHits.Relation.EQUAL_TO), Float.NaN);
             this.internalAggregations = InternalAggregations.EMPTY;
-            this.internalSearchResponse = new InternalSearchResponse(searchHits, internalAggregations, null, null, false, null, 0);
+            SearchResponseSections internalSearchResponse = new InternalSearchResponse(searchHits, internalAggregations, null, null, false, null, 0);
             this.searchResponse = new SearchResponse(internalSearchResponse, null, 0, 0, 0, searchTimeProvider.buildTookInMillis(),
                     ShardSearchFailure.EMPTY_ARRAY, clusters);
         }
-    }
+
+        public synchronized void addShardFailure(ShardSearchFailure failure) {
+            shardSearchFailuresFailures.add(failure);
+        }
+
+       /**
+        * @param reducePhase Version of reduce. If reducePhase version in resultHolder is greater then current reducePhase version, this event can be discarded.
+        */
+       public synchronized void updateResultFromReduceEvent(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
+           if(this.reducePhase > reducePhase) {
+               logger.warn("ResultHolder reducePhase version {} is ahead of the event reducePhase version {}. Discarding event",
+                       this.reducePhase, reducePhase);
+               return;
+           }
+           this.successfulShards = shards;
+           this.internalAggregations = aggs;
+           this.reducePhase = reducePhase;
+           this.totalHits = totalHits;
+       }
+
+       public void initialiseResultHolderShardLists(List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters, boolean fetchPhase) {
+           this.totalShards = shards;
+           this.skippedShards = skippedShards;
+           this.clusters = clusters;
+       }
+   }
 }
