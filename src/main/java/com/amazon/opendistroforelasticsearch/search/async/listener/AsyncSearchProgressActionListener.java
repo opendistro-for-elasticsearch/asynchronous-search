@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
@@ -28,6 +29,8 @@ import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 //TODO update isPartial and isRunning from events.
 public class AsyncSearchProgressActionListener extends SearchProgressActionListener {
@@ -35,6 +38,12 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     private final Logger logger = LogManager.getLogger(getClass());
 
     private AsyncSearchContext asyncSearchContext;
+    private AtomicBoolean hasFetchPhase = new AtomicBoolean();
+    private AtomicInteger numQueryResults = new AtomicInteger();
+    private AtomicInteger numQueryFailures = new AtomicInteger();
+    private AtomicInteger numFetchResults = new AtomicInteger();
+    private AtomicInteger numFetchFailures = new AtomicInteger();
+    private AtomicInteger numReducePhases = new AtomicInteger();
 
     public AsyncSearchProgressActionListener(AsyncSearchContext asyncSearchContext) {
         this.asyncSearchContext = asyncSearchContext;
@@ -43,6 +52,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     @Override
     protected void onListShards(List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters, boolean fetchPhase) {
         logger.warn("onListShards --> shards :{}, skippedShards: {}, clusters: {}, fetchPhase: {}", shards, skippedShards, clusters, fetchPhase);
+        this.hasFetchPhase.set(fetchPhase);
         asyncSearchContext.getResultsHolder().initialiseResultHolderShardLists(shards, skippedShards, clusters, fetchPhase);
     }
 
@@ -50,53 +60,76 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     @Override
     protected void onPartialReduce(List<SearchShard> shards, TotalHits totalHits, DelayableWriteable.Serialized<InternalAggregations> aggs, int reducePhase) {
         logger.warn("onPartialReduce --> shards; {}, totalHits: {}, aggs: {}, reducePhase: {}", shards, totalHits, aggs, reducePhase );
-        asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs.expand(), reducePhase);
+        numReducePhases.incrementAndGet();
+        if(hasFetchPhase.get()) {
+            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs.expand(),reducePhase);
+        } else {
+            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs.expand(), reducePhase);
+        }
     }
 
 
     @Override
     protected void onFinalReduce(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
         logger.warn("onFinalReduce --> shards: {}, totalHits: {}, aggs :{}, reducePhase:{}", shards, totalHits, aggs, reducePhase);
-        asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs, reducePhase);
+        numReducePhases.incrementAndGet();
+        if(hasFetchPhase.get()) {
+            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs,reducePhase);
+        } else {
+            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs, reducePhase);
+        }
     }
 
     @Override
     protected void onFetchFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
         logger.warn("onFetchFailure --> shardIndex :{}, shardTarget: {}", exc);
         ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
+        numFetchFailures.incrementAndGet();
         asyncSearchContext.getResultsHolder().addShardFailure(shardSearchFailure);
     }
 
     @Override
     protected void onFetchResult(int shardIndex) {
         logger.warn("onFetchResult --> shardIndex: {}", shardIndex);
+        numFetchResults.incrementAndGet();
+        asyncSearchContext.getResultsHolder().incrementSuccessfulShards();
     }
 
     @Override
     protected void onQueryFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
         logger.warn("onQueryFailure --> shardIndex: {}, searchTarget: {}",shardIndex, shardTarget, exc );
         ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
+        numQueryFailures.incrementAndGet();
         asyncSearchContext.getResultsHolder().addShardFailure(shardSearchFailure);
     }
 
+    /**
+     * If search has no fetch Phase, these events may still be consumed in partial or final reduce events and need not be used
+     * to increment successful shard results.
+     */
     @Override
     protected void onQueryResult(int shardIndex) {
         logger.warn("onQueryResult --> shardIndex: {}", shardIndex);
-    }
+        numQueryResults.incrementAndGet();
+        if(!hasFetchPhase.get() && numReducePhases.get() == 0) {
+            asyncSearchContext.getResultsHolder().incrementSuccessfulShards();
+        }
+     }
 
     @Override
     public void onResponse(SearchResponse searchResponse) {
         logger.info("Search response completed {}", searchResponse);
-        asyncSearchContext.getListeners().forEach(listener -> listener.onResponse(null));
-        asyncSearchContext.completeContext(searchResponse);
-
+        asyncSearchContext.processFinalResponse(searchResponse);
+        //clean up result holder
     }
 
     @Override
     public void onFailure(Exception e) {
         logger.info("Search response failure", e);
-        asyncSearchContext.getListeners().forEach(listener -> listener.onFailure(e));
-        //asyncSearchContext.completeContext();
+        asyncSearchContext.processFailure(e);
+
     }
+
+
 }
 
