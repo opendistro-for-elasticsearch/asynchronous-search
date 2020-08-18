@@ -3,6 +3,7 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchActionHandler;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
+import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
@@ -46,14 +47,14 @@ public class TransportGetAsyncSearchAction extends HandledTransportAction<GetAsy
                     asyncSearchService, threadPool);
             getAsyncSearchActionHandler.handleRequest(asyncSearchId, request, listener);
             AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
+            if(asyncSearchContext.isCancelled() || asyncSearchContext.isExpired()) {
+                throw new ResourceNotFoundException(request.getId());
+            }
+            updateExpiryTimeIfRequired(request, asyncSearchContext);
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                     request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
                         //TODO Replace with actual async search response
-                        try {
-                            listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                        } catch (IOException e) {
-                            listener.onFailure(e);
-                        }
+                        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                         asyncSearchContext.removeListener(contextListener);
             });
             //Here we want to be listen onto onFailure/onResponse ONLY or a timeout whichever happens earlier.
@@ -62,6 +63,15 @@ public class TransportGetAsyncSearchAction extends HandledTransportAction<GetAsy
             asyncSearchContext.addListener(wrappedListener);
         } catch (Exception e) {
             listener.onFailure(e);
+        }
+    }
+
+    private void updateExpiryTimeIfRequired(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext) {
+        if(request.getKeepAlive() != null) {
+            long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
+            if(requestedExpirationTime > asyncSearchContext.getExpirationTimeMillis()) {
+                asyncSearchContext.setExpirationTimeMillis(requestedExpirationTime);
+            }
         }
     }
 }

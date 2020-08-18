@@ -69,7 +69,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
                         //Replace with actual async search response
                         logger.info("Timeout triggered for async search");
-                        listener.onResponse(null);
+                        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                         asyncSearchContext.removeListener(contextListener);
                     });
             asyncSearchContext.addListener(wrappedListener);

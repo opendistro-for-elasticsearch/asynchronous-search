@@ -20,19 +20,22 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksRequest;
+import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksRequestBuilder;
+import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.AbstractRefCounted;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.internal.InternalSearchResponse;
+import org.elasticsearch.tasks.TaskId;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -40,6 +43,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class AsyncSearchContext extends AbstractRefCounted implements Releasable {
@@ -48,55 +52,46 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     private final AtomicBoolean isRunning;
     private final AtomicBoolean isPartial;
-    private final AtomicBoolean isCancelled;
     private final AtomicBoolean isCompleted;
 
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
 
-    private AsyncSearchTask task;
-    private PartialResultsHolder resultsHolder;
-    private long startTimeMillis;
-    private long expirationTimeMillis;
-    private TimeValue keepAlive;
-    private String nodeId;
+    private final AsyncSearchTask task;
+    private final Client client;
+    private final PartialResultsHolder resultsHolder;
+    private final long startTimeMillis;
+    private final String nodeId;
+    private final AtomicLong expirationTimeMillis;
+    private final Boolean keepOnCompletion;
+
+    private final AsyncSearchContextId asyncSearchContextId;
+
+    private final TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider;
+    private final Collection<ActionListener<AsyncSearchResponse>> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 
-
-    private Boolean keepOnCompletion;
-
-    private AsyncSearchContextId asyncSearchContextId;
-
-    private TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider;
-    private Collection<ActionListener<AsyncSearchResponse>> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
-
-
-    public AsyncSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, AsyncSearchTask task,
+    public AsyncSearchContext(Client client, String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, AsyncSearchTask task,
                               TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider) {
         super("async_search_context");
+        this.client = client;
         this.nodeId = nodeId;
         this.asyncSearchContextId = asyncSearchContextId;
         this.task = task;
-        this.keepAlive = keepAlive;
         this.keepOnCompletion = keepOnCompletion;
         this.searchTimeProvider = searchTimeProvider;
         this.resultsHolder = new PartialResultsHolder();
         this.startTimeMillis = searchTimeProvider.getAbsoluteStartMillis();
-        this.expirationTimeMillis = startTimeMillis + keepAlive.getMillis();
-        this.isRunning = new AtomicBoolean();
-        this.isPartial = new AtomicBoolean();
-        this.isCancelled = new AtomicBoolean();
-        this.isCompleted = new AtomicBoolean();
+        this.expirationTimeMillis = new AtomicLong(startTimeMillis + keepAlive.getMillis());
+        this.isRunning = new AtomicBoolean(true);
+        this.isPartial = new AtomicBoolean(true);
+        this.isCompleted = new AtomicBoolean(false);
         this.error = new AtomicReference<>();
         this.searchResponse = new AtomicReference<>();
     }
 
     public AsyncSearchTask getTask() {
         return task;
-    }
-
-    public boolean isRunning() {
-        return !task.isCancelled() && !isCompleted.get();
     }
 
     public PartialResultsHolder getResultsHolder() {
@@ -136,37 +131,85 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     /**
-     * @return If past expiration time throw RNF.
+     * @return If past expiration time throw RNF and cancel task.
      * If isRunning is true, build and return partial Response. Else, build and return response.
      */
-    public AsyncSearchResponse getAsyncSearchResponse() throws IOException {
+    public AsyncSearchResponse getAsyncSearchResponse() {
+        cancelIfRequired();
         try {
             String id = AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, asyncSearchContextId));
-            if (System.currentTimeMillis() > expirationTimeMillis || task.isCancelled()) {
-                throw new ResourceNotFoundException(id);
-            }
-            else if(error.get()!=null) {
-                //capture error
-                return null;
-            }
-            else {
-                return new AsyncSearchResponse(id, isPartial.get(), isRunning.get(), startTimeMillis, expirationTimeMillis, isRunning.get() ? buildPartialSearchResponse() : searchResponse.get());
-            }
+            logger.info("IDis {}", id);
+            return new AsyncSearchResponse(id, isPartial(), isRunning(), startTimeMillis, getExpirationTimeMillis(),
+                    isRunning() ? buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
+
         } catch (Exception e) {
             //capture error in async search response
             return null;
         }
     }
 
+    public SearchResponse getFinalSearchResponse() {
+        return searchResponse.get();
+    }
+
+    public boolean isRunning() {
+        return !task.isCancelled() && isRunning.get();
+    }
+
+    public boolean isCancelled() {
+        return task.isCancelled();
+    }
+
+    public boolean isPartial() {
+        return isPartial.get();
+    }
+
+    public long getExpirationTimeMillis() {
+        return expirationTimeMillis.get();
+    }
+
+    private void cancelIfRequired() {
+        if(!task.isCancelled()) {
+            if(isExpired()) {
+                cancelTask();
+            }
+        }
+
+    }
+
+    private void cancelTask() {
+        CancelTasksRequest cancelTasksRequest = new CancelTasksRequest();
+        cancelTasksRequest.setTaskId(new TaskId(nodeId, task.getId()));
+        cancelTasksRequest.setReason("Async search request expired");
+        client.admin().cluster().cancelTasks(cancelTasksRequest, new ActionListener<CancelTasksResponse>() {
+            @Override
+            public void onResponse(CancelTasksResponse cancelTasksResponse) {
+                assert task.isCancelled();
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                logger.error("Failed to cancel async search task {} not cancelled upon expiry", task.getId());
+            }
+        });
+    }
+
+    public boolean isExpired() {
+        return System.currentTimeMillis() > getExpirationTimeMillis();
+    }
+
     private SearchResponse buildPartialSearchResponse() {
-        //check if result Holder is initialized
-        SearchHits searchHits = new SearchHits(SearchHits.EMPTY, resultsHolder.totalHits,Float.NaN);
-        InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits, resultsHolder.internalAggregations,
-                null, null, false, false, resultsHolder.reducePhase.get());
-        ShardSearchFailure[] shardSearchFailures = resultsHolder.shardSearchFailuresFailures.toArray(new ShardSearchFailure[]{});
-        long tookInMillis = task.getStartTimeNanos() - System.nanoTime();
-        return new SearchResponse(internalSearchResponse, null, resultsHolder.totalShards.get(),
-                resultsHolder.successfulShards.get(), resultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures, resultsHolder.clusters);
+        if (resultsHolder.isResponseInitialized.get()) {
+            SearchHits searchHits = new SearchHits(SearchHits.EMPTY, resultsHolder.totalHits, Float.NaN);
+            InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits, resultsHolder.internalAggregations,
+                    null, null, false, false, resultsHolder.reducePhase.get());
+            ShardSearchFailure[] shardSearchFailures = resultsHolder.shardSearchFailuresFailures.toArray(new ShardSearchFailure[]{});
+            long tookInMillis = task.getStartTimeNanos() - System.nanoTime();
+            return new SearchResponse(internalSearchResponse, null, resultsHolder.totalShards.get(),
+                    resultsHolder.successfulShards.get(), resultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures, resultsHolder.clusters);
+        } else {
+            return null;
+        }
     }
 
     public void processFailure(Exception e) {
@@ -183,13 +226,19 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.isCompleted.set(true);
         this.isRunning.set(false);
         this.isPartial.set(false);
+        AsyncSearchResponse asyncSearchResponse = getAsyncSearchResponse();
         this.listeners.forEach(listener -> {
             try {
-                listener.onResponse(getAsyncSearchResponse());
-            } catch (IOException e) {
+
+                listener.onResponse(asyncSearchResponse);
+            } catch (Exception e) {
                 logger.error("Failed to notify listener on response.");
             }
         });
+    }
+
+    public void setExpirationTimeMillis(long expirationTimeMillis) {
+        this.expirationTimeMillis.set(expirationTimeMillis);
     }
 
     public static class PartialResultsHolder {
@@ -199,6 +248,8 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         private AtomicInteger reducePhase;
         private TotalHits totalHits;
         private InternalAggregations internalAggregations;
+
+        private AtomicBoolean isResponseInitialized;
 
         private AtomicInteger totalShards;
         private AtomicInteger successfulShards;
@@ -211,7 +262,9 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
             successfulShards = new AtomicInteger();
             skippedShards = new AtomicInteger();
             reducePhase = new AtomicInteger();
+            isResponseInitialized = new AtomicBoolean(false);
         }
+
 
         public synchronized void addShardFailure(ShardSearchFailure failure) {
             shardSearchFailuresFailures.add(failure);
@@ -247,7 +300,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
             this.totalShards.set(shards.size());
             this.skippedShards.set(skippedShards.size());
             this.clusters = clusters;
-
+            isResponseInitialized.set(true);
         }
 
         public synchronized void incrementSuccessfulShards() {

@@ -29,7 +29,7 @@ import java.io.IOException;
 
 public class AsyncSearchResponse extends ActionResponse implements StatusToXContentObject {
 
-    private static final ParseField IS = new ParseField("_scroll_id");
+    private static final ParseField ID = new ParseField("id");
     private static final ParseField IS_PARTIAL = new ParseField("is_partial");
     private static final ParseField IS_RUNNING = new ParseField("is_running");
     private static final ParseField START_TIME_IN_MILLIS = new ParseField("start_time_in_millis");
@@ -46,13 +46,14 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     private SearchResponse searchResponse;
     private ElasticsearchException error;
 
-    public AsyncSearchResponse(String id, boolean isPartial, boolean isRunning, long startTimeMillis, long expirationTimeMillis, SearchResponse searchResponse) {
+    public AsyncSearchResponse(String id, boolean isPartial, boolean isRunning, long startTimeMillis, long expirationTimeMillis, SearchResponse searchResponse, ElasticsearchException error) {
         this.id = id;
         this.isPartial = isPartial;
         this.isRunning = isRunning;
         this.startTimeMillis = startTimeMillis;
         this.expirationTimeMillis = expirationTimeMillis;
         this.searchResponse = searchResponse;
+        this.error = error;
     }
 
     public AsyncSearchResponse(StreamInput in) throws IOException {
@@ -76,11 +77,13 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
         builder.field(IS_PARTIAL.getPreferredName(), isPartial);
+        builder.field(ID.getPreferredName(), id);
         builder.field(IS_RUNNING.getPreferredName(), isRunning);
         builder.field(EXPIRATION_TIME_IN_MILLIS.getPreferredName(), expirationTimeMillis);
         builder.field(START_TIME_IN_MILLIS.getPreferredName(), startTimeMillis);
         if(searchResponse != null) {
-            builder.field(RESPONSE.getPreferredName(),searchResponse.toXContent(builder, params));
+            builder.field(RESPONSE.getPreferredName());
+            searchResponse.toXContent(builder, params);
         }
         if(error != null) {
             builder.field(ERROR.getPreferredName(), error.toXContent(builder,params));

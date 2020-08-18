@@ -75,7 +75,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin {
                                                NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry,
                                                IndexNameExpressionResolver indexNameExpressionResolver,
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
-        return Collections.singleton(new AsyncSearchService(clusterService, threadPool));
+        return Collections.singleton(new AsyncSearchService(client, clusterService, threadPool));
     }
 
     @Override

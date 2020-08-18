@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
@@ -56,13 +57,16 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
 
     private final AtomicLong idGenerator = new AtomicLong();
 
+    private final Client client;
+
     private final ThreadPool threadPool;
 
     private final ClusterService clusterService;
 
     private final ConcurrentMapLong<AsyncSearchContext> activeContexts = ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency();
 
-    public AsyncSearchService(ClusterService clusterService, ThreadPool threadPool) {
+    public AsyncSearchService(Client client, ClusterService clusterService, ThreadPool threadPool) {
+        this.client = client;
         Settings settings = clusterService.getSettings();
         TimeValue keepAliveInterval = KEEPALIVE_INTERVAL_SETTING.get(settings);
         setKeepAlives(DEFAULT_KEEPALIVE_SETTING.get(settings), MAX_KEEPALIVE_SETTING.get(settings));
@@ -113,7 +117,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
     public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, AsyncSearchTask task,
                                                         TransportSubmitAsyncSearchAction.SearchTimeProvider timeProvider) throws IOException {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
-        AsyncSearchContext asyncSearchContext = new AsyncSearchContext(clusterService.getNodeName(), asyncSearchContextId, submitAsyncSearchRequest.getKeepAlive(),
+        AsyncSearchContext asyncSearchContext = new AsyncSearchContext(client, clusterService.localNode().getId(), asyncSearchContextId, submitAsyncSearchRequest.getKeepAlive(),
                 submitAsyncSearchRequest.keepOnCompletion(), task, timeProvider);
         putContext(asyncSearchContext);
         return asyncSearchContext;
