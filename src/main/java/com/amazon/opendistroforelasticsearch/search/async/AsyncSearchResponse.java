@@ -86,7 +86,8 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
             searchResponse.toXContent(builder, params);
         }
         if(error != null) {
-            builder.field(ERROR.getPreferredName(), error.toXContent(builder,params));
+            builder.field(ERROR.getPreferredName());
+            error.toXContent(builder,params);
         }
         builder.endObject();
         return builder;
