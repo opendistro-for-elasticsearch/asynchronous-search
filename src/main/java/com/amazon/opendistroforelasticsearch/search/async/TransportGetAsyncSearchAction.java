@@ -48,6 +48,7 @@ public class TransportGetAsyncSearchAction extends HandledTransportAction<GetAsy
             getAsyncSearchActionHandler.handleRequest(asyncSearchId, request, listener);
             AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
             if(asyncSearchContext.isCancelled() || asyncSearchContext.isExpired()) {
+                asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());
                 throw new ResourceNotFoundException(request.getId());
             }
             updateExpiryTimeIfRequired(request, asyncSearchContext);

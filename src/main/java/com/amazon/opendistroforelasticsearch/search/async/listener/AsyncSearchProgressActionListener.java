@@ -118,11 +118,6 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     @Override
     public void onResponse(SearchResponse searchResponse) {
-        try {
-            Thread.sleep(60000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
         logger.info("Search response completed {}", searchResponse);
         asyncSearchContext.processFinalResponse(searchResponse);
         //clean up result holder

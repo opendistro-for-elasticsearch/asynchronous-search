@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
-public class AsyncSearchService extends AbstractLifecycleComponent {
+public class  AsyncSearchService extends AbstractLifecycleComponent {
 
     private static final Logger logger = LogManager.getLogger(SearchService.class);
 
@@ -127,6 +127,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
     public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
         AsyncSearchContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
         if (asyncSearchContext != null) {
+            logger.info("Removing {} from context map", asyncSearchContextId);
             activeContexts.remove(asyncSearchContextId.getId());
             //TODO on free context
             return true;
