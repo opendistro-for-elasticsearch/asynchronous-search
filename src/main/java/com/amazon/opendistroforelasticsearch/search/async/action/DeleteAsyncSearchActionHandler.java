@@ -31,5 +31,6 @@ public class DeleteAsyncSearchActionHandler extends AbstractAsyncSearchAction<De
             asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());
             listener.onFailure(new ResourceNotFoundException(request.getId()));
         }
+        asyncSearchContext.cancelTask();
     }
 }

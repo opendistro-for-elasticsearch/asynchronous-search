@@ -139,7 +139,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         logger.info("isCancelled:{}, isExpired:{}", isCancelled(), isExpired());
         try {
             String id = AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, asyncSearchContextId));
-            logger.info("IDis {}", id);
+            logger.info("ID is {}", id);
             return new AsyncSearchResponse(id, isPartial(), isRunning(), startTimeMillis, getExpirationTimeMillis(),
                     isRunning() ? buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
 
@@ -178,7 +178,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     }
 
-    private void cancelTask() {
+    public void cancelTask() {
         logger.info("NODEID : {}", nodeId);
         CancelTasksRequest cancelTasksRequest = new CancelTasksRequest();
         cancelTasksRequest.setTaskId(new TaskId(nodeId, task.getId()));
@@ -186,7 +186,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         client.admin().cluster().cancelTasks(cancelTasksRequest, new ActionListener<CancelTasksResponse>() {
             @Override
             public void onResponse(CancelTasksResponse cancelTasksResponse) {
-                assert task.isCancelled();
+            logger.info(cancelTasksResponse.toString());
             }
 
             @Override
