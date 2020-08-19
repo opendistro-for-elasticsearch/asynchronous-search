@@ -136,6 +136,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
      */
     public AsyncSearchResponse getAsyncSearchResponse() {
         cancelIfRequired();
+        logger.info("isCancelled:{}, isExpired:{}", isCancelled(), isExpired());
         try {
             String id = AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, asyncSearchContextId));
             logger.info("IDis {}", id);
@@ -204,7 +205,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
             InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits, resultsHolder.internalAggregations,
                     null, null, false, false, resultsHolder.reducePhase.get());
             ShardSearchFailure[] shardSearchFailures = resultsHolder.shardSearchFailuresFailures.toArray(new ShardSearchFailure[]{});
-            long tookInMillis = task.getStartTimeNanos() - System.nanoTime();
+            long tookInMillis =  System.currentTimeMillis()-task.getStartTime();
             return new SearchResponse(internalSearchResponse, null, resultsHolder.totalShards.get(),
                     resultsHolder.successfulShards.get(), resultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures, resultsHolder.clusters);
         } else {

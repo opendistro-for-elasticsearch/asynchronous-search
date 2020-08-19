@@ -13,8 +13,8 @@ public class GetAsyncSearchRequest extends ActionRequest {
     public static final TimeValue DEFAULT_KEEP_ALIVE = TimeValue.timeValueDays(5);
     public static final TimeValue DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT = TimeValue.timeValueSeconds(1);
 
-    private TimeValue waitForCompletion;
-    private TimeValue keepAlive;
+    private TimeValue waitForCompletion = DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT;
+    private TimeValue keepAlive = DEFAULT_KEEP_ALIVE;
 
     private final String id;
 

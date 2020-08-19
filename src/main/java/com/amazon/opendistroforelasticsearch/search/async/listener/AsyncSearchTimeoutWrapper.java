@@ -34,6 +34,8 @@ public class AsyncSearchTimeoutWrapper {
                                                                            ActionListener<Response> actionListener,
                                                                            Consumer<ActionListener<Response>> timeoutConsumer) {
         CompletionTimeoutListener<Response> completionTimeoutListener = new CompletionTimeoutListener<>(actionListener, timeoutConsumer);
+        logger.info("isThreadpoolNull : {}", threadPool == null);
+        logger.info("isThreadpoolNull : {}", threadPool == null);
         completionTimeoutListener.cancellable = threadPool.schedule(completionTimeoutListener, timeout, executor);
         return completionTimeoutListener;
     }

@@ -32,7 +32,8 @@ public class GetAsyncSearchActionHandler extends AbstractAsyncSearchAction<GetAs
 
     @Override
     public void handleRequest(AsyncSearchId asyncSearchId, GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
-        if (clusterService.localNode().getId().equals(asyncSearchId.getNode()) == false) {
+
+        if (!clusterService.localNode().getId().equals(asyncSearchId.getNode())) {
             forwardRequest(clusterService.state().getNodes().get(asyncSearchId.getNode()), request, listener, this::read, GetAsyncSearchAction.NAME);
         }
         AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
