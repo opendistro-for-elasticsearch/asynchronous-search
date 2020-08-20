@@ -37,12 +37,15 @@ repositories {
 
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
+    compileOnly "org.elasticsearch:elasticsearch:${es_version}"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.9.0.0"
 }
 
 esplugin {
     name 'async_search_plugin'
     description "Provides support for async search"
     classname 'com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin'
+    //extendedPlugins = ['opendistro-job-scheduler']
 }
 
 javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code

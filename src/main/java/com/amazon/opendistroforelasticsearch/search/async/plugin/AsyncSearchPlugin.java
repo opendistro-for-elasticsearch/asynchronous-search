@@ -15,6 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser;
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
@@ -55,8 +58,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
-public class AsyncSearchPlugin extends Plugin implements ActionPlugin {
+public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSchedulerExtension {
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
@@ -92,4 +96,24 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin {
                 AsyncSearchService.MAX_KEEPALIVE_SETTING,
                 AsyncSearchService.KEEPALIVE_INTERVAL_SETTING);
     }
+
+   /* @Override
+    public String getJobType() {
+        return null;
+    }
+
+    @Override
+    public String getJobIndex() {
+        return null;
+    }
+
+    @Override
+    public ScheduledJobRunner getJobRunner() {
+        return null;
+    }
+
+    @Override
+    public ScheduledJobParser getJobParser() {
+        return null;
+    }*/
 }

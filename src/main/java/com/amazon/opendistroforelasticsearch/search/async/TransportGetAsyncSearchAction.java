@@ -46,33 +46,8 @@ public class TransportGetAsyncSearchAction extends HandledTransportAction<GetAsy
             GetAsyncSearchActionHandler getAsyncSearchActionHandler = new GetAsyncSearchActionHandler(clusterService, transportService,
                     asyncSearchService, threadPool);
             getAsyncSearchActionHandler.handleRequest(asyncSearchId, request, listener);
-            AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
-            if(asyncSearchContext.isCancelled() || asyncSearchContext.isExpired()) {
-                asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());
-                throw new ResourceNotFoundException(request.getId());
-            }
-            updateExpiryTimeIfRequired(request, asyncSearchContext);
-            ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                    request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
-                        //TODO Replace with actual async search response
-                        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                        asyncSearchContext.removeListener(contextListener);
-            });
-            //Here we want to be listen onto onFailure/onResponse ONLY or a timeout whichever happens earlier.
-            //The original progress listener is responsible for updating the context. So whenever we search finishes or
-            // times out we return the most upto state from the AsyncContext
-            asyncSearchContext.addListener(wrappedListener);
         } catch (Exception e) {
             listener.onFailure(e);
-        }
-    }
-
-    private void updateExpiryTimeIfRequired(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext) {
-        if(request.getKeepAlive() != null) {
-            long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
-            if(requestedExpirationTime > asyncSearchContext.getExpirationTimeMillis()) {
-                asyncSearchContext.setExpirationTimeMillis(requestedExpirationTime);
-            }
         }
     }
 }

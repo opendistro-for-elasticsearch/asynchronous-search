@@ -23,7 +23,9 @@ import java.util.Base64;
 
 public class AsyncSearchId {
 
+    // UUID + ID generator for uniqueness
     private final AsyncSearchContextId asyncSearchContextId;
+    // coordinator node id
     private final String node;
 
     public AsyncSearchId(String node, AsyncSearchContextId asyncSearchContextId) {

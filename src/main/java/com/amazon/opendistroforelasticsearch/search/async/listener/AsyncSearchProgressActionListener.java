@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
@@ -119,8 +120,8 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     @Override
     public void onResponse(SearchResponse searchResponse) {
         logger.info("Search response completed {}", searchResponse);
+        //asyncSearchContext.getListeners().forEach(listener -> listener.onResponse(null));
         asyncSearchContext.processFinalResponse(searchResponse);
-        //clean up result holder
     }
 
     @Override
