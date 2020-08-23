@@ -181,7 +181,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     public void cancelTask() {
         logger.info("NODEID : {}", nodeId);
         CancelTasksRequest cancelTasksRequest = new CancelTasksRequest();
-        cancelTasksRequest.setTaskId(new TaskId(nodeId, task.getId()));
+        cancelTasksRequest.setTaskId(task.taskInfo(nodeId, false).getTaskId());
         cancelTasksRequest.setReason("Async search request expired");
         client.admin().cluster().cancelTasks(cancelTasksRequest, new ActionListener<CancelTasksResponse>() {
             @Override

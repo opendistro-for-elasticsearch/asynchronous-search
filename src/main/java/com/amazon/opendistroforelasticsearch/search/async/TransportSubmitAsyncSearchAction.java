@@ -19,7 +19,9 @@ import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSear
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
@@ -55,19 +57,25 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         this.transportSearchAction = transportSearchAction;
     }
 
+    /**
+     * @param task Since RestCancellableNodeClient is used, the onResponse() event will unregister this task on final response or timeout,
+     *            whichever causes the channel to close. Hence the synchronous SearchAction executed needs a task which we can hold onto
+     *             to monitor progress, listen on SPAL events and cancel if required. We require it to remain registered.
+     */
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
             final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
-            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, ((AsyncSearchTask)task), timeProvider);
+            AsyncSearchTask asyncSearchTask = (AsyncSearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(),request);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, asyncSearchTask, timeProvider);
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext);
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
-            ((AsyncSearchTask)task).setProgressListener(progressActionListener);
+            asyncSearchTask.setProgressListener(progressActionListener);
             logger.info("Initiating sync search request");
-            transportSearchAction.execute(task, request.getSearchRequest(), progressActionListener);
+            transportSearchAction.execute(asyncSearchTask, request.getSearchRequest(), progressActionListener);
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                     request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
-                        //Replace with actual async search response
+
                         logger.info("Timeout triggered for async search");
                         listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                         asyncSearchContext.removeListener(contextListener);

@@ -12,7 +12,7 @@ public class AsyncSearchContextMissingException extends ElasticsearchException {
     private final AsyncSearchContextId contextId;
 
     public AsyncSearchContextMissingException(AsyncSearchContextId contextId) {
-        super("No async search context found for id [" + contextId.getId() + "]");
+        super("No async search context found for id [" + contextId.getId() + "]"); //TODO change error message to include asyncsearch Id as this is logged in response to user.
         this.contextId = contextId;
     }
 
