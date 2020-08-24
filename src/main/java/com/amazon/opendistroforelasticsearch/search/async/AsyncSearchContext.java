@@ -135,7 +135,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
      * If isRunning is true, build and return partial Response. Else, build and return response.
      */
     public AsyncSearchResponse getAsyncSearchResponse() {
-        cancelIfRequired();
+        if(isCancelled())
         logger.info("isCancelled:{}, isExpired:{}", isCancelled(), isExpired());
         try {
             String id = AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, asyncSearchContextId));
@@ -179,21 +179,24 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     public void cancelTask() {
-        logger.info("NODEID : {}", nodeId);
-        CancelTasksRequest cancelTasksRequest = new CancelTasksRequest();
-        cancelTasksRequest.setTaskId(task.taskInfo(nodeId, false).getTaskId());
-        cancelTasksRequest.setReason("Async search request expired");
-        client.admin().cluster().cancelTasks(cancelTasksRequest, new ActionListener<CancelTasksResponse>() {
-            @Override
-            public void onResponse(CancelTasksResponse cancelTasksResponse) {
-            logger.info(cancelTasksResponse.toString());
-            }
 
-            @Override
-            public void onFailure(Exception e) {
-                logger.error("Failed to cancel async search task {} not cancelled upon expiry", task.getId());
-            }
-        });
+        if (!task.isCancelled()) {
+            logger.info("NODEID : {}", nodeId);
+            CancelTasksRequest cancelTasksRequest = new CancelTasksRequest();
+            cancelTasksRequest.setTaskId(task.taskInfo(nodeId, false).getTaskId());
+            cancelTasksRequest.setReason("Async search request expired");
+            client.admin().cluster().cancelTasks(cancelTasksRequest, new ActionListener<CancelTasksResponse>() {
+                @Override
+                public void onResponse(CancelTasksResponse cancelTasksResponse) {
+                logger.info(cancelTasksResponse.toString());
+                }
+
+                @Override
+                public void onFailure(Exception e) {
+                    logger.error("Failed to cancel async search task {} not cancelled upon expiry", task.getId());
+                }
+            });
+        }
     }
 
     public boolean isExpired() {
@@ -231,7 +234,6 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         AsyncSearchResponse asyncSearchResponse = getAsyncSearchResponse();
         this.listeners.forEach(listener -> {
             try {
-
                 listener.onResponse(asyncSearchResponse);
             } catch (Exception e) {
                 logger.error("Failed to notify listener on response.");
@@ -241,6 +243,11 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     public void setExpirationTimeMillis(long expirationTimeMillis) {
         this.expirationTimeMillis.set(expirationTimeMillis);
+    }
+
+    public void clear() {
+        cancelTask();
+        //clear further
     }
 
     public static class PartialResultsHolder {
