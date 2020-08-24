@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchPr
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.TransportSearchAction;
@@ -70,22 +71,32 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
 
             final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
             AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, asyncSearchTask, timeProvider);
+            ((AsyncSearchTask) task).setAsyncSearchContext(asyncSearchContext);
+
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext);
-            logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
             asyncSearchTask.setProgressListener(progressActionListener);
+            logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
+
             logger.info("Initiating sync search request");
             transportSearchAction.execute(asyncSearchTask, request.getSearchRequest(), progressActionListener);
+
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                     request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
-
-                        logger.info("Timeout triggered for async search");
-                        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                        asyncSearchContext.removeListener(contextListener);
+                        onCompletion(listener, asyncSearchContext, contextListener);
                     });
             asyncSearchContext.addListener(wrappedListener);
         } catch (Exception e) {
             listener.onFailure(e);
         }
+    }
+
+    private void onCompletion(ActionListener<AsyncSearchResponse> listener, AsyncSearchContext asyncSearchContext, ActionListener<AsyncSearchResponse> contextListener) {
+        logger.info("Timeout triggered for async search");
+        if(asyncSearchContext.isCancelled()) {
+          listener.onFailure(new ResourceNotFoundException("Search cancelled"));
+        }
+        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+        asyncSearchContext.removeListener(contextListener);
     }
 
     /**
