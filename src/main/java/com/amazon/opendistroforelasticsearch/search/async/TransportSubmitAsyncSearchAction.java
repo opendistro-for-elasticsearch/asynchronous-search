@@ -65,8 +65,10 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
-            final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
+            request.setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             AsyncSearchTask asyncSearchTask = (AsyncSearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(),request);
+
+            final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
             AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, asyncSearchTask, timeProvider);
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext);
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
