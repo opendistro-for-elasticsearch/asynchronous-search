@@ -242,6 +242,11 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.expirationTimeMillis.set(expirationTimeMillis);
     }
 
+    public void clear() {
+        cancelTask();
+        //clear further
+    }
+
     public static class PartialResultsHolder {
 
         private final List<ShardSearchFailure> shardSearchFailuresFailures = new ArrayList<>();
