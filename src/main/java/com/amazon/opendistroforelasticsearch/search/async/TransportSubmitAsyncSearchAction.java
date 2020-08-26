@@ -66,7 +66,10 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
+            //For cancellation of child task, simply setting parent task id won't suffice.
+            //It also requires registering node on which child task (transport search action) will be executed with parent task id in the task manager.
             request.setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
+            taskManager.registerChildNode(request.getParentTask().getId(), clusterService.localNode());
             AsyncSearchTask asyncSearchTask = (AsyncSearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(),request);
 
             final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);

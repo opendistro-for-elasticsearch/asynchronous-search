@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-//TODO update isPartial and isRunning from events.
+
 public class AsyncSearchProgressActionListener extends SearchProgressActionListener {
 
     private final Logger logger = LogManager.getLogger(getClass());
@@ -138,11 +138,6 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         if(asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
-        }
-        try {
-            Thread.sleep(200000);
-        } catch (Exception e) {
-            e.printStackTrace();
         }
         numQueryResults.incrementAndGet();
         if(!hasFetchPhase.get() && numReducePhases.get() == 0) {

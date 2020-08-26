@@ -48,9 +48,8 @@ public class AsyncSearchTask extends SearchTask {
 
     @Override
     protected void onCancelled() {
-        if(asyncSearchContext != null) {
-            asyncSearchContext.clear();
-        }
+        if(asyncSearchContext != null)
+        asyncSearchContext.clear();
     }
 }
 
