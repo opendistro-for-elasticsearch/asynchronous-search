@@ -63,7 +63,8 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     //FIXME : Delay deserializing aggregations up until partial SearchResponse has to be built.
     @Override
-    protected void onPartialReduce(List<SearchShard> shards, TotalHits totalHits, DelayableWriteable.Serialized<InternalAggregations> aggs, int reducePhase) {
+    protected void onPartialReduce(List<SearchShard> shards, TotalHits totalHits,
+                                   DelayableWriteable.Serialized<InternalAggregations> aggs, int reducePhase) {
         logger.warn("onPartialReduce --> shards; {}, totalHits: {}, aggs: {}, reducePhase: {}", shards, totalHits, aggs, reducePhase );
         if(asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
@@ -76,9 +77,9 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         }
         numReducePhases.incrementAndGet();
         if(hasFetchPhase.get()) {
-            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs == null ? null : aggs.expand(),reducePhase);
+            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs == null ? null : aggs.expand(),totalHits,reducePhase);
         } else {
-            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs.expand(), reducePhase);
+            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs == null ? null :aggs.expand(), reducePhase);
         }
     }
 
@@ -97,7 +98,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         }
         numReducePhases.incrementAndGet();
         if(hasFetchPhase.get()) {
-            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs,reducePhase);
+            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs,totalHits, reducePhase);
         } else {
             asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs, reducePhase);
         }
@@ -105,7 +106,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     @Override
     protected void onFetchFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
-        logger.warn("onFetchFailure --> shardIndex :{}, shardTarget: {}", exc);
+        logger.warn("onFetchFailure --> shardIndex :{}, shardTarget: {}", shardIndex, shardTarget);
         if(asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
