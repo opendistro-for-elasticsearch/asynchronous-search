@@ -69,6 +69,11 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
+        try {
+            Thread.sleep(10000);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         numReducePhases.incrementAndGet();
         if(hasFetchPhase.get()) {
             asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs.expand(),reducePhase);
@@ -84,6 +89,11 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         if(asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
+        }
+        try {
+            Thread.sleep(10000);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         numReducePhases.incrementAndGet();
         if(hasFetchPhase.get()) {
@@ -112,6 +122,11 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
+        try {
+            Thread.sleep(10000);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         numFetchResults.incrementAndGet();
         asyncSearchContext.getResultsHolder().incrementSuccessfulShards();
     }
@@ -138,6 +153,11 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         if(asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
+        }
+        try {
+            Thread.sleep(10000);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         numQueryResults.incrementAndGet();
         if(!hasFetchPhase.get() && numReducePhases.get() == 0) {
