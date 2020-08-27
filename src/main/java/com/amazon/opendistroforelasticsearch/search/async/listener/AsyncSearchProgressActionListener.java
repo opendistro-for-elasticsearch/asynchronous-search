@@ -70,13 +70,13 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         try {
-            Thread.sleep(10000);
+            Thread.sleep(5000);
         } catch (Exception e) {
             e.printStackTrace();
         }
         numReducePhases.incrementAndGet();
         if(hasFetchPhase.get()) {
-            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs.expand(),reducePhase);
+            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs == null ? null : aggs.expand(),reducePhase);
         } else {
             asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs.expand(), reducePhase);
         }
@@ -117,13 +117,13 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     @Override
     protected void onFetchResult(int shardIndex) {
-        logger.warn("onFetchResult --> shardIndex: {}", shardIndex);
+        logger.warn("onFetchResult --> shardIndex: {} Thread : {}", shardIndex, Thread.currentThread().getId());
         if(asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
         try {
-            Thread.sleep(10000);
+            Thread.sleep(5000);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -155,7 +155,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         try {
-            Thread.sleep(10000);
+            Thread.sleep(3000);
         } catch (Exception e) {
             e.printStackTrace();
         }

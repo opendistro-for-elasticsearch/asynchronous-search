@@ -81,7 +81,9 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
 
             logger.info("Initiating sync search request");
-            transportSearchAction.execute(asyncSearchTask, request.getSearchRequest(), progressActionListener);
+            threadPool.executor(ThreadPool.Names.SEARCH).execute(
+                    () -> transportSearchAction.execute(asyncSearchTask, request.getSearchRequest(), progressActionListener));
+
 
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                     request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
