@@ -34,7 +34,10 @@ public class GetAsyncSearchActionHandler extends AbstractAsyncSearchAction<GetAs
     @Override
     public void handleRequest(AsyncSearchId asyncSearchId, GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
 
-        if (!clusterService.localNode().getId().equals(asyncSearchId.getNode())) {
+        if (clusterService.state().nodes().nodeExists(asyncSearchId.getNode()) == false) {
+            throw new ResourceNotFoundException(request.getId());
+        }
+        if (clusterService.localNode().getId().equals(asyncSearchId.getNode()) == false) {
             forwardRequest(clusterService.state().getNodes().get(asyncSearchId.getNode()), request, listener, this::read, GetAsyncSearchAction.NAME);
         }
         AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
@@ -45,7 +48,6 @@ public class GetAsyncSearchActionHandler extends AbstractAsyncSearchAction<GetAs
         updateExpiryTimeIfRequired(request, asyncSearchContext);
         ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                 request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
-                    //TODO Replace with actual async search response
                     listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                     asyncSearchContext.removeListener(contextListener);
                 });

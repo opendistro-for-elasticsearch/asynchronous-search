@@ -29,6 +29,7 @@ import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
@@ -69,7 +70,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             //For cancellation of child task, simply setting parent task id won't suffice.
             //It also requires registering node on which child task (transport search action) will be executed with parent task id in the task manager.
             request.setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
-            taskManager.registerChildNode(request.getParentTask().getId(), clusterService.localNode());
+            Releasable unregisterChildNode = taskManager.registerChildNode(request.getParentTask().getId(), clusterService.localNode());
             AsyncSearchTask asyncSearchTask = (AsyncSearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(),request);
 
             final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
@@ -81,10 +82,19 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
 
             logger.info("Initiating sync search request");
-            transportSearchAction.execute(asyncSearchTask, request.getSearchRequest(), progressActionListener);
+            threadPool.executor(ThreadPool.Names.SEARCH).execute(
+                    () -> transportSearchAction.execute(asyncSearchTask, request.getSearchRequest(), progressActionListener));
 
+            ActionListener<AsyncSearchResponse> unregisterWrapper = ActionListener.wrap(
+                    (response) -> {
+                        unregisterChildNode.close();
+                        listener.onResponse(response);
+                        }, (e) -> {
+                        unregisterChildNode.close();
+                        listener.onFailure(e);
+                    });
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                    request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
+                    request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, unregisterWrapper, (contextListener) -> {
                         onCompletion(listener, asyncSearchContext, contextListener);
                     });
             asyncSearchContext.addListener(wrappedListener);

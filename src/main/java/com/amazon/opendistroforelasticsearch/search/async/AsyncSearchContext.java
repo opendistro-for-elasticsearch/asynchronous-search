@@ -293,12 +293,13 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
             this.totalHits = totalHits;
         }
 
-        public synchronized void updateResultFromReduceEvent(InternalAggregations aggs, int reducePhase) {
+        public synchronized void updateResultFromReduceEvent(InternalAggregations aggs, TotalHits totalHits, int reducePhase) {
             if (this.reducePhase.get() > reducePhase) {
                 logger.warn("ResultHolder reducePhase version {} is ahead of the event reducePhase version {}. Discarding event",
                         this.reducePhase, reducePhase);
                 return;
             }
+            this.totalHits = totalHits;
             this.internalAggregations = aggs;
             this.reducePhase.set(reducePhase);
         }

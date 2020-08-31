@@ -178,4 +178,9 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
         };
         return asyncSearchTask;
     }
+
+    @Override
+    public void setParentTask(String parentTaskNode, long parentTaskId) {
+
+    }
 }

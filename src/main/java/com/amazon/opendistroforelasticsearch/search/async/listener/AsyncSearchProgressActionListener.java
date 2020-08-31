@@ -71,7 +71,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         }
         numReducePhases.incrementAndGet();
         if(hasFetchPhase.get()) {
-            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs.expand(),reducePhase);
+            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs == null ? null : aggs.expand(), totalHits, reducePhase);
         } else {
             asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs.expand(), reducePhase);
         }
@@ -87,7 +87,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         }
         numReducePhases.incrementAndGet();
         if(hasFetchPhase.get()) {
-            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs,reducePhase);
+            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs, totalHits, reducePhase);
         } else {
             asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs, reducePhase);
         }
@@ -107,7 +107,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     @Override
     protected void onFetchResult(int shardIndex) {
-        logger.warn("onFetchResult --> shardIndex: {}", shardIndex);
+        logger.warn("onFetchResult --> shardIndex: {} Thread : {}", shardIndex, Thread.currentThread().getId());
         if(asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
