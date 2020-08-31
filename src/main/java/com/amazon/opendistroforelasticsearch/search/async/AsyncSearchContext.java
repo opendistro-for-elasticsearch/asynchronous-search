@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.listener.TaskUnregisterWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -57,7 +58,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
 
-    private final AsyncSearchTask task;
+    private final TaskUnregisterWrapper task;
     private final Client client;
     private final PartialResultsHolder resultsHolder;
     private final long startTimeMillis;
@@ -71,7 +72,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final Collection<ActionListener<AsyncSearchResponse>> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 
-    public AsyncSearchContext(Client client, String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, AsyncSearchTask task,
+    public AsyncSearchContext(Client client, String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, TaskUnregisterWrapper task,
                               TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider) {
         super("async_search_context");
         this.client = client;
@@ -90,9 +91,6 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.searchResponse = new AtomicReference<>();
     }
 
-    public AsyncSearchTask getTask() {
-        return task;
-    }
 
     public PartialResultsHolder getResultsHolder() {
         return resultsHolder;
@@ -178,23 +176,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     public void cancelTask() {
-        if(isCancelled())
-            return;
-        logger.info("Cancelling task [{}] on node : [{}]", task.getId(), nodeId);
-        CancelTasksRequest cancelTasksRequest = new CancelTasksRequest();
-        cancelTasksRequest.setTaskId(task.taskInfo(nodeId, false).getTaskId());
-        cancelTasksRequest.setReason("Async search request expired");
-        client.admin().cluster().cancelTasks(cancelTasksRequest, new ActionListener<CancelTasksResponse>() {
-            @Override
-            public void onResponse(CancelTasksResponse cancelTasksResponse) {
-            logger.info(cancelTasksResponse.toString());
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                logger.error("Failed to cancel async search task {} not cancelled upon expiry", task.getId());
-            }
-        });
+        task.cancel(client);
     }
 
     public boolean isExpired() {

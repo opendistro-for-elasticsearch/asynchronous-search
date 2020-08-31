@@ -71,7 +71,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         try {
-            Thread.sleep(5000);
+            Thread.sleep(4000);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -92,7 +92,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         try {
-            Thread.sleep(10000);
+            Thread.sleep(4000);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -124,7 +124,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         try {
-            Thread.sleep(5000);
+            Thread.sleep(2000);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -156,7 +156,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         try {
-            Thread.sleep(3000);
+            Thread.sleep(2000);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -185,7 +185,6 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         }
         logger.info("Search response failure", e);
         asyncSearchContext.processFailure(e);
-
     }
 
 

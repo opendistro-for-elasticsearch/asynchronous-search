@@ -16,23 +16,29 @@
 package com.amazon.opendistroforelasticsearch.search.async.task;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchTask;
+import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.tasks.TaskId;
 
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 public class AsyncSearchTask extends SearchTask {
 
-    private AsyncSearchProgressActionListener progressActionListener;
-    private AsyncSearchContext asyncSearchContext;
+    Logger logger = LogManager.getLogger(AsyncSearchTask.class);
 
-    public void setAsyncSearchContext(AsyncSearchContext asyncSearchContext) {
-        this.asyncSearchContext = asyncSearchContext;
-    }
+    private AsyncSearchProgressActionListener progressActionListener;
+    private List<Releasable> onCancelledReleasables;
 
     public AsyncSearchTask(long id, String type, String action, String description, TaskId parentTaskId, Map<String, String> headers) {
         super(id, type, action, description, parentTaskId, headers);
+        onCancelledReleasables = new LinkedList<>();
     }
 
     /**
@@ -42,14 +48,20 @@ public class AsyncSearchTask extends SearchTask {
         this.progressActionListener = progressActionListener;
         super.setProgressListener(progressActionListener);
     }
-    public final AsyncSearchProgressActionListener getProgressActionListener() {
-        return progressActionListener;
-    }
 
     @Override
     protected void onCancelled() {
-        if(asyncSearchContext != null)
-        asyncSearchContext.clear();
+        onCancelledReleasables.forEach(releasable -> {
+            try{
+                releasable.close();
+            } catch (Exception e) {
+                logger.error("Failed to close releasable", e);
+            }
+        });
+    }
+
+    public void addOncancelledReleasables(List<Releasable> onCancelledReleasables) {
+        this.onCancelledReleasables.addAll(onCancelledReleasables);
     }
 }
 

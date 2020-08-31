@@ -18,8 +18,8 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
+import com.amazon.opendistroforelasticsearch.search.async.listener.TaskUnregisterWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
-import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchAction;
@@ -29,12 +29,18 @@ import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.tasks.Task;
+import org.elasticsearch.tasks.TaskCancelledException;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
+
+import static java.util.Arrays.*;
 
 public class TransportSubmitAsyncSearchAction extends HandledTransportAction<SubmitAsyncSearchRequest, AsyncSearchResponse> {
 
@@ -66,18 +72,30 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
+
             //For cancellation of child task, simply setting parent task id won't suffice.
             //It also requires registering node on which child task (transport search action) will be executed with parent task id in the task manager.
             request.setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
-            taskManager.registerChildNode(request.getParentTask().getId(), clusterService.localNode());
-            AsyncSearchTask asyncSearchTask = (AsyncSearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(),request);
+            final AsyncSearchTask asyncSearchTask;
+            Releasable unregisterChildNode = taskManager.registerChildNode(request.getParentTask().getId(), clusterService.localNode());
+            Releasable unregisterFromTaskManger;
+            try {
+                asyncSearchTask = (AsyncSearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(),request);
+                unregisterFromTaskManger = () -> taskManager.unregister(asyncSearchTask);
+            } catch (TaskCancelledException e) {
+                unregisterChildNode.close();
+                throw e;
+            }
+            List<Releasable> taskReleasables = asList(unregisterFromTaskManger, unregisterChildNode);
+            TaskUnregisterWrapper taskUnregisterWrapper = new TaskUnregisterWrapper(asyncSearchTask,
+                     clusterService.localNode().getId(), taskReleasables);
 
             final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
-            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, asyncSearchTask, timeProvider);
-            ((AsyncSearchTask) task).setAsyncSearchContext(asyncSearchContext);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, taskUnregisterWrapper, timeProvider);
 
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext);
             asyncSearchTask.setProgressListener(progressActionListener);
+            asyncSearchTask.addOncancelledReleasables(Collections.singletonList(() -> asyncSearchContext.clear()));
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
 
             logger.info("Initiating sync search request");

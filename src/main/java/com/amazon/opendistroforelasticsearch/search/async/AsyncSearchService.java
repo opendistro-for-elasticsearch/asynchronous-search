@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.listener.TaskUnregisterWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -114,7 +115,7 @@ public class  AsyncSearchService extends AbstractLifecycleComponent {
         activeContexts.put(asyncSearchContext.getAsyncSearchContextId().getId(), asyncSearchContext);
     }
 
-    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, AsyncSearchTask task,
+    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, TaskUnregisterWrapper task,
                                                         TransportSubmitAsyncSearchAction.SearchTimeProvider timeProvider) throws IOException {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchContext asyncSearchContext = new AsyncSearchContext(client, clusterService.localNode().getId(), asyncSearchContextId, submitAsyncSearchRequest.getKeepAlive(),
