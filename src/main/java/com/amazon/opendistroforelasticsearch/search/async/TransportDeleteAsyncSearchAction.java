@@ -28,7 +28,8 @@ public class TransportDeleteAsyncSearchAction extends HandledTransportAction<Del
     @Inject
     public TransportDeleteAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
                                             ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
-                                            AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction, Client client) {
+                                            AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction,
+                                            Client client) {
         super(DeleteAsyncSearchAction.NAME, transportService, actionFilters, DeleteAsyncSearchRequest::new);
         this.threadPool = threadPool;
         this.transportService = transportService;
@@ -43,7 +44,8 @@ public class TransportDeleteAsyncSearchAction extends HandledTransportAction<Del
     protected void doExecute(Task task, DeleteAsyncSearchRequest request, ActionListener<AcknowledgedResponse> listener) {
         try {
             AsyncSearchId asyncSearchId = AsyncSearchId.parseAsyncId(request.getId());
-            DeleteAsyncSearchActionHandler deleteAsyncSearchActionHandler = new DeleteAsyncSearchActionHandler(transportService, asyncSearchService, client, logger);
+            DeleteAsyncSearchActionHandler deleteAsyncSearchActionHandler = new DeleteAsyncSearchActionHandler(transportService,
+                    asyncSearchService, client, logger);
             deleteAsyncSearchActionHandler.handleRequest(asyncSearchId, request, listener);
             listener.onResponse(new AcknowledgedResponse(true));
         } catch (Exception e) {

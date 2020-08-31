@@ -69,25 +69,31 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
                 RestSearchAction.parseSearchRequest(searchRequest, request, parser, setSize));
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
         if (request.hasParam("wait_for_completion_timeout")) {
-            submitAsyncSearchRequest.waitForCompletionTimeout(request.paramAsTime("wait_for_completion_timeout", SubmitAsyncSearchRequest.DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT));
+            submitAsyncSearchRequest.waitForCompletionTimeout(request.paramAsTime("wait_for_completion_timeout",
+                    SubmitAsyncSearchRequest.DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT));
         }
         if (request.hasParam("keep_alive")) {
             submitAsyncSearchRequest.setKeepAlive(request.paramAsTime("keep_alive", SubmitAsyncSearchRequest.DEFAULT_KEEP_ALIVE));
         }
         if (request.hasParam("keep_on_completion")) {
-            submitAsyncSearchRequest.keepOnCompletion(request.paramAsBoolean("keep_on_completion", SubmitAsyncSearchRequest.DEFAULT_KEEP_ON_COMPLETION));
+            submitAsyncSearchRequest.keepOnCompletion(request.paramAsBoolean("keep_on_completion",
+                    SubmitAsyncSearchRequest.DEFAULT_KEEP_ON_COMPLETION));
         }
         if (request.hasParam("ccs_minimize_roundtrips")) {
-            searchRequest.requestCache(request.paramAsBoolean("ccs_minimize_roundtrips", SubmitAsyncSearchRequest.CCR_MINIMIZE_ROUNDTRIPS));
+            searchRequest.requestCache(request.paramAsBoolean("ccs_minimize_roundtrips",
+                    SubmitAsyncSearchRequest.CCR_MINIMIZE_ROUNDTRIPS));
         }
         if (request.hasParam("pre_filter_shard_size")) {
-            searchRequest.setPreFilterShardSize(request.paramAsInt("pre_filter_shard_size", SubmitAsyncSearchRequest.DEFAULT_PRE_FILTER_SHARD_SIZE));
+            searchRequest.setPreFilterShardSize(request.paramAsInt("pre_filter_shard_size",
+                    SubmitAsyncSearchRequest.DEFAULT_PRE_FILTER_SHARD_SIZE));
         }
         if (request.hasParam("request_cache")) {
-            searchRequest.setCcsMinimizeRoundtrips(request.paramAsBoolean("request_cache", SubmitAsyncSearchRequest.DEFAULT_REQUEST_CACHE));
+            searchRequest.setCcsMinimizeRoundtrips(request.paramAsBoolean("request_cache",
+                    SubmitAsyncSearchRequest.DEFAULT_REQUEST_CACHE));
         }
         if (request.hasParam("batched_reduce_size")) {
-            final int batchedReduceSize = request.paramAsInt("batched_reduce_size", SubmitAsyncSearchRequest.DEFAULT_BATCHED_REDUCE_SIZE);
+            final int batchedReduceSize = request.paramAsInt("batched_reduce_size",
+                    SubmitAsyncSearchRequest.DEFAULT_BATCHED_REDUCE_SIZE);
             searchRequest.setBatchedReduceSize(batchedReduceSize);
         }
         return channel -> {

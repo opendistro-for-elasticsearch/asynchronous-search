@@ -15,19 +15,16 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.TransportDeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.TransportGetAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.TransportSubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.TransportGetAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.TransportSubmitAsyncSearchAction;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.client.Client;
@@ -40,7 +37,6 @@ import org.elasticsearch.common.settings.IndexScopedSettings;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.settings.SettingsFilter;
-import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
@@ -58,14 +54,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSchedulerExtension {
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
                                              IndexScopedSettings indexScopedSettings, SettingsFilter settingsFilter,
-                                             IndexNameExpressionResolver indexNameExpressionResolver, Supplier<DiscoveryNodes> nodesInCluster) {
+                                             IndexNameExpressionResolver indexNameExpressionResolver,
+                                             Supplier<DiscoveryNodes> nodesInCluster) {
         return Arrays.asList(
                 new RestSubmitAsyncSearchAction(),
                 new RestGetAsyncSearchAction(),

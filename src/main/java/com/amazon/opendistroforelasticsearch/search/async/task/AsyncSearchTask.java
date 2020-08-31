@@ -15,8 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.task;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -24,7 +22,6 @@ import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.tasks.TaskId;
 
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +49,7 @@ public class AsyncSearchTask extends SearchTask {
     @Override
     protected void onCancelled() {
         onCancelledReleasables.forEach(releasable -> {
-            try{
+            try {
                 releasable.close();
             } catch (Exception e) {
                 logger.error("Failed to close releasable", e);

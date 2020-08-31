@@ -46,7 +46,8 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     private SearchResponse searchResponse;
     private ElasticsearchException error;
 
-    public AsyncSearchResponse(String id, boolean isPartial, boolean isRunning, long startTimeMillis, long expirationTimeMillis, SearchResponse searchResponse, ElasticsearchException error) {
+    public AsyncSearchResponse(String id, boolean isPartial, boolean isRunning, long startTimeMillis, long expirationTimeMillis,
+                               SearchResponse searchResponse, ElasticsearchException error) {
         this.id = id;
         this.isPartial = isPartial;
         this.isRunning = isRunning;
@@ -70,7 +71,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
 
     @Override
     public RestStatus status() {
-        return searchResponse==null ? null : searchResponse.status();
+        return searchResponse == null ? null : searchResponse.status();
     }
 
     @Override
@@ -81,13 +82,13 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         builder.field(IS_RUNNING.getPreferredName(), isRunning);
         builder.field(EXPIRATION_TIME_IN_MILLIS.getPreferredName(), expirationTimeMillis);
         builder.field(START_TIME_IN_MILLIS.getPreferredName(), startTimeMillis);
-        if(searchResponse != null) {
+        if (searchResponse != null) {
             builder.field(RESPONSE.getPreferredName());
             searchResponse.toXContent(builder, params);
         }
-        if(error != null) {
+        if (error != null) {
             builder.field(ERROR.getPreferredName());
-            error.toXContent(builder,params);
+            error.toXContent(builder, params);
         }
         builder.endObject();
         return builder;

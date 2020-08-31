@@ -1,7 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.action;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.GetAsyncSearchRequest;
@@ -35,10 +35,11 @@ public class GetAsyncSearchActionHandler extends AbstractAsyncSearchAction<GetAs
     public void handleRequest(AsyncSearchId asyncSearchId, GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
 
         if (!clusterService.localNode().getId().equals(asyncSearchId.getNode())) {
-            forwardRequest(clusterService.state().getNodes().get(asyncSearchId.getNode()), request, listener, this::read, GetAsyncSearchAction.NAME);
+            forwardRequest(clusterService.state().getNodes().get(asyncSearchId.getNode()), request, listener, this::read,
+                    GetAsyncSearchAction.NAME);
         }
         AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
-        if(asyncSearchContext.isCancelled() || asyncSearchContext.isExpired()) {
+        if (asyncSearchContext.isCancelled() || asyncSearchContext.isExpired()) {
             asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());
             throw new ResourceNotFoundException(request.getId());
         }
@@ -56,9 +57,9 @@ public class GetAsyncSearchActionHandler extends AbstractAsyncSearchAction<GetAs
     }
 
     private void updateExpiryTimeIfRequired(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext) {
-        if(request.getKeepAlive() != null) {
+        if (request.getKeepAlive() != null) {
             long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
-            if(requestedExpirationTime > asyncSearchContext.getExpirationTimeMillis()) {
+            if (requestedExpirationTime > asyncSearchContext.getExpirationTimeMillis()) {
                 asyncSearchContext.setExpirationTimeMillis(requestedExpirationTime);
             }
         }

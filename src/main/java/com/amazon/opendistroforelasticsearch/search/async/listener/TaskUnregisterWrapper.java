@@ -29,9 +29,9 @@ public class TaskUnregisterWrapper {
     }
 
     public void cancel(Client client) {
-        if(isCancelled()) {
+        if (isCancelled()) {
             releasables.forEach(releasable -> {
-                try{
+                try {
                     releasable.close();
                 } catch (Exception e) {
 

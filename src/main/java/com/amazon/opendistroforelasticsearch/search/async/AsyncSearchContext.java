@@ -16,15 +16,11 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
 import com.amazon.opendistroforelasticsearch.search.async.listener.TaskUnregisterWrapper;
-import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksRequest;
-import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksRequestBuilder;
-import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.ShardSearchFailure;
@@ -35,7 +31,6 @@ import org.elasticsearch.common.util.concurrent.AbstractRefCounted;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.internal.InternalSearchResponse;
-import org.elasticsearch.tasks.TaskId;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,7 +67,8 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final Collection<ActionListener<AsyncSearchResponse>> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 
-    public AsyncSearchContext(Client client, String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, TaskUnregisterWrapper task,
+    public AsyncSearchContext(Client client, String nodeId, AsyncSearchContextId asyncSearchContextId,
+                              TimeValue keepAlive, boolean keepOnCompletion, TaskUnregisterWrapper task,
                               TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider) {
         super("async_search_context");
         this.client = client;
@@ -167,8 +163,8 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     private void cancelIfRequired() {
-        if(!task.isCancelled()) {
-            if(isExpired()) {
+        if (!task.isCancelled()) {
+            if (isExpired()) {
                 cancelTask();
             }
         }
@@ -189,9 +185,10 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
             InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits, resultsHolder.internalAggregations,
                     null, null, false, false, resultsHolder.reducePhase.get());
             ShardSearchFailure[] shardSearchFailures = resultsHolder.shardSearchFailuresFailures.toArray(new ShardSearchFailure[]{});
-            long tookInMillis =  System.currentTimeMillis()-task.getStartTime();
+            long tookInMillis = System.currentTimeMillis() - task.getStartTime();
             return new SearchResponse(internalSearchResponse, null, resultsHolder.totalShards.get(),
-                    resultsHolder.successfulShards.get(), resultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures, resultsHolder.clusters);
+                    resultsHolder.successfulShards.get(), resultsHolder.skippedShards.get(),
+                    tookInMillis, shardSearchFailures, resultsHolder.clusters);
         } else {
             return null;
         }
@@ -261,9 +258,11 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         }
 
         /**
-         * @param reducePhase Version of reduce. If reducePhase version in resultHolder is greater than the event's reducePhase version, this event can be discarded.
+         * @param reducePhase Version of reduce. If reducePhase version in resultHolder is greater than the event's reducePhase version,
+         *                   this event can be discarded.
          */
-        public synchronized void updateResultFromReduceEvent(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
+        public synchronized void updateResultFromReduceEvent(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs,
+                                                             int reducePhase) {
             if (this.reducePhase.get() > reducePhase) {
                 logger.warn("ResultHolder reducePhase version {} is ahead of the event reducePhase version {}. Discarding event",
                         this.reducePhase, reducePhase);
