@@ -70,7 +70,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         try {
             //For cancellation of child task, simply setting parent task id won't suffice.
             //It also requires registering node on which child task (transport search action) will be executed with parent task id in the task manager.
-            request.setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
+            request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             Releasable unregisterChildNode = taskManager.registerChildNode(request.getParentTask().getId(), clusterService.localNode());
             SearchTask searchTask =  (SearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(), request.getSearchRequest());
 
@@ -89,9 +89,11 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             ActionListener<AsyncSearchResponse> unregisterWrapper = ActionListener.wrap(
                     (response) -> {
                         unregisterChildNode.close();
+                        taskManager.unregister(searchTask);
                         listener.onResponse(response);
                         }, (e) -> {
                         unregisterChildNode.close();
+                        taskManager.unregister(searchTask);
                         listener.onFailure(e);
                     });
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
