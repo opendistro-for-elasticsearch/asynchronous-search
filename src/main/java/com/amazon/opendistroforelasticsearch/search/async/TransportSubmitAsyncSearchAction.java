@@ -23,6 +23,7 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchAction;
+import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
@@ -71,19 +72,19 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             //It also requires registering node on which child task (transport search action) will be executed with parent task id in the task manager.
             request.setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             Releasable unregisterChildNode = taskManager.registerChildNode(request.getParentTask().getId(), clusterService.localNode());
-            AsyncSearchTask asyncSearchTask = (AsyncSearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(),request);
+            SearchTask searchTask =  (SearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(), request.getSearchRequest());
 
             final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
-            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, asyncSearchTask, timeProvider);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, searchTask, timeProvider);
             ((AsyncSearchTask) task).setAsyncSearchContext(asyncSearchContext);
 
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext);
-            asyncSearchTask.setProgressListener(progressActionListener);
+            searchTask.setProgressListener(progressActionListener);
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
 
             logger.info("Initiating sync search request");
             threadPool.executor(ThreadPool.Names.SEARCH).execute(
-                    () -> transportSearchAction.execute(asyncSearchTask, request.getSearchRequest(), progressActionListener));
+                    () -> transportSearchAction.execute(searchTask, request.getSearchRequest(), progressActionListener));
 
             ActionListener<AsyncSearchResponse> unregisterWrapper = ActionListener.wrap(
                     (response) -> {

@@ -35,17 +35,6 @@ public class AsyncSearchTask extends SearchTask {
         super(id, type, action, description, parentTaskId, headers);
     }
 
-    /**
-     * Attach a {@link AsyncSearchProgressActionListener} to this task.
-     */
-    public final void setProgressListener(AsyncSearchProgressActionListener progressActionListener) {
-        this.progressActionListener = progressActionListener;
-        super.setProgressListener(progressActionListener);
-    }
-    public final AsyncSearchProgressActionListener getProgressActionListener() {
-        return progressActionListener;
-    }
-
     @Override
     protected void onCancelled() {
         if(asyncSearchContext != null)

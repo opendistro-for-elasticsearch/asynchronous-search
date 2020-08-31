@@ -26,6 +26,7 @@ import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksReque
 import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
+import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.lease.Releasable;
@@ -57,7 +58,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
 
-    private final AsyncSearchTask task;
+    private final SearchTask task;
     private final Client client;
     private final PartialResultsHolder resultsHolder;
     private final long startTimeMillis;
@@ -71,7 +72,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final Collection<ActionListener<AsyncSearchResponse>> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 
-    public AsyncSearchContext(Client client, String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, AsyncSearchTask task,
+    public AsyncSearchContext(Client client, String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, SearchTask task,
                               TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider) {
         super("async_search_context");
         this.client = client;
@@ -90,7 +91,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.searchResponse = new AtomicReference<>();
     }
 
-    public AsyncSearchTask getTask() {
+    public SearchTask getTask() {
         return task;
     }
 
