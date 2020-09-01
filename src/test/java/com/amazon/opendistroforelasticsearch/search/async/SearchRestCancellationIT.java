@@ -49,8 +49,6 @@ import static org.hamcrest.Matchers.instanceOf;
 
 public class SearchRestCancellationIT extends HttpSmokeTestCase {
 
-    final Settings.Builder builder = Settings.builder();
-
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
         List<Class<? extends Plugin>> plugins = new ArrayList<>();
@@ -66,7 +64,7 @@ public class SearchRestCancellationIT extends HttpSmokeTestCase {
         List<ScriptedBlockPlugin> plugins = initBlockFactory();
         indexTestData();
 
-        Request searchRequest = new Request("GET", "/test/_search");
+        Request searchRequest = new Request("GET", "/test/_async_search");
         SearchSourceBuilder searchSource = new SearchSourceBuilder().query(scriptQuery(
                 new Script(ScriptType.INLINE, "mockscript", ScriptedBlockPlugin.SCRIPT_NAME, Collections.emptyMap())));
         searchRequest.setJsonEntity(Strings.toString(searchSource));
@@ -102,7 +100,7 @@ public class SearchRestCancellationIT extends HttpSmokeTestCase {
         List<ScriptedBlockPlugin> plugins = initBlockFactory();
         indexTestData();
 
-        Request searchRequest = new Request("GET", "/test/_search");
+        Request searchRequest = new Request("GET", "/test/_async_search");
         SearchSourceBuilder searchSource = new SearchSourceBuilder().scriptField("test_field",
                 new Script(ScriptType.INLINE, "mockscript", ScriptedBlockPlugin.SCRIPT_NAME, Collections.emptyMap()));
         searchRequest.setJsonEntity(Strings.toString(searchSource));

@@ -11,6 +11,7 @@ import org.junit.BeforeClass;
 import java.util.Arrays;
 import java.util.Collection;
 
+@ESIntegTestCase.ClusterScope(scope=ESIntegTestCase.Scope.SUITE, numDataNodes=1)
 public abstract class HttpSmokeTestCase extends ESIntegTestCase {
 
     private static String nodeTransportTypeKey;
