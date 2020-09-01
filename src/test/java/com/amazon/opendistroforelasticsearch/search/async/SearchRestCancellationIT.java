@@ -100,7 +100,7 @@ public class SearchRestCancellationIT extends HttpSmokeTestCase {
         List<ScriptedBlockPlugin> plugins = initBlockFactory();
         indexTestData();
 
-        Request searchRequest = new Request("GET", "/test/_async_search");
+        Request searchRequest = new Request("POST", "/_async_search");
         SearchSourceBuilder searchSource = new SearchSourceBuilder().scriptField("test_field",
                 new Script(ScriptType.INLINE, "mockscript", ScriptedBlockPlugin.SCRIPT_NAME, Collections.emptyMap()));
         searchRequest.setJsonEntity(Strings.toString(searchSource));
