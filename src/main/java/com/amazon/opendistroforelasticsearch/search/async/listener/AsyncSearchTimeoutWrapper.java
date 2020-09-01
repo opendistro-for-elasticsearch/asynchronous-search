@@ -44,7 +44,7 @@ public class AsyncSearchTimeoutWrapper {
         private final AtomicBoolean complete = new AtomicBoolean(false);
         private final Consumer<ActionListener<Response>> timeoutConsumer;
 
-        public CompletionTimeoutListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
+        CompletionTimeoutListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
             this.actionListener = actionListener;
             this.timeoutConsumer = timeoutConsumer;
         }
@@ -79,7 +79,7 @@ public class AsyncSearchTimeoutWrapper {
         @Override
         public void onFailure(Exception e) {
             if (cancel()) {
-               actionListener.onFailure(e);
+                actionListener.onFailure(e);
             }
         }
     }

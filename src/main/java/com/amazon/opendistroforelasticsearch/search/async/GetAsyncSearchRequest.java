@@ -6,7 +6,6 @@ import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.unit.TimeValue;
 
 import java.io.IOException;
-import java.util.Optional;
 
 public class GetAsyncSearchRequest extends ActionRequest {
 

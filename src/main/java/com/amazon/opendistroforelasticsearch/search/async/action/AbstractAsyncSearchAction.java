@@ -9,17 +9,22 @@ import org.elasticsearch.action.ActionListenerResponseHandler;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.io.stream.Writeable;
 import org.elasticsearch.node.NodeClosedException;
-import org.elasticsearch.transport.*;
+import org.elasticsearch.transport.ConnectTransportException;
+import org.elasticsearch.transport.RemoteTransportException;
+import org.elasticsearch.transport.TransportException;
+import org.elasticsearch.transport.TransportRequest;
+import org.elasticsearch.transport.TransportResponse;
+import org.elasticsearch.transport.TransportService;
 
 /**
  * Base class for common login between {@link TransportGetAsyncSearchAction} and {@link TransportDeleteAsyncSearchAction}
  */
-abstract class AbstractAsyncSearchAction<Request extends TransportRequest, Response extends TransportResponse>{
+abstract class AbstractAsyncSearchAction<Request extends TransportRequest, Response extends TransportResponse> {
 
     private TransportService transportService;
     private AsyncSearchService asyncSearchService;
 
-    public AbstractAsyncSearchAction(TransportService transportService, AsyncSearchService asyncSearchService) {
+    AbstractAsyncSearchAction(TransportService transportService, AsyncSearchService asyncSearchService) {
         this.transportService = transportService;
         this.asyncSearchService = asyncSearchService;
     }
@@ -35,6 +40,7 @@ abstract class AbstractAsyncSearchAction<Request extends TransportRequest, Respo
                                 (exp instanceof RemoteTransportException && cause instanceof NodeClosedException)) {
                             // we want to retry here a bit to see if a new master is elected
                             //TODO add retries
+//                            System.out.println(cause);
                         } else {
                             listener.onFailure(exp);
                         }

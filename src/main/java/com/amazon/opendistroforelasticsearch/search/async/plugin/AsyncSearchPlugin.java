@@ -15,9 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
-import com.amazon.opendistroforelasticsearch.search.async.*;
-import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.TransportDeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.TransportGetAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.TransportSubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
@@ -48,15 +51,17 @@ import org.elasticsearch.watcher.ResourceWatcherService;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
-public class AsyncSearchPlugin extends Plugin implements ActionPlugin  {
+public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSchedulerExtension {
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
                                              IndexScopedSettings indexScopedSettings, SettingsFilter settingsFilter,
-                                             IndexNameExpressionResolver indexNameExpressionResolver, Supplier<DiscoveryNodes> nodesInCluster) {
+                                             IndexNameExpressionResolver indexNameExpressionResolver,
+                                             Supplier<DiscoveryNodes> nodesInCluster) {
         return Arrays.asList(
                 new RestSubmitAsyncSearchAction(),
                 new RestGetAsyncSearchAction(),
@@ -70,9 +75,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin  {
                                                NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry,
                                                IndexNameExpressionResolver indexNameExpressionResolver,
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
-        return Arrays.asList(
-                new AsyncSearchService(client, clusterService, threadPool),
-                new AsyncSearchPersistenceService(client, clusterService, threadPool));
+        return Collections.singleton(new AsyncSearchService(client, clusterService, threadPool));
     }
 
     @Override
@@ -89,4 +92,24 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin  {
                 AsyncSearchService.MAX_KEEPALIVE_SETTING,
                 AsyncSearchService.KEEPALIVE_INTERVAL_SETTING);
     }
+
+   /* @Override
+    public String getJobType() {
+        return null;
+    }
+
+    @Override
+    public String getJobIndex() {
+        return null;
+    }
+
+    @Override
+    public ScheduledJobRunner getJobRunner() {
+        return null;
+    }
+
+    @Override
+    public ScheduledJobParser getJobParser() {
+        return null;
+    }*/
 }

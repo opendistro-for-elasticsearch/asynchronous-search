@@ -2,8 +2,6 @@ package com.amazon.opendistroforelasticsearch.search.async;
 
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchActionHandler;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
-import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
@@ -14,8 +12,6 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
-
-import java.io.IOException;
 
 public class TransportGetAsyncSearchAction extends HandledTransportAction<GetAsyncSearchRequest, AsyncSearchResponse> {
 
@@ -28,8 +24,8 @@ public class TransportGetAsyncSearchAction extends HandledTransportAction<GetAsy
 
     @Inject
     public TransportGetAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
-                                            ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
-                                            AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction) {
+                                         ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
+                                         AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction) {
         super(GetAsyncSearchAction.NAME, transportService, actionFilters, GetAsyncSearchRequest::new);
         this.threadPool = threadPool;
         this.transportService = transportService;

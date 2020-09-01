@@ -1,15 +1,11 @@
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
 import com.amazon.opendistroforelasticsearch.search.async.DeleteAsyncSearchRequest;
-import com.amazon.opendistroforelasticsearch.search.async.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.action.RestCancellableNodeClient;
-import org.elasticsearch.rest.action.RestStatusToXContentListener;
 import org.elasticsearch.rest.action.RestToXContentListener;
 
 import java.io.IOException;

@@ -36,11 +36,18 @@ repositories {
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile ('junit:junit:4.12') {
+        exclude group: 'org.hamcrest'
+    }
+    compileOnly ("org.elasticsearch.plugin:transport-netty4-client:7.8.1")
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.9.0.0"
 }
-
+compileTestJava {
+    classpath = classpath.filter{ File file ->
+        !file.name.equals( "hamcrest-core-1.3.jar" )
+    }
+}
 esplugin {
     name 'async_search_plugin'
     description "Provides support for async search"
@@ -48,7 +55,6 @@ esplugin {
     //extendedPlugins = ['opendistro-job-scheduler']
 }
 
-javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code
 licenseHeaders.enabled = true
 dependencyLicenses.enabled = false
 thirdPartyAudit.enabled = false
@@ -68,6 +74,8 @@ afterEvaluate {
 
 test {
     systemProperty 'tests.security.manager', 'false'
+    systemProperty 'es.set.netty.runtime.available.processors', 'false'
+
 }
 
 File repo = file("$buildDir/testclusters/repo")
@@ -81,6 +89,7 @@ testClusters.integTest {
 
 integTest.runner {
     systemProperty 'tests.security.manager', 'false'
+    systemProperty 'es.set.netty.runtime.available.processors', 'false'
 }
 
 run {

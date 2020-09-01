@@ -16,11 +16,9 @@
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
-import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
@@ -51,9 +49,11 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     }
 
     @Override
-    protected void onListShards(List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters, boolean fetchPhase) {
-        logger.warn("onListShards --> shards :{}, skippedShards: {}, clusters: {}, fetchPhase: {}", shards, skippedShards, clusters, fetchPhase);
-        if(asyncSearchContext.isCancelled()) {
+    protected void onListShards(List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters,
+                                boolean fetchPhase) {
+        logger.warn("onListShards --> shards :{}, skippedShards: {}, clusters: {}, fetchPhase: {}", shards, skippedShards,
+                clusters, fetchPhase);
+        if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
@@ -63,17 +63,25 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     //FIXME : Delay deserializing aggregations up until partial SearchResponse has to be built.
     @Override
-    protected void onPartialReduce(List<SearchShard> shards, TotalHits totalHits, DelayableWriteable.Serialized<InternalAggregations> aggs, int reducePhase) {
-        logger.warn("onPartialReduce --> shards; {}, totalHits: {}, aggs: {}, reducePhase: {}", shards, totalHits, aggs, reducePhase );
-        if(asyncSearchContext.isCancelled()) {
+    protected void onPartialReduce(List<SearchShard> shards, TotalHits totalHits,
+                                   DelayableWriteable.Serialized<InternalAggregations> aggs, int reducePhase) {
+        logger.warn("onPartialReduce --> shards; {}, totalHits: {}, aggs: {}, reducePhase: {}", shards, totalHits, aggs,
+                reducePhase);
+        if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
+        try {
+//            Thread.sleep(4000);
+        } catch (Exception e) {
+            logger.info("erro");
+        }
         numReducePhases.incrementAndGet();
-        if(hasFetchPhase.get()) {
+        if (hasFetchPhase.get()) {
             asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs == null ? null : aggs.expand(), totalHits, reducePhase);
         } else {
-            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs.expand(), reducePhase);
+            asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs == null ? null : aggs.expand(),
+                    reducePhase);
         }
     }
 
@@ -81,12 +89,17 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     @Override
     protected void onFinalReduce(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
         logger.warn("onFinalReduce --> shards: {}, totalHits: {}, aggs :{}, reducePhase:{}", shards, totalHits, aggs, reducePhase);
-        if(asyncSearchContext.isCancelled()) {
+        if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
+        try {
+//            Thread.sleep(4000);
+        } catch (Exception e) {
+            logger.info("erro");
+        }
         numReducePhases.incrementAndGet();
-        if(hasFetchPhase.get()) {
+        if (hasFetchPhase.get()) {
             asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs, totalHits, reducePhase);
         } else {
             asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(shards, totalHits, aggs, reducePhase);
@@ -95,8 +108,8 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     @Override
     protected void onFetchFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
-        logger.warn("onFetchFailure --> shardIndex :{}, shardTarget: {}", exc);
-        if(asyncSearchContext.isCancelled()) {
+        logger.warn("onFetchFailure --> shardIndex :{}, shardTarget: {}", shardIndex, shardTarget);
+        if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
@@ -108,9 +121,14 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     @Override
     protected void onFetchResult(int shardIndex) {
         logger.warn("onFetchResult --> shardIndex: {} Thread : {}", shardIndex, Thread.currentThread().getId());
-        if(asyncSearchContext.isCancelled()) {
+        if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
+        }
+        try {
+            //Thread.sleep(2000);
+        } catch (Exception e) {
+            logger.info("erro");
         }
         numFetchResults.incrementAndGet();
         asyncSearchContext.getResultsHolder().incrementSuccessfulShards();
@@ -118,8 +136,8 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     @Override
     protected void onQueryFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
-        logger.warn("onQueryFailure --> shardIndex: {}, searchTarget: {}",shardIndex, shardTarget, exc );
-        if(asyncSearchContext.isCancelled()) {
+        logger.warn("onQueryFailure --> shardIndex: {}, searchTarget: {}", shardIndex, shardTarget, exc);
+        if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
@@ -135,20 +153,25 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     @Override
     protected void onQueryResult(int shardIndex) {
         logger.warn("onQueryResult --> shardIndex: {}", shardIndex);
-        if(asyncSearchContext.isCancelled()) {
+        if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
+        try {
+            //Thread.sleep(2000);
+        } catch (Exception e) {
+            logger.info("erro");
+        }
         numQueryResults.incrementAndGet();
-        if(!hasFetchPhase.get() && numReducePhases.get() == 0) {
+        if (!hasFetchPhase.get() && numReducePhases.get() == 0) {
             asyncSearchContext.getResultsHolder().incrementSuccessfulShards();
         }
-     }
+    }
 
     @Override
     public void onResponse(SearchResponse searchResponse) {
         logger.info("Search response completed {}", searchResponse);
-        if(asyncSearchContext.isCancelled()) {
+        if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
@@ -158,13 +181,12 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     @Override
     public void onFailure(Exception e) {
-        if(asyncSearchContext.isCancelled()) {
+        if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
         logger.info("Search response failure", e);
         asyncSearchContext.processFailure(e);
-
     }
 
 
