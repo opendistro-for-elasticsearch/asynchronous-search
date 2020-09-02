@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchAction;
+import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
@@ -66,46 +67,41 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
 
     /**
      * @param task Since RestCancellableNodeClient is used, the onResponse() event will unregister this task on final response or timeout,
-     *             whichever causes the channel to close. Hence the synchronous SearchAction executed needs a task which we can hold onto
+     *            whichever causes the channel to close. Hence the synchronous SearchAction executed needs a task which we can hold onto
      *             to monitor progress, listen on SPAL events and cancel if required. We require it to remain registered.
      */
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
-
             //For cancellation of child task, simply setting parent task id won't suffice.
-            //It also requires registering node on which child task (transport search action)
-            // will be executed with parent task id in the task manager.
-            request.setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
-            final AsyncSearchTask asyncSearchTask;
+            //It also requires registering node on which child task (transport search action) will be executed with parent task id in the task manager.
+            request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             Releasable unregisterChildNode = taskManager.registerChildNode(request.getParentTask().getId(), clusterService.localNode());
-            Releasable unregisterFromTaskManger;
-            try {
-                asyncSearchTask = (AsyncSearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(), request);
-                unregisterFromTaskManger = () -> taskManager.unregister(asyncSearchTask);
-            } catch (TaskCancelledException e) {
-                unregisterChildNode.close();
-                throw e;
-            }
-            List<Releasable> taskReleasables = asList(unregisterFromTaskManger, unregisterChildNode);
-            TaskUnregisterWrapper taskUnregisterWrapper = new TaskUnregisterWrapper(asyncSearchTask,
-                    clusterService.localNode().getId(), taskReleasables);
+            SearchTask searchTask =  (SearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(), request.getSearchRequest());
 
             final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
-            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, taskUnregisterWrapper, timeProvider);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, searchTask, timeProvider);
 
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext);
-            asyncSearchTask.setProgressListener(progressActionListener);
-            asyncSearchTask.addOncancelledReleasables(Collections.singletonList(() -> asyncSearchContext.clear()));
+            searchTask.setProgressListener(progressActionListener);
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
 
             logger.info("Initiating sync search request");
             threadPool.executor(ThreadPool.Names.SEARCH).execute(
-                    () -> transportSearchAction.execute(asyncSearchTask, request.getSearchRequest(), progressActionListener));
+                    () -> transportSearchAction.execute(searchTask, request.getSearchRequest(), progressActionListener));
 
-
+            ActionListener<AsyncSearchResponse> unregisterWrapper = ActionListener.wrap(
+                    (response) -> {
+                        unregisterChildNode.close();
+                        listener.onResponse(response);
+                        taskManager.unregister(searchTask);
+                        }, (e) -> {
+                        unregisterChildNode.close();
+                        listener.onFailure(e);
+                        taskManager.unregister(searchTask);
+                    });
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                    request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
+                    request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, unregisterWrapper, (contextListener) -> {
                         onCompletion(listener, asyncSearchContext, contextListener);
                     });
             asyncSearchContext.addListener(wrappedListener);
@@ -117,8 +113,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     private void onCompletion(ActionListener<AsyncSearchResponse> listener, AsyncSearchContext asyncSearchContext,
                               ActionListener<AsyncSearchResponse> contextListener) {
         logger.info("Timeout triggered for async search");
-        if (asyncSearchContext.isCancelled()) {
-            listener.onFailure(new ResourceNotFoundException("Search cancelled"));
+        if(asyncSearchContext.isCancelled()) {
+          listener.onFailure(new ResourceNotFoundException("Search cancelled"));
         }
         listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
         asyncSearchContext.removeListener(contextListener);
@@ -152,8 +148,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         }
 
         long buildTookInMillis() {
-            return TimeUnit.NANOSECONDS.toMillis(relativeCurrentNanosProvider.getAsLong()
-                    - relativeStartNanos);
+            return TimeUnit.NANOSECONDS.toMillis(relativeCurrentNanosProvider.getAsLong() - relativeStartNanos);
         }
     }
 }
