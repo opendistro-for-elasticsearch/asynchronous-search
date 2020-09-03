@@ -15,15 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksRequest;
-import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksRequestBuilder;
 import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksResponse;
+import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.SearchTask;
@@ -35,8 +34,9 @@ import org.elasticsearch.common.util.concurrent.AbstractRefCounted;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.internal.InternalSearchResponse;
-import org.elasticsearch.tasks.TaskId;
+import org.elasticsearch.tasks.TaskResult;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -54,6 +54,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final AtomicBoolean isRunning;
     private final AtomicBoolean isPartial;
     private final AtomicBoolean isCompleted;
+    private final AtomicBoolean isPersisted;
 
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
@@ -65,6 +66,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final String nodeId;
     private final AtomicLong expirationTimeMillis;
     private final Boolean keepOnCompletion;
+    private final AsyncSearchPersistenceService persistenceService;
 
     private final AsyncSearchContextId asyncSearchContextId;
 
@@ -72,9 +74,10 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final Collection<ActionListener<AsyncSearchResponse>> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 
-    public AsyncSearchContext(Client client, String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, SearchTask task,
+    public AsyncSearchContext(AsyncSearchPersistenceService persistenceService, Client client, String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, SearchTask task,
                               TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider) {
         super("async_search_context");
+        this.persistenceService = persistenceService;
         this.client = client;
         this.nodeId = nodeId;
         this.asyncSearchContextId = asyncSearchContextId;
@@ -87,6 +90,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.isRunning = new AtomicBoolean(true);
         this.isPartial = new AtomicBoolean(true);
         this.isCompleted = new AtomicBoolean(false);
+        this.isPersisted = new AtomicBoolean(false);
         this.error = new AtomicReference<>();
         this.searchResponse = new AtomicReference<>();
     }
@@ -135,18 +139,16 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
      * @return If past expiration time throw RNF and cancel task.
      * If isRunning is true, build and return partial Response. Else, build and return response.
      */
-    public AsyncSearchResponse getAsyncSearchResponse() {
-        logger.info("isCancelled:{}, isExpired:{}", isCancelled(), isExpired());
-        try {
-            String id = AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, asyncSearchContextId));
-            logger.info("ID is {}", id);
-            return new AsyncSearchResponse(id, isPartial(), isRunning(), startTimeMillis, getExpirationTimeMillis(),
-                    isRunning() ? buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
+    public AsyncSearchResponse getAsyncSearchResponse() throws IOException {
+        logger.info("isCancelled:{}, isExpired:{}, isPersisted:{}", isCancelled(), isExpired(), isPersisted.get());
+        String id = AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, asyncSearchContextId));
+        logger.info("ID is {}", id);
+        return isPersisted.get() ?
+        persistenceService.getResponse(id) :
+         new AsyncSearchResponse(id, isPartial(), isRunning(), startTimeMillis, getExpirationTimeMillis(),
+                isRunning() ? buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
 
-        } catch (Exception e) {
-            //capture error in async search response
-            return null;
-        }
+
     }
 
     public SearchResponse getFinalSearchResponse() {
@@ -170,8 +172,8 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     private void cancelIfRequired() {
-        if(!task.isCancelled()) {
-            if(isExpired()) {
+        if (!task.isCancelled()) {
+            if (isExpired()) {
                 cancelTask();
             }
         }
@@ -179,7 +181,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     public void cancelTask() {
-        if(isCancelled())
+        if (isCancelled())
             return;
         logger.info("Cancelling task [{}] on node : [{}]", task.getId(), nodeId);
         CancelTasksRequest cancelTasksRequest = new CancelTasksRequest();
@@ -188,7 +190,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         client.admin().cluster().cancelTasks(cancelTasksRequest, new ActionListener<CancelTasksResponse>() {
             @Override
             public void onResponse(CancelTasksResponse cancelTasksResponse) {
-            logger.info(cancelTasksResponse.toString());
+                logger.info(cancelTasksResponse.toString());
             }
 
             @Override
@@ -208,7 +210,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
             InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits, resultsHolder.internalAggregations,
                     null, null, false, false, resultsHolder.reducePhase.get());
             ShardSearchFailure[] shardSearchFailures = resultsHolder.shardSearchFailuresFailures.toArray(new ShardSearchFailure[]{});
-            long tookInMillis =  System.currentTimeMillis()-task.getStartTime();
+            long tookInMillis = System.currentTimeMillis() - task.getStartTime();
             return new SearchResponse(internalSearchResponse, null, resultsHolder.totalShards.get(),
                     resultsHolder.successfulShards.get(), resultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures, resultsHolder.clusters);
         } else {
@@ -225,12 +227,25 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
 
-    public void processFinalResponse(SearchResponse searchResponse) {
+    public void processFinalResponse(SearchResponse searchResponse) throws IOException {
         this.searchResponse.compareAndSet(null, searchResponse);
         this.isCompleted.set(true);
         this.isRunning.set(false);
         this.isPartial.set(false);
         AsyncSearchResponse asyncSearchResponse = getAsyncSearchResponse();
+        this.persistenceService.createResponse(new TaskResult(task.taskInfo(nodeId, false), asyncSearchResponse), asyncSearchResponse,
+                new ActionListener<IndexResponse>() {
+                    @Override
+                    public void onResponse(IndexResponse indexResponse) {
+                        isPersisted.compareAndSet(false, true);
+                    }
+
+                    @Override
+                    public void onFailure(Exception e) {
+                        logger.error("Failed to persist final response for {}", asyncSearchResponse.getId(),e);
+                    }
+                });
+
         this.listeners.forEach(listener -> {
             try {
 

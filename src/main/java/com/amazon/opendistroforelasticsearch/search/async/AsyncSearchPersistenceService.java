@@ -3,38 +3,41 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.ResourceAlreadyExistsException;
+import org.elasticsearch.ResourceNotFoundException;
+import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.OriginSettingClient;
-import org.elasticsearch.client.Requests;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.metadata.MappingMetadata;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.io.stream.InputStreamStreamInput;
+import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
-import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.core.internal.io.Streams;
 import org.elasticsearch.tasks.TaskResult;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -48,15 +51,21 @@ public class AsyncSearchPersistenceService {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceService.class);
 
-    public static final String ASYNC_SEARCH_RESPONSE_INDEX = ".async_search_response";
+    private static final String RESPONSE_PROPERTY_NAME = "response";
 
-    public static final String TASK_TYPE = "task";
+    public static final String EXPIRATION_TIME_PROPERTY_NAME = "expiration_time";
 
-    public static final String ASYNC_SEARCH_RESPONSE_INDEX_MAPPING_FILE = "async_search_response-index-mapping.json";
+    public static final String ID_PROPERTY_NAME = "id";
 
-    public static final String ASYNC_SEARCH_RESPONSE_MAPPING_VERSION_META_FIELD = "version";
+    private static final String INDEX = ".async_search_response";
 
-    public static final int ASYNC_SEARCH_RESPONSE_MAPPING_VERSION = 3;
+    private static final String TASK_TYPE = "task";
+
+    private static final String ASYNC_SEARCH_RESPONSE_INDEX_MAPPING_FILE = "async_search_response-index-mapping.json";
+
+    private static final String ASYNC_SEARCH_RESPONSE_MAPPING_VERSION_META_FIELD = "version";
+
+    private static final int ASYNC_SEARCH_RESPONSE_MAPPING_VERSION = 3;
 
     /**
      * The backoff policy to use when saving a task result fails. The total wait
@@ -70,29 +79,35 @@ public class AsyncSearchPersistenceService {
     private final ClusterService clusterService;
 
     private final ThreadPool threadPool;
+    private final NamedWriteableRegistry namedWriteableRegistry;
+
 
     @Inject
-    public AsyncSearchPersistenceService(Client client, ClusterService clusterService, ThreadPool threadPool) {
+    public AsyncSearchPersistenceService(Client client, ClusterService clusterService, ThreadPool threadPool,
+                                         NamedWriteableRegistry namedWriteableRegistry) {
+        this.namedWriteableRegistry = namedWriteableRegistry;
         this.client = new OriginSettingClient(client, TASKS_ORIGIN);
         this.clusterService = clusterService;
         this.threadPool = threadPool;
     }
 
-    public void storeResult(TaskResult taskResult, ActionListener<Void> listener) {
-
+    //TODO add update response
+    public void createResponse(TaskResult taskResult, AsyncSearchResponse asyncSearchResponse, ActionListener<IndexResponse> listener)
+            throws IOException {
+        BytesReference response = taskResult.getResponse();
         ClusterState state = clusterService.state();
 
-        if (state.routingTable().hasIndex(ASYNC_SEARCH_RESPONSE_INDEX) == false) {
+        if (state.routingTable().hasIndex(INDEX) == false) {
             CreateIndexRequest createIndexRequest = new CreateIndexRequest();
             createIndexRequest.settings(taskResultIndexSettings());
-            createIndexRequest.index(ASYNC_SEARCH_RESPONSE_INDEX);
-            createIndexRequest.mapping(TASK_TYPE, taskResultIndexMapping(), XContentType.JSON);
+            createIndexRequest.index(INDEX);
+            createIndexRequest.mapping(TASK_TYPE, mappingSource());
             createIndexRequest.cause("auto(task api)");
 
             client.admin().indices().create(createIndexRequest, new ActionListener<CreateIndexResponse>() {
                 @Override
                 public void onResponse(CreateIndexResponse result) {
-                    doStoreResult(taskResult, listener);
+                    doStoreResult(asyncSearchResponse, listener);
                 }
 
                 @Override
@@ -100,7 +115,7 @@ public class AsyncSearchPersistenceService {
                     if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
                         // we have the index, do it
                         try {
-                            doStoreResult(taskResult, listener);
+                            doStoreResult(asyncSearchResponse, listener);
                         } catch (Exception inner) {
                             inner.addSuppressed(e);
                             listener.onFailure(inner);
@@ -111,14 +126,15 @@ public class AsyncSearchPersistenceService {
                 }
             });
         } else {
-            IndexMetadata metaData = state.getMetadata().index(ASYNC_SEARCH_RESPONSE_INDEX);
+            IndexMetadata metaData = state.getMetadata().index(INDEX);
             if (getTaskResultMappingVersion(metaData) < ASYNC_SEARCH_RESPONSE_MAPPING_VERSION) {
                 // The index already exists but doesn't have our mapping
-                client.admin().indices().preparePutMapping(ASYNC_SEARCH_RESPONSE_INDEX).setType(TASK_TYPE)
-                        .setSource(taskResultIndexMapping(), XContentType.JSON)
-                        .execute(ActionListener.delegateFailure(listener, (l, r) -> doStoreResult(taskResult, listener)));
+                client.admin().indices().preparePutMapping(INDEX).setType(TASK_TYPE)
+                        .setSource(mappingSource(), XContentType.JSON)
+                        .execute(ActionListener.delegateFailure(listener, (l, r) -> doStoreResult(asyncSearchResponse,
+                                listener)));
             } else {
-                doStoreResult(taskResult, listener);
+                doStoreResult(asyncSearchResponse, listener);
             }
         }
     }
@@ -135,28 +151,35 @@ public class AsyncSearchPersistenceService {
         return (int) meta.get(ASYNC_SEARCH_RESPONSE_MAPPING_VERSION_META_FIELD);
     }
 
-    private void doStoreResult(TaskResult taskResult, ActionListener<Void> listener) {
-        IndexRequestBuilder index = client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX, TASK_TYPE, taskResult.getTask().getTaskId().toString());
-        try (XContentBuilder builder = XContentFactory.contentBuilder(Requests.INDEX_CONTENT_TYPE)) {
-            taskResult.toXContent(builder, ToXContent.EMPTY_PARAMS);
-            index.setSource(builder);
-        } catch (IOException e) {
-            throw new ElasticsearchException("Couldn't convert task result to XContent for [{}]", e, taskResult.getTask());
-        }
+    private void doStoreResult(AsyncSearchResponse asyncSearchResponse, ActionListener<IndexResponse> listener) {
+
+        Map<String, Object> source = new HashMap<>();
+        source.put(RESPONSE_PROPERTY_NAME, asyncSearchResponse.toString()); //TODO find better serializations
+        source.put(EXPIRATION_TIME_PROPERTY_NAME, asyncSearchResponse.getExpirationTimeMillis());
+        source.put(ID_PROPERTY_NAME, asyncSearchResponse.getId());
+
+        IndexRequestBuilder index = client.prepareIndex(INDEX, TASK_TYPE,
+                asyncSearchResponse.getId()).setSource(source, XContentType.JSON);
+//        try (XContentBuilder builder = XContentFactory.contentBuilder(Requests.INDEX_CONTENT_TYPE)) {
+//            taskResult.toXContent(builder, ToXContent.EMPTY_PARAMS);
+//            index.setSource(builder);
+//        } catch (IOException e) {
+//            throw new ElasticsearchException("Couldn't convert task result to XContent for [{}]", e, taskResult.getTask());
+//        }
         doStoreResult(STORE_BACKOFF_POLICY.iterator(), index, listener);
     }
 
-    private void doStoreResult(Iterator<TimeValue> backoff, IndexRequestBuilder index, ActionListener<Void> listener) {
+    private void doStoreResult(Iterator<TimeValue> backoff, IndexRequestBuilder index, ActionListener<IndexResponse> listener) {
         index.execute(new ActionListener<IndexResponse>() {
             @Override
             public void onResponse(IndexResponse indexResponse) {
-                listener.onResponse(null);
+                listener.onResponse(indexResponse);
             }
 
             @Override
             public void onFailure(Exception e) {
-                if (false == (e instanceof EsRejectedExecutionException)
-                        || false == backoff.hasNext()) {
+                if (!(e instanceof EsRejectedExecutionException)
+                        || !backoff.hasNext()) {
                     listener.onFailure(e);
                 } else {
                     TimeValue wait = backoff.next();
@@ -175,16 +198,58 @@ public class AsyncSearchPersistenceService {
                 .build();
     }
 
-    public String taskResultIndexMapping() {
-        try (InputStream is = getClass().getResourceAsStream(ASYNC_SEARCH_RESPONSE_INDEX_MAPPING_FILE)) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            Streams.copy(is, out);
-            return out.toString(StandardCharsets.UTF_8.name());
-        } catch (Exception e) {
-            logger.error(() -> new ParameterizedMessage(
-                    "failed to create tasks results index template [{}]", ASYNC_SEARCH_RESPONSE_INDEX_MAPPING_FILE), e);
-            throw new IllegalStateException("failed to create tasks results index template [" + ASYNC_SEARCH_RESPONSE_INDEX_MAPPING_FILE + "]", e);
-        }
+    public XContentBuilder mappingSource() throws IOException {
+        XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
+        builder.startObject()
 
+                //meta
+                .startObject("_meta")
+                .field(ASYNC_SEARCH_RESPONSE_MAPPING_VERSION_META_FIELD, ASYNC_SEARCH_RESPONSE_MAPPING_VERSION)
+                .endObject()
+                //meta
+
+                //props
+                .startObject("properties")
+
+                //response
+                .startObject(RESPONSE_PROPERTY_NAME).field("type", "text").endObject()
+                //response
+
+                //expiry
+                .startObject(EXPIRATION_TIME_PROPERTY_NAME).field("type", "keyword").endObject()
+                //expiry
+
+                //id
+                .startObject(ID_PROPERTY_NAME).field("type", "keyword").endObject()
+                //id
+
+                .endObject()
+                //props
+
+                .endObject();
+
+        return builder;
+
+    }
+
+    public AsyncSearchResponse getResponse(String id) throws IOException {
+        GetRequest getRequest = new GetRequest(INDEX)
+                .id(String.valueOf(id));
+        ActionFuture<GetResponse> future = client.get(getRequest);
+        GetResponse getResponse = future.actionGet();
+        if (getResponse.isExists()
+                && getResponse.getSource() != null
+                && getResponse.getSource().containsKey(RESPONSE_PROPERTY_NAME)
+                && getResponse.getSource().containsKey(EXPIRATION_TIME_PROPERTY_NAME)) {
+
+            String responseAsString = (String) getResponse.getSource().get(RESPONSE_PROPERTY_NAME);
+            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(responseAsString.getBytes(StandardCharsets.UTF_8));
+
+            long expirationTime = (Long) getResponse.getSource().get(EXPIRATION_TIME_PROPERTY_NAME);
+            if (expirationTime > System.currentTimeMillis()) {
+                return new AsyncSearchResponse(new InputStreamStreamInput(byteArrayInputStream));
+            }
+        }
+        throw new ResourceNotFoundException("not found");
     }
 }

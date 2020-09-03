@@ -47,7 +47,11 @@ public class GetAsyncSearchActionHandler extends AbstractAsyncSearchAction<GetAs
         ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                 request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
                     //TODO Replace with actual async search response
-                    listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                    try {
+                        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                    } catch (IOException e) {
+                        listener.onFailure(e);
+                    }
                     asyncSearchContext.removeListener(contextListener);
                 });
         //Here we want to be listen onto onFailure/onResponse ONLY or a timeout whichever happens earlier.

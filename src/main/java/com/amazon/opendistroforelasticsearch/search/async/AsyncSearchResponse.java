@@ -19,9 +19,11 @@ import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.ParseField;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.StatusToXContentObject;
+import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.rest.RestStatus;
 
@@ -39,6 +41,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
 
 
     private String id;
+
     private boolean isPartial;
     private boolean isRunning;
     private long startTimeMillis;
@@ -68,6 +71,13 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         this.isPartial = in.readBoolean();
     }
 
+    public long getExpirationTimeMillis() {
+        return expirationTimeMillis;
+    }
+
+    public String getId() {
+        return id;
+    }
 
     @Override
     public RestStatus status() {
@@ -87,8 +97,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
             searchResponse.toXContent(builder, params);
         }
         if (error != null) {
-            builder.field(ERROR.getPreferredName());
-            error.toXContent(builder, params);
+            ElasticsearchException.generateThrowableXContent(builder, ToXContent.EMPTY_PARAMS, error);
         }
         builder.endObject();
         return builder;
@@ -107,5 +116,10 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         out.writeLong(expirationTimeMillis);
         out.writeLong(startTimeMillis);
         out.writeOptionalString(id);
+    }
+
+    @Override
+    public String toString() {
+        return Strings.toString(this);
     }
 }

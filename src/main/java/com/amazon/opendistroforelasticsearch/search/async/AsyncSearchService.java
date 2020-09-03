@@ -68,7 +68,9 @@ public class  AsyncSearchService extends AbstractLifecycleComponent {
 
     private final ConcurrentMapLong<AsyncSearchContext> activeContexts = ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency();
 
-    public AsyncSearchService(Client client, ClusterService clusterService, ThreadPool threadPool) {
+    private final AsyncSearchPersistenceService persistenceService ;
+
+    public AsyncSearchService(AsyncSearchPersistenceService persistenceService, Client client, ClusterService clusterService, ThreadPool threadPool) {
         this.client = client;
         Settings settings = clusterService.getSettings();
         TimeValue keepAliveInterval = KEEPALIVE_INTERVAL_SETTING.get(settings);
@@ -78,6 +80,7 @@ public class  AsyncSearchService extends AbstractLifecycleComponent {
         this.threadPool = threadPool;
         this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new Reaper(), keepAliveInterval, ThreadPool.Names.SAME);
         this.clusterService = clusterService;
+        this.persistenceService = persistenceService;
     }
 
     private void validateKeepAlives(TimeValue defaultKeepAlive, TimeValue maxKeepAlive) {
@@ -121,7 +124,8 @@ public class  AsyncSearchService extends AbstractLifecycleComponent {
                                                         TransportSubmitAsyncSearchAction.SearchTimeProvider timeProvider)
             throws IOException {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
-        AsyncSearchContext asyncSearchContext = new AsyncSearchContext(client, clusterService.localNode().getId(), asyncSearchContextId,
+        AsyncSearchContext asyncSearchContext = new AsyncSearchContext(persistenceService,
+                client, clusterService.localNode().getId(), asyncSearchContextId,
                 submitAsyncSearchRequest.getKeepAlive(),
                 submitAsyncSearchRequest.keepOnCompletion(), task, timeProvider);
         putContext(asyncSearchContext);

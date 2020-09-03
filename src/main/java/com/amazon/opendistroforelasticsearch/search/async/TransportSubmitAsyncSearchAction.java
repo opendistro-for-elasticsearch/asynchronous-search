@@ -36,6 +36,7 @@ import org.elasticsearch.tasks.TaskCancelledException;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -116,7 +117,11 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         if(asyncSearchContext.isCancelled()) {
           listener.onFailure(new ResourceNotFoundException("Search cancelled"));
         }
-        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+        try {
+            listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+        } catch (IOException e) {
+            listener.onFailure(e);
+        }
         asyncSearchContext.removeListener(contextListener);
     }
 

@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.TransportDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.TransportGetAsyncSearchAction;
@@ -75,7 +76,10 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSch
                                                NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry,
                                                IndexNameExpressionResolver indexNameExpressionResolver,
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
-        return Collections.singleton(new AsyncSearchService(client, clusterService, threadPool));
+        AsyncSearchPersistenceService asyncSearchPersistenceService = new AsyncSearchPersistenceService(client
+                , clusterService, threadPool, namedWriteableRegistry);
+        return Arrays.asList(asyncSearchPersistenceService,
+                new AsyncSearchService(asyncSearchPersistenceService,client, clusterService, threadPool));
     }
 
     @Override

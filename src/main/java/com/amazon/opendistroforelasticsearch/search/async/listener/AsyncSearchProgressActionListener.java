@@ -27,6 +27,7 @@ import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -176,7 +177,11 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         //asyncSearchContext.getListeners().forEach(listener -> listener.onResponse(null));
-        asyncSearchContext.processFinalResponse(searchResponse);
+        try {
+            asyncSearchContext.processFinalResponse(searchResponse);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
