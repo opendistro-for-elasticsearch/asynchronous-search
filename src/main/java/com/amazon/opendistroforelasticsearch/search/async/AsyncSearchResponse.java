@@ -60,15 +60,52 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         this.error = error;
     }
 
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeString(id);
+        out.writeBoolean(isPartial);
+        out.writeBoolean(isRunning);
+        out.writeLong(startTimeMillis);
+        out.writeLong(expirationTimeMillis);
+        out.writeOptionalWriteable(searchResponse);
+        if (error != null) {
+            out.writeBoolean(true);
+            out.writeException(error);
+
+        } else {
+            out.writeBoolean(false);
+        }
+    }
+
     public AsyncSearchResponse(StreamInput in) throws IOException {
-        super(in);
-        this.id = in.readOptionalString();
-        this.error = in.readBoolean() ? in.readException() : null;
-        this.searchResponse = in.readBoolean() ? new SearchResponse(in) : null;
+        this.id = in.readString();
+        this.isPartial = in.readBoolean();
+        this.isRunning = in.readBoolean();
         this.startTimeMillis = in.readLong();
         this.expirationTimeMillis = in.readLong();
-        this.isRunning = in.readBoolean();
-        this.isPartial = in.readBoolean();
+        this.searchResponse = in.readOptionalWriteable(SearchResponse::new);
+        this.error = in.readBoolean() ? in.readException() :  null;
+    }
+
+    @Override
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        builder.startObject();
+        builder.field(ID.getPreferredName(), id);
+        builder.field(IS_PARTIAL.getPreferredName(), isPartial);
+        builder.field(IS_RUNNING.getPreferredName(), isRunning);
+        builder.field(START_TIME_IN_MILLIS.getPreferredName(), startTimeMillis);
+        builder.field(EXPIRATION_TIME_IN_MILLIS.getPreferredName(), expirationTimeMillis);
+        if (searchResponse != null) {
+            builder.field(RESPONSE.getPreferredName());
+            searchResponse.toXContent(builder, params);
+        }
+        if (error != null) {
+            builder.startObject(ERROR.getPreferredName());
+            ElasticsearchException.generateThrowableXContent(builder, ToXContent.EMPTY_PARAMS, error);
+            builder.endObject();
+        }
+        builder.endObject();
+        return builder;
     }
 
     public long getExpirationTimeMillis() {
@@ -82,40 +119,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     @Override
     public RestStatus status() {
         return searchResponse == null ? null : searchResponse.status();
-    }
-
-    @Override
-    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.startObject();
-        builder.field(IS_PARTIAL.getPreferredName(), isPartial);
-        builder.field(ID.getPreferredName(), id);
-        builder.field(IS_RUNNING.getPreferredName(), isRunning);
-        builder.field(EXPIRATION_TIME_IN_MILLIS.getPreferredName(), expirationTimeMillis);
-        builder.field(START_TIME_IN_MILLIS.getPreferredName(), startTimeMillis);
-        if (searchResponse != null) {
-            builder.field(RESPONSE.getPreferredName());
-            searchResponse.toXContent(builder, params);
-        }
-        if (error != null) {
-            ElasticsearchException.generateThrowableXContent(builder, ToXContent.EMPTY_PARAMS, error);
-        }
-        builder.endObject();
-        return builder;
-    }
-
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        if (searchResponse != null) {
-            searchResponse.writeTo(out);
-        }
-        if (error != null) {
-            out.writeException(error);
-        }
-        out.writeBoolean(isRunning);
-        out.writeBoolean(isPartial);
-        out.writeLong(expirationTimeMillis);
-        out.writeLong(startTimeMillis);
-        out.writeOptionalString(id);
     }
 
     @Override
