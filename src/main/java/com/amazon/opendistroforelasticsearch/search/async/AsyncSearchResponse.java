@@ -118,7 +118,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
 
     @Override
     public RestStatus status() {
-        return searchResponse == null ? null : searchResponse.status();
+        return searchResponse == null ? RestStatus.OK : searchResponse.status();
     }
 
     @Override

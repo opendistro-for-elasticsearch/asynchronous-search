@@ -38,16 +38,9 @@ public class AsyncSearchTask extends SearchTask {
         onCancelledReleasables = new LinkedList<>();
     }
 
-    /**
-     * Attach a {@link AsyncSearchProgressActionListener} to this task.
-     */
-    public final void setProgressListener(AsyncSearchProgressActionListener progressActionListener) {
-        this.progressActionListener = progressActionListener;
-        super.setProgressListener(progressActionListener);
-    }
-
     @Override
     protected void onCancelled() {
+        logger.warn("Async search parent cancelled");
         onCancelledReleasables.forEach(releasable -> {
             try {
                 releasable.close();
