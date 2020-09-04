@@ -23,7 +23,8 @@ import org.elasticsearch.cluster.metadata.MappingMetadata;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.io.stream.InputStreamStreamInput;
+import org.elasticsearch.common.io.stream.BytesStreamOutput;
+import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -34,9 +35,7 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.tasks.TaskResult;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -94,7 +93,6 @@ public class AsyncSearchPersistenceService {
     //TODO add update response
     public void createResponse(TaskResult taskResult, AsyncSearchResponse asyncSearchResponse, ActionListener<IndexResponse> listener)
             throws IOException {
-        BytesReference response = taskResult.getResponse();
         ClusterState state = clusterService.state();
 
         if (state.routingTable().hasIndex(INDEX) == false) {
@@ -107,7 +105,7 @@ public class AsyncSearchPersistenceService {
             client.admin().indices().create(createIndexRequest, new ActionListener<CreateIndexResponse>() {
                 @Override
                 public void onResponse(CreateIndexResponse result) {
-                    doStoreResult(asyncSearchResponse, listener);
+                    doStoreResult(taskResult, asyncSearchResponse, listener);
                 }
 
                 @Override
@@ -115,7 +113,7 @@ public class AsyncSearchPersistenceService {
                     if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
                         // we have the index, do it
                         try {
-                            doStoreResult(asyncSearchResponse, listener);
+                            doStoreResult(taskResult, asyncSearchResponse, listener);
                         } catch (Exception inner) {
                             inner.addSuppressed(e);
                             listener.onFailure(inner);
@@ -131,10 +129,10 @@ public class AsyncSearchPersistenceService {
                 // The index already exists but doesn't have our mapping
                 client.admin().indices().preparePutMapping(INDEX).setType(TASK_TYPE)
                         .setSource(mappingSource(), XContentType.JSON)
-                        .execute(ActionListener.delegateFailure(listener, (l, r) -> doStoreResult(asyncSearchResponse,
+                        .execute(ActionListener.delegateFailure(listener, (l, r) -> doStoreResult(taskResult,asyncSearchResponse,
                                 listener)));
             } else {
-                doStoreResult(asyncSearchResponse, listener);
+                doStoreResult(taskResult, asyncSearchResponse, listener);
             }
         }
     }
@@ -151,22 +149,53 @@ public class AsyncSearchPersistenceService {
         return (int) meta.get(ASYNC_SEARCH_RESPONSE_MAPPING_VERSION_META_FIELD);
     }
 
-    private void doStoreResult(AsyncSearchResponse asyncSearchResponse, ActionListener<IndexResponse> listener) {
+    private void doStoreResult(TaskResult taskResult, AsyncSearchResponse asyncSearchResponse, ActionListener<IndexResponse> listener) {
 
         Map<String, Object> source = new HashMap<>();
-        source.put(RESPONSE_PROPERTY_NAME, asyncSearchResponse.toString()); //TODO find better serializations
+        try {
+            source.put(RESPONSE_PROPERTY_NAME, serializeResponse(asyncSearchResponse)); //TODO find better serializations
+        } catch (IOException e) {
+            listener.onFailure(e);
+        }
         source.put(EXPIRATION_TIME_PROPERTY_NAME, asyncSearchResponse.getExpirationTimeMillis());
         source.put(ID_PROPERTY_NAME, asyncSearchResponse.getId());
-
         IndexRequestBuilder index = client.prepareIndex(INDEX, TASK_TYPE,
                 asyncSearchResponse.getId()).setSource(source, XContentType.JSON);
-//        try (XContentBuilder builder = XContentFactory.contentBuilder(Requests.INDEX_CONTENT_TYPE)) {
-//            taskResult.toXContent(builder, ToXContent.EMPTY_PARAMS);
-//            index.setSource(builder);
-//        } catch (IOException e) {
-//            throw new ElasticsearchException("Couldn't convert task result to XContent for [{}]", e, taskResult.getTask());
-//        }
         doStoreResult(STORE_BACKOFF_POLICY.iterator(), index, listener);
+    }
+
+    private BytesReference serializeResponse(AsyncSearchResponse asyncSearchResponse) throws IOException {
+
+        //FIXME : Here I create an output stream. write response to it i.e. serialization and try to create response
+        // from the bytes of the output stream's input (deserialization). Need to achieve the same result from whatever we index in the doc
+        // be it as string or bytes.
+
+        try(BytesStreamOutput out = new BytesStreamOutput()) {
+            asyncSearchResponse.writeTo(out);
+            AsyncSearchResponse deserialized = new AsyncSearchResponse(
+                    new NamedWriteableAwareStreamInput(out.bytes().streamInput(), namedWriteableRegistry));
+            assert deserialized.getId().equals(asyncSearchResponse.getId());
+        }
+
+        try(BytesStreamOutput out = new BytesStreamOutput()) {
+            asyncSearchResponse.writeTo(out);
+            return out.bytes();
+        }
+    }
+
+
+    public AsyncSearchResponse parseResponse(BytesReference bytesReference) {
+        try {
+            NamedWriteableAwareStreamInput wrapperStreamInput = new NamedWriteableAwareStreamInput(bytesReference.streamInput(),
+                    namedWriteableRegistry);
+            AsyncSearchResponse asyncSearchResponse = new AsyncSearchResponse(wrapperStreamInput);
+            wrapperStreamInput.close();
+            return asyncSearchResponse;
+
+
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Cannot parse async search id", e);
+        }
     }
 
     private void doStoreResult(Iterator<TimeValue> backoff, IndexRequestBuilder index, ActionListener<IndexResponse> listener) {
@@ -242,12 +271,11 @@ public class AsyncSearchPersistenceService {
                 && getResponse.getSource().containsKey(RESPONSE_PROPERTY_NAME)
                 && getResponse.getSource().containsKey(EXPIRATION_TIME_PROPERTY_NAME)) {
 
-            String responseAsString = (String) getResponse.getSource().get(RESPONSE_PROPERTY_NAME);
-            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(responseAsString.getBytes(StandardCharsets.UTF_8));
+            BytesReference bytesReference = (BytesReference) getResponse.getSource().get(RESPONSE_PROPERTY_NAME);
 
             long expirationTime = (Long) getResponse.getSource().get(EXPIRATION_TIME_PROPERTY_NAME);
             if (expirationTime > System.currentTimeMillis()) {
-                return new AsyncSearchResponse(new InputStreamStreamInput(byteArrayInputStream));
+                return parseResponse(bytesReference);
             }
         }
         throw new ResourceNotFoundException("not found");
