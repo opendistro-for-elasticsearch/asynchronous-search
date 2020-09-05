@@ -76,15 +76,18 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         try {
             //For cancellation of child task, simply setting parent task id won't suffice.
             //It also requires registering node on which child task (transport search action) will be executed with parent task id in the task manager.
-            taskManager.registerChildNode(task.getId(), clusterService.localNode());
+            Releasable unregisterChildNode = taskManager.registerChildNode(task.getId(), clusterService.localNode());
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
-            SearchTask searchTask =  (SearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(), request.getSearchRequest());
+            SearchTask searchTask = (SearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(), request.getSearchRequest());
 
             final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
             AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, searchTask, timeProvider);
 
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext,
-                    () -> taskManager.unregister(searchTask));
+                    () -> {
+                    taskManager.unregister(searchTask);
+                    unregisterChildNode.close();
+            });
             searchTask.setProgressListener(progressActionListener);
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
 
