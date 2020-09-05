@@ -144,9 +144,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         logger.info("isCancelled:{}, isExpired:{}, isPersisted:{}", isCancelled(), isExpired(), isPersisted.get());
         String id = AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, asyncSearchContextId));
         logger.info("ID is {}", id);
-        //return isPersisted.get() ?
-        //persistenceService.getResponse(id) :
-         return new AsyncSearchResponse(id, isPartial(), isRunning(), startTimeMillis, getExpirationTimeMillis(),
+        return isPersisted.get() ? persistenceService.getResponse(id) : new AsyncSearchResponse(id, isPartial(), isRunning(), startTimeMillis, getExpirationTimeMillis(),
                 isRunning() ? buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
 
 
