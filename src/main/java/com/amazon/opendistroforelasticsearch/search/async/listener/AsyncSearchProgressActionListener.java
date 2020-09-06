@@ -61,7 +61,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         try {
-            Thread.sleep(20000);
+//            Thread.sleep(20000);
         } catch (Exception e) {
             logger.info("erro");
         }
@@ -80,7 +80,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         try {
-           Thread.sleep(40000);
+//           Thread.sleep(20000);
         } catch (Exception e) {
             logger.info("erro");
         }
@@ -102,7 +102,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         try {
-//            Thread.sleep(4000);
+//           Thread.sleep(40000);
         } catch (Exception e) {
             logger.info("erro");
         }
@@ -134,7 +134,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         try {
-            //Thread.sleep(2000);
+//            Thread.sleep(20000);
         } catch (Exception e) {
             logger.info("erro");
         }
@@ -166,7 +166,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             return;
         }
         try {
-            Thread.sleep(20000);
+//            Thread.sleep(50000);
         } catch (Exception e) {
             logger.info("error");
         }

@@ -36,6 +36,8 @@ import org.elasticsearch.tasks.TaskResult;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -154,17 +156,17 @@ public class AsyncSearchPersistenceService {
         Map<String, Object> source = new HashMap<>();
         try {
             source.put(RESPONSE_PROPERTY_NAME, serializeResponse(asyncSearchResponse)); //TODO find better serializations
+            source.put(EXPIRATION_TIME_PROPERTY_NAME, asyncSearchResponse.getExpirationTimeMillis());
+            source.put(ID_PROPERTY_NAME, asyncSearchResponse.getId());
         } catch (IOException e) {
             listener.onFailure(e);
         }
-        source.put(EXPIRATION_TIME_PROPERTY_NAME, asyncSearchResponse.getExpirationTimeMillis());
-        source.put(ID_PROPERTY_NAME, asyncSearchResponse.getId());
         IndexRequestBuilder index = client.prepareIndex(INDEX, TASK_TYPE,
                 asyncSearchResponse.getId()).setSource(source, XContentType.JSON);
         doStoreResult(STORE_BACKOFF_POLICY.iterator(), index, listener);
     }
 
-    private BytesReference serializeResponse(AsyncSearchResponse asyncSearchResponse) throws IOException {
+    private String serializeResponse(AsyncSearchResponse asyncSearchResponse) throws IOException {
 
         //FIXME : Here I create an output stream. write response to it i.e. serialization and try to create response
         // from the bytes of the output stream's input (deserialization). Need to achieve the same result from whatever we index in the doc
@@ -172,27 +174,25 @@ public class AsyncSearchPersistenceService {
 
         try(BytesStreamOutput out = new BytesStreamOutput()) {
             asyncSearchResponse.writeTo(out);
-            AsyncSearchResponse deserialized = new AsyncSearchResponse(
-                    new NamedWriteableAwareStreamInput(out.bytes().streamInput(), namedWriteableRegistry));
-            assert deserialized.getId().equals(asyncSearchResponse.getId());
-        }
-
-        try(BytesStreamOutput out = new BytesStreamOutput()) {
-            asyncSearchResponse.writeTo(out);
-            return out.bytes();
+            byte[] bytes = BytesReference.toBytes(out.bytes());
+//            AsyncSearchResponse deserialized = new AsyncSearchResponse(
+//                    new NamedWriteableAwareStreamInput(
+//                            BytesReference.fromByteBuffer(ByteBuffer.wrap(BytesReference.toBytes(out.bytes()))).streamInput(),
+//                            namedWriteableRegistry));
+//            assert deserialized.getId().equals(asyncSearchResponse.getId());
+            return Base64.getUrlEncoder().encodeToString(bytes);
         }
     }
 
 
-    public AsyncSearchResponse parseResponse(BytesReference bytesReference) {
+    public AsyncSearchResponse parseResponse(String responseField) {
         try {
+            BytesReference bytesReference = BytesReference.fromByteBuffer(ByteBuffer.wrap(Base64.getUrlDecoder().decode(responseField)));
             NamedWriteableAwareStreamInput wrapperStreamInput = new NamedWriteableAwareStreamInput(bytesReference.streamInput(),
                     namedWriteableRegistry);
             AsyncSearchResponse asyncSearchResponse = new AsyncSearchResponse(wrapperStreamInput);
             wrapperStreamInput.close();
             return asyncSearchResponse;
-
-
         } catch (Exception e) {
             throw new IllegalArgumentException("Cannot parse async search id", e);
         }
@@ -271,11 +271,11 @@ public class AsyncSearchPersistenceService {
                 && getResponse.getSource().containsKey(RESPONSE_PROPERTY_NAME)
                 && getResponse.getSource().containsKey(EXPIRATION_TIME_PROPERTY_NAME)) {
 
-            BytesReference bytesReference = (BytesReference) getResponse.getSource().get(RESPONSE_PROPERTY_NAME);
 
             long expirationTime = (Long) getResponse.getSource().get(EXPIRATION_TIME_PROPERTY_NAME);
             if (expirationTime > System.currentTimeMillis()) {
-                return parseResponse(bytesReference);
+                AsyncSearchResponse asyncSearchResponse = parseResponse((String) getResponse.getSource().get(RESPONSE_PROPERTY_NAME));
+                return asyncSearchResponse;
             }
         }
         throw new ResourceNotFoundException("not found");
