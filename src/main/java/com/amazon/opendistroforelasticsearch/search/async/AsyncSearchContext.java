@@ -109,6 +109,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     public void addListener(ActionListener<AsyncSearchResponse> listener) {
+        assert isRunning.get() == true : "Listener added after completion";
         this.listeners.add(listener);
     }
 

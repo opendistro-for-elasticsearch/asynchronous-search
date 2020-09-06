@@ -119,7 +119,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         logger.warn("onFetchFailure --> shardIndex :{}, shardTarget: {}", shardIndex, shardTarget);
         if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
-            return;
+            asyncSearchContext.processFailure(exc);
         }
         ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
         numFetchFailures.incrementAndGet();
@@ -147,7 +147,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         logger.warn("onQueryFailure --> shardIndex: {}, searchTarget: {}", shardIndex, shardTarget, exc);
         if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
-            return;
+            asyncSearchContext.processFailure(exc);
         }
         ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
         numQueryFailures.incrementAndGet();
@@ -163,7 +163,6 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         logger.warn("onQueryResult --> shardIndex: {}", shardIndex);
         if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
-            return;
         }
         try {
 //            Thread.sleep(50000);
