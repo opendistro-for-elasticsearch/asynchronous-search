@@ -5,16 +5,18 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.ResourceAlreadyExistsException;
-import org.elasticsearch.ResourceNotFoundException;
-import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
+import org.elasticsearch.action.delete.DeleteRequest;
+import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.OriginSettingClient;
 import org.elasticsearch.cluster.ClusterState;
@@ -52,11 +54,11 @@ public class AsyncSearchPersistenceService {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceService.class);
 
-    private static final String RESPONSE_PROPERTY_NAME = "response";
+    static final String RESPONSE_PROPERTY_NAME = "response";
 
-    public static final String EXPIRATION_TIME_PROPERTY_NAME = "expiration_time";
+    static final String EXPIRATION_TIME_PROPERTY_NAME = "expiration_time";
 
-    public static final String ID_PROPERTY_NAME = "id";
+    static final String ID_PROPERTY_NAME = "id";
 
     private static final String INDEX = ".async_search_response";
 
@@ -97,7 +99,7 @@ public class AsyncSearchPersistenceService {
             throws IOException {
         ClusterState state = clusterService.state();
 
-        if (state.routingTable().hasIndex(INDEX) == false) {
+        if (!state.routingTable().hasIndex(INDEX)) {
             CreateIndexRequest createIndexRequest = new CreateIndexRequest();
             createIndexRequest.settings(taskResultIndexSettings());
             createIndexRequest.index(INDEX);
@@ -131,7 +133,7 @@ public class AsyncSearchPersistenceService {
                 // The index already exists but doesn't have our mapping
                 client.admin().indices().preparePutMapping(INDEX).setType(TASK_TYPE)
                         .setSource(mappingSource(), XContentType.JSON)
-                        .execute(ActionListener.delegateFailure(listener, (l, r) -> doStoreResult(taskResult,asyncSearchResponse,
+                        .execute(ActionListener.delegateFailure(listener, (l, r) -> doStoreResult(taskResult, asyncSearchResponse,
                                 listener)));
             } else {
                 doStoreResult(taskResult, asyncSearchResponse, listener);
@@ -172,7 +174,7 @@ public class AsyncSearchPersistenceService {
         // from the bytes of the output stream's input (deserialization). Need to achieve the same result from whatever we index in the doc
         // be it as string or bytes.
 
-        try(BytesStreamOutput out = new BytesStreamOutput()) {
+        try (BytesStreamOutput out = new BytesStreamOutput()) {
             asyncSearchResponse.writeTo(out);
             byte[] bytes = BytesReference.toBytes(out.bytes());
 //            AsyncSearchResponse deserialized = new AsyncSearchResponse(
@@ -261,23 +263,36 @@ public class AsyncSearchPersistenceService {
 
     }
 
-    public AsyncSearchResponse getResponse(String id) throws IOException {
+    public void getResponse(String id, ActionListener<GetResponse> actionListener) throws IOException {
         GetRequest getRequest = new GetRequest(INDEX)
                 .id(String.valueOf(id));
-        ActionFuture<GetResponse> future = client.get(getRequest);
-        GetResponse getResponse = future.actionGet();
-        if (getResponse.isExists()
-                && getResponse.getSource() != null
-                && getResponse.getSource().containsKey(RESPONSE_PROPERTY_NAME)
-                && getResponse.getSource().containsKey(EXPIRATION_TIME_PROPERTY_NAME)) {
+        client.get(getRequest, actionListener);
+    }
 
+    public void deleteResponse(String id) {
+        DeleteRequest deleteRequest = new DeleteRequest(INDEX, id);
+        client.delete(deleteRequest, new ActionListener<DeleteResponse>() {
+            @Override
+            public void onResponse(DeleteResponse deleteResponse) {}
 
-            long expirationTime = (Long) getResponse.getSource().get(EXPIRATION_TIME_PROPERTY_NAME);
-            if (expirationTime > System.currentTimeMillis()) {
-                AsyncSearchResponse asyncSearchResponse = parseResponse((String) getResponse.getSource().get(RESPONSE_PROPERTY_NAME));
-                return asyncSearchResponse;
+            @Override
+            public void onFailure(Exception e) {
+                logger.error("Failed to delete async search {}",id , e);
             }
-        }
-        throw new ResourceNotFoundException("not found");
+        });
+    }
+
+    public void updateExpirationTime(String id, long expirationTimeMillis) {
+        Map<String, Object> source = new HashMap<>();
+        source.put(EXPIRATION_TIME_PROPERTY_NAME, expirationTimeMillis);
+        UpdateRequest updateRequest = new UpdateRequest(INDEX,id);
+        updateRequest.doc(source,XContentType.JSON);
+        client.update(updateRequest, new ActionListener<UpdateResponse>() {
+            @Override
+            public void onResponse(UpdateResponse updateResponse) {}
+
+            @Override
+            public void onFailure(Exception e) {}
+        });
     }
 }

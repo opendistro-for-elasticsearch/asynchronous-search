@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchTask;
@@ -29,7 +28,6 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.ConcurrentCollections;
 import org.elasticsearch.common.util.concurrent.ConcurrentMapLong;
 import org.elasticsearch.search.SearchService;
-import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -133,7 +131,9 @@ public class  AsyncSearchService extends AbstractLifecycleComponent {
     }
 
 
-    public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
+    public boolean freeContext(AsyncSearchContextId asyncSearchContextId) throws IOException {
+        persistenceService.deleteResponse(AsyncSearchId.buildAsyncId(
+                new AsyncSearchId(clusterService.localNode().getId(), asyncSearchContextId)));
         AsyncSearchContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
         if (asyncSearchContext != null) {
             logger.info("Removing {} from context map", asyncSearchContextId);
@@ -152,7 +152,13 @@ public class  AsyncSearchService extends AbstractLifecycleComponent {
     @Override
     protected void doStop() {
         for (final AsyncSearchContext context : activeContexts.values()) {
-            freeContext(context.getAsyncSearchContextId());
+            AsyncSearchContextId asyncSearchContextId = context.getAsyncSearchContextId();
+            try {
+                freeContext(asyncSearchContextId);
+            } catch (IOException e) {
+
+                logger.error("Failed to free async search context " + asyncSearchContextId.toString(), e);
+            }
         }
     }
 

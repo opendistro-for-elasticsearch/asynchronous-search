@@ -11,6 +11,8 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.transport.TransportService;
 
+import java.io.IOException;
+
 public class DeleteAsyncSearchActionHandler extends AbstractAsyncSearchAction<DeleteAsyncSearchRequest, AcknowledgedResponse> {
 
     private final Client client;
@@ -29,10 +31,14 @@ public class DeleteAsyncSearchActionHandler extends AbstractAsyncSearchAction<De
     public void handleRequest(AsyncSearchId asyncSearchId, DeleteAsyncSearchRequest request,
                               ActionListener<AcknowledgedResponse> listener) {
         AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
-        if (asyncSearchContext.isCancelled()) {
+        try {
             asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());
+        } catch (IOException e) {
+            logger.error("Failed to free context {}", asyncSearchId.getAsyncSearchContextId());
+        }
+        if (asyncSearchContext.isCancelled()) {
             listener.onFailure(new ResourceNotFoundException(request.getId()));
         }
-        asyncSearchContext.cancelTask();
+
     }
 }
