@@ -170,10 +170,6 @@ public class AsyncSearchPersistenceService {
 
     private String serializeResponse(AsyncSearchResponse asyncSearchResponse) throws IOException {
 
-        //FIXME : Here I create an output stream. write response to it i.e. serialization and try to create response
-        // from the bytes of the output stream's input (deserialization). Need to achieve the same result from whatever we index in the doc
-        // be it as string or bytes.
-
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             asyncSearchResponse.writeTo(out);
             byte[] bytes = BytesReference.toBytes(out.bytes());
@@ -263,10 +259,26 @@ public class AsyncSearchPersistenceService {
 
     }
 
-    public void getResponse(String id, ActionListener<GetResponse> actionListener) throws IOException {
+    public void getResponse(String id, ActionListener<AsyncSearchResponse> actionListener) throws IOException {
         GetRequest getRequest = new GetRequest(INDEX)
                 .id(String.valueOf(id));
-        client.get(getRequest, actionListener);
+        client.get(getRequest, new ActionListener<GetResponse>() {
+            @Override
+            public void onResponse(GetResponse getResponse) {
+                if (getResponse.isExists()
+                        && getResponse.getSource() != null
+                        && getResponse.getSource().containsKey(AsyncSearchPersistenceService.RESPONSE_PROPERTY_NAME)
+                        && getResponse.getSource().containsKey(AsyncSearchPersistenceService.EXPIRATION_TIME_PROPERTY_NAME)) {
+                    actionListener.onResponse(parseResponse((String)
+                            getResponse.getSource().get(AsyncSearchPersistenceService.RESPONSE_PROPERTY_NAME)));
+                };
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                actionListener.onFailure(e);
+            }
+        });
     }
 
     public void deleteResponse(String id) {

@@ -22,7 +22,6 @@ import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksRequest;
 import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksResponse;
-import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
@@ -277,28 +276,12 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         //clear further
     }
 
-    public void getAsyncSearchResponse(ActionListener<AsyncSearchResponse> wrappedListener) {
+    public void getAsyncSearchResponse(ActionListener<AsyncSearchResponse> listener) {
         if(isPersisted()) {
             try {
-                persistenceService.getResponse(getId(), new ActionListener<GetResponse>() {
-                    @Override
-                    public void onResponse(GetResponse getResponse) {
-                        if (getResponse.isExists()
-                                && getResponse.getSource() != null
-                                && getResponse.getSource().containsKey(AsyncSearchPersistenceService.RESPONSE_PROPERTY_NAME)
-                                && getResponse.getSource().containsKey(AsyncSearchPersistenceService.EXPIRATION_TIME_PROPERTY_NAME)) {
-                            wrappedListener.onResponse(persistenceService.parseResponse((String)
-                                    getResponse.getSource().get(AsyncSearchPersistenceService.RESPONSE_PROPERTY_NAME)));
-                        };
-                    }
-
-                    @Override
-                    public void onFailure(Exception e) {
-                        wrappedListener.onFailure(e);
-                    }
-                });
+                persistenceService.getResponse(getId(),listener);
             } catch (IOException e) {
-                wrappedListener.onFailure(e);
+                listener.onFailure(e);
             }
         }
 
