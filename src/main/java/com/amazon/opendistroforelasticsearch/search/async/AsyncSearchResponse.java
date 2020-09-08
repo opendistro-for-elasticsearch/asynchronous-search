@@ -49,6 +49,26 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     private SearchResponse searchResponse;
     private ElasticsearchException error;
 
+    public boolean isPartial() {
+        return isPartial;
+    }
+
+    public boolean isRunning() {
+        return isRunning;
+    }
+
+    public long getStartTimeMillis() {
+        return startTimeMillis;
+    }
+
+    public SearchResponse getSearchResponse() {
+        return searchResponse;
+    }
+
+    public ElasticsearchException getError() {
+        return error;
+    }
+
     public AsyncSearchResponse(String id, boolean isPartial, boolean isRunning, long startTimeMillis, long expirationTimeMillis,
                                SearchResponse searchResponse, ElasticsearchException error) {
         this.id = id;
@@ -58,6 +78,16 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         this.expirationTimeMillis = expirationTimeMillis;
         this.searchResponse = searchResponse;
         this.error = error;
+    }
+
+    public AsyncSearchResponse(AsyncSearchResponse response, long expirationTimeMillis) {
+        this.isPartial = response.isPartial();
+        this.isRunning = response.isRunning();
+        this.startTimeMillis = response.getStartTimeMillis();
+        this.expirationTimeMillis = expirationTimeMillis;
+        this.searchResponse = response.getSearchResponse();
+        this.error = response.getError();
+
     }
 
     @Override

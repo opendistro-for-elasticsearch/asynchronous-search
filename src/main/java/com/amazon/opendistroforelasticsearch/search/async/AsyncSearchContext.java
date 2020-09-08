@@ -61,7 +61,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     private final SearchTask task;
     private final Client client;
-    private final PartialResultsHolder resultsHolder;
+    private final AtomicReference<PartialResultsHolder> resultsHolder;
     private final long startTimeMillis;
     private final String nodeId;
     private final AtomicLong expirationTimeMillis;
@@ -74,7 +74,8 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final Collection<ActionListener<AsyncSearchResponse>> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 
-    public AsyncSearchContext(AsyncSearchPersistenceService persistenceService, Client client, String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, SearchTask task,
+    public AsyncSearchContext(AsyncSearchPersistenceService persistenceService, Client client, String nodeId,
+                              AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, SearchTask task,
                               TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider) {
         super("async_search_context");
         this.persistenceService = persistenceService;
@@ -84,7 +85,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.task = task;
         this.keepOnCompletion = keepOnCompletion;
         this.searchTimeProvider = searchTimeProvider;
-        this.resultsHolder = new PartialResultsHolder();
+        this.resultsHolder = new AtomicReference<>(new PartialResultsHolder());
         this.startTimeMillis = searchTimeProvider.getAbsoluteStartMillis();
         this.expirationTimeMillis = new AtomicLong(startTimeMillis + keepAlive.getMillis());
         this.isRunning = new AtomicBoolean(true);
@@ -100,7 +101,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     public PartialResultsHolder getResultsHolder() {
-        return resultsHolder;
+        return resultsHolder.get();
     }
 
 
@@ -208,14 +209,16 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     private SearchResponse buildPartialSearchResponse() {
-        if (resultsHolder.isResponseInitialized.get()) {
-            SearchHits searchHits = new SearchHits(SearchHits.EMPTY, resultsHolder.totalHits, Float.NaN);
-            InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits, resultsHolder.internalAggregations,
-                    null, null, false, false, resultsHolder.reducePhase.get());
-            ShardSearchFailure[] shardSearchFailures = resultsHolder.shardSearchFailuresFailures.toArray(new ShardSearchFailure[]{});
+        PartialResultsHolder partialResultsHolder = getResultsHolder();
+        if (partialResultsHolder.isResponseInitialized.get()) {
+            SearchHits searchHits = new SearchHits(SearchHits.EMPTY, partialResultsHolder.totalHits, Float.NaN);
+            InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits, partialResultsHolder.internalAggregations,
+                    null, null, false, false, partialResultsHolder.reducePhase.get());
+            ShardSearchFailure[] shardSearchFailures = partialResultsHolder.shardSearchFailuresFailures.toArray(new ShardSearchFailure[]{});
             long tookInMillis = System.currentTimeMillis() - task.getStartTime();
-            return new SearchResponse(internalSearchResponse, null, resultsHolder.totalShards.get(),
-                    resultsHolder.successfulShards.get(), resultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures, resultsHolder.clusters);
+            return new SearchResponse(internalSearchResponse, null, partialResultsHolder.totalShards.get(),
+                    partialResultsHolder.successfulShards.get(), partialResultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures,
+                    partialResultsHolder.clusters);
         } else {
             return null;
         }
@@ -230,8 +233,8 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
 
-    public void processFinalResponse(SearchResponse searchResponse) throws IOException {
-        this.searchResponse.compareAndSet(null, searchResponse);
+    public void processFinalResponse(SearchResponse response) throws IOException {
+        this.searchResponse.compareAndSet(null, response);
         this.isCompleted.set(true);
         this.isRunning.set(false);
         this.isPartial.set(false);
@@ -241,7 +244,8 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
                     @Override
                     public void onResponse(IndexResponse indexResponse) {
                         persisted.compareAndSet(false, true);
-                        //TODO clear partial result holder and resposne variables from memory now that response is persisted
+                        searchResponse.compareAndSet(response,null);
+                        resultsHolder.set(null);
                     }
 
                     @Override
@@ -289,7 +293,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
 
 
-    public class PartialResultsHolder {
+    public static class PartialResultsHolder {
 
         private final List<ShardSearchFailure> shardSearchFailuresFailures = new ArrayList<>();
 

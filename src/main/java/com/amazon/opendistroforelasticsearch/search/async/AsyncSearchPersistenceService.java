@@ -54,11 +54,11 @@ public class AsyncSearchPersistenceService {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceService.class);
 
-    static final String RESPONSE_PROPERTY_NAME = "response";
+    private static final String RESPONSE_PROPERTY_NAME = "response";
 
-    static final String EXPIRATION_TIME_PROPERTY_NAME = "expiration_time";
+    private static final String EXPIRATION_TIME_PROPERTY_NAME = "expiration_time";
 
-    static final String ID_PROPERTY_NAME = "id";
+    private static final String ID_PROPERTY_NAME = "id";
 
     private static final String INDEX = ".async_search_response";
 
@@ -94,7 +94,6 @@ public class AsyncSearchPersistenceService {
         this.threadPool = threadPool;
     }
 
-    //TODO add update response
     public void createResponse(TaskResult taskResult, AsyncSearchResponse asyncSearchResponse, ActionListener<IndexResponse> listener)
             throws IOException {
         ClusterState state = clusterService.state();
@@ -141,6 +140,59 @@ public class AsyncSearchPersistenceService {
         }
     }
 
+    public void getResponse(String id, ActionListener<AsyncSearchResponse> actionListener) {
+        GetRequest getRequest = new GetRequest(INDEX)
+                .id(String.valueOf(id));
+        client.get(getRequest, new ActionListener<GetResponse>() {
+            @Override
+            public void onResponse(GetResponse getResponse) {
+                if (getResponse.isExists()
+                        && getResponse.getSource() != null
+                        && getResponse.getSource().containsKey(AsyncSearchPersistenceService.RESPONSE_PROPERTY_NAME)
+                        && getResponse.getSource().containsKey(AsyncSearchPersistenceService.EXPIRATION_TIME_PROPERTY_NAME)) {
+                    AsyncSearchResponse response = parseResponse((String)
+                            getResponse.getSource().get(AsyncSearchPersistenceService.RESPONSE_PROPERTY_NAME));
+                    actionListener.onResponse(new AsyncSearchResponse(response,
+                            (long) getResponse.getSource().get(AsyncSearchPersistenceService.EXPIRATION_TIME_PROPERTY_NAME)));
+                }
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                actionListener.onFailure(e);
+            }
+        });
+    }
+
+    public void deleteResponse(String id) {
+        DeleteRequest deleteRequest = new DeleteRequest(INDEX, id);
+        client.delete(deleteRequest, new ActionListener<DeleteResponse>() {
+            @Override
+            public void onResponse(DeleteResponse deleteResponse) {logger.debug("Deleted async search {}", id);}
+
+            @Override
+            public void onFailure(Exception e) {
+                logger.error("Failed to delete async search " + id, e);
+            }
+        });
+    }
+
+    public void updateExpirationTime(String id, long expirationTimeMillis) {
+        Map<String, Object> source = new HashMap<>();
+        source.put(EXPIRATION_TIME_PROPERTY_NAME, expirationTimeMillis);
+        UpdateRequest updateRequest = new UpdateRequest(INDEX, id);
+        updateRequest.doc(source, XContentType.JSON);
+        client.update(updateRequest, new ActionListener<UpdateResponse>() {
+            @Override
+            public void onResponse(UpdateResponse updateResponse) {
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+            }
+        });
+    }
+
     private int getTaskResultMappingVersion(IndexMetadata metaData) {
         MappingMetadata mappingMetaData = metaData.getMappings().get(TASK_TYPE);
         if (mappingMetaData == null) {
@@ -173,17 +225,12 @@ public class AsyncSearchPersistenceService {
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             asyncSearchResponse.writeTo(out);
             byte[] bytes = BytesReference.toBytes(out.bytes());
-//            AsyncSearchResponse deserialized = new AsyncSearchResponse(
-//                    new NamedWriteableAwareStreamInput(
-//                            BytesReference.fromByteBuffer(ByteBuffer.wrap(BytesReference.toBytes(out.bytes()))).streamInput(),
-//                            namedWriteableRegistry));
-//            assert deserialized.getId().equals(asyncSearchResponse.getId());
             return Base64.getUrlEncoder().encodeToString(bytes);
         }
     }
 
 
-    public AsyncSearchResponse parseResponse(String responseField) {
+    private AsyncSearchResponse parseResponse(String responseField) {
         try {
             BytesReference bytesReference = BytesReference.fromByteBuffer(ByteBuffer.wrap(Base64.getUrlDecoder().decode(responseField)));
             NamedWriteableAwareStreamInput wrapperStreamInput = new NamedWriteableAwareStreamInput(bytesReference.streamInput(),
@@ -225,7 +272,7 @@ public class AsyncSearchPersistenceService {
                 .build();
     }
 
-    public XContentBuilder mappingSource() throws IOException {
+    private XContentBuilder mappingSource() throws IOException {
         XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
         builder.startObject()
 
@@ -257,54 +304,5 @@ public class AsyncSearchPersistenceService {
 
         return builder;
 
-    }
-
-    public void getResponse(String id, ActionListener<AsyncSearchResponse> actionListener) throws IOException {
-        GetRequest getRequest = new GetRequest(INDEX)
-                .id(String.valueOf(id));
-        client.get(getRequest, new ActionListener<GetResponse>() {
-            @Override
-            public void onResponse(GetResponse getResponse) {
-                if (getResponse.isExists()
-                        && getResponse.getSource() != null
-                        && getResponse.getSource().containsKey(AsyncSearchPersistenceService.RESPONSE_PROPERTY_NAME)
-                        && getResponse.getSource().containsKey(AsyncSearchPersistenceService.EXPIRATION_TIME_PROPERTY_NAME)) {
-                    actionListener.onResponse(parseResponse((String)
-                            getResponse.getSource().get(AsyncSearchPersistenceService.RESPONSE_PROPERTY_NAME)));
-                };
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                actionListener.onFailure(e);
-            }
-        });
-    }
-
-    public void deleteResponse(String id) {
-        DeleteRequest deleteRequest = new DeleteRequest(INDEX, id);
-        client.delete(deleteRequest, new ActionListener<DeleteResponse>() {
-            @Override
-            public void onResponse(DeleteResponse deleteResponse) {}
-
-            @Override
-            public void onFailure(Exception e) {
-                logger.error("Failed to delete async search {}",id , e);
-            }
-        });
-    }
-
-    public void updateExpirationTime(String id, long expirationTimeMillis) {
-        Map<String, Object> source = new HashMap<>();
-        source.put(EXPIRATION_TIME_PROPERTY_NAME, expirationTimeMillis);
-        UpdateRequest updateRequest = new UpdateRequest(INDEX,id);
-        updateRequest.doc(source,XContentType.JSON);
-        client.update(updateRequest, new ActionListener<UpdateResponse>() {
-            @Override
-            public void onResponse(UpdateResponse updateResponse) {}
-
-            @Override
-            public void onFailure(Exception e) {}
-        });
     }
 }

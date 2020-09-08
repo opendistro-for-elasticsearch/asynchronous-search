@@ -52,7 +52,6 @@ import org.elasticsearch.watcher.ResourceWatcherService;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -76,6 +75,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSch
                                                NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry,
                                                IndexNameExpressionResolver indexNameExpressionResolver,
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
+        //FIXME can this instantiation be avoided
         AsyncSearchPersistenceService asyncSearchPersistenceService = new AsyncSearchPersistenceService(client
                 , clusterService, threadPool, namedWriteableRegistry);
         return Arrays.asList(asyncSearchPersistenceService,
