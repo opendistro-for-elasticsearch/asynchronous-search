@@ -67,27 +67,16 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
-            //For cancellation of child task, simply setting parent task id won't suffice.
-            //It also requires registering node on which child task (transport search action) will be executed with parent task id in the task manager.
-            Releasable unregisterChildNode = taskManager.registerChildNode(task.getId(), clusterService.localNode());
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
-            SearchTask searchTask = (SearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(), request.getSearchRequest());
-
             final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
-            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, searchTask, timeProvider);
-
-            AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext,
-                    () -> {
-                    taskManager.unregister(searchTask);
-                    unregisterChildNode.close();
-            });
-            searchTask.setProgressListener(progressActionListener);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, timeProvider);
+            AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext);
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
 
             logger.info("Initiating sync search request");
-            threadPool.executor(ThreadPool.Names.SEARCH).execute(
-                    () -> transportSearchAction.execute(searchTask, request.getSearchRequest(), progressActionListener));
-
+            SearchTask searchTask = (SearchTask) transportSearchAction.execute(request.getSearchRequest(), progressActionListener);
+            searchTask.setProgressListener(progressActionListener);
+            asyncSearchContext.setTask(searchTask);
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                     request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
                         onCompletion(listener, asyncSearchContext, contextListener);

@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
+import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchTask;
@@ -29,7 +29,6 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.ConcurrentCollections;
 import org.elasticsearch.common.util.concurrent.ConcurrentMapLong;
 import org.elasticsearch.search.SearchService;
-import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -120,14 +119,14 @@ public class  AsyncSearchService extends AbstractLifecycleComponent {
         activeContexts.put(asyncSearchContext.getAsyncSearchContextId().getId(), asyncSearchContext);
     }
 
-    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, SearchTask task,
+    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest,
                                                         TransportSubmitAsyncSearchAction.SearchTimeProvider timeProvider)
             throws IOException {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchContext asyncSearchContext = new AsyncSearchContext(persistenceService,
                 client, clusterService.localNode().getId(), asyncSearchContextId,
                 submitAsyncSearchRequest.getKeepAlive(),
-                submitAsyncSearchRequest.keepOnCompletion(), task, timeProvider);
+                submitAsyncSearchRequest.keepOnCompletion(), timeProvider);
         putContext(asyncSearchContext);
         return asyncSearchContext;
     }

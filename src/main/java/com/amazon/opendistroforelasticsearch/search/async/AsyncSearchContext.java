@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
@@ -59,7 +60,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
 
-    private final SearchTask task;
+    private SearchTask task;
     private final Client client;
     private final PartialResultsHolder resultsHolder;
     private final long startTimeMillis;
@@ -74,14 +75,13 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final Collection<ActionListener<AsyncSearchResponse>> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 
-    public AsyncSearchContext(AsyncSearchPersistenceService persistenceService, Client client, String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, SearchTask task,
+    public AsyncSearchContext(AsyncSearchPersistenceService persistenceService, Client client, String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion,
                               TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider) {
         super("async_search_context");
         this.persistenceService = persistenceService;
         this.client = client;
         this.nodeId = nodeId;
         this.asyncSearchContextId = asyncSearchContextId;
-        this.task = task;
         this.keepOnCompletion = keepOnCompletion;
         this.searchTimeProvider = searchTimeProvider;
         this.resultsHolder = new PartialResultsHolder();
@@ -97,6 +97,10 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     public SearchTask getTask() {
         return task;
+    }
+
+    public void setTask(SearchTask task) {
+        this.task = task;
     }
 
     public PartialResultsHolder getResultsHolder() {

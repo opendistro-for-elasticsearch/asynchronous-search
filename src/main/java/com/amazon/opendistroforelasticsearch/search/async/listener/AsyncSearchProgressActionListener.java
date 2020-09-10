@@ -38,7 +38,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     private final Logger logger = LogManager.getLogger(getClass());
 
     private AsyncSearchContext asyncSearchContext;
-    private Runnable unregisterTask;
+    //private Runnable unregisterTask;
     private AtomicBoolean hasFetchPhase = new AtomicBoolean();
     private AtomicInteger numQueryResults = new AtomicInteger();
     private AtomicInteger numQueryFailures = new AtomicInteger();
@@ -46,9 +46,9 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     private AtomicInteger numFetchFailures = new AtomicInteger();
     private AtomicInteger numReducePhases = new AtomicInteger();
 
-    public AsyncSearchProgressActionListener(AsyncSearchContext asyncSearchContext, Runnable unregisterTask) {
+    public AsyncSearchProgressActionListener(AsyncSearchContext asyncSearchContext) {
         this.asyncSearchContext = asyncSearchContext;
-        this.unregisterTask = unregisterTask;
+        //this.unregisterTask = unregisterTask;
     }
 
     @Override
@@ -190,7 +190,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
                 e.printStackTrace();
             }
         } finally {
-            unregisterTask.run();
+           // unregisterTask.run();
         }
 
     }
@@ -205,7 +205,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             logger.info("Search response failure", e);
             asyncSearchContext.processFailure(e);
         } finally {
-            unregisterTask.run();
+           // unregisterTask.run();
         }
     }
 
