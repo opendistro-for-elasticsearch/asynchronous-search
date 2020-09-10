@@ -34,6 +34,10 @@ import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.reindex.BulkByScrollResponse;
+import org.elasticsearch.index.reindex.DeleteByQueryAction;
+import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.tasks.TaskResult;
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -60,7 +64,7 @@ public class AsyncSearchPersistenceService {
 
     private static final String ID_PROPERTY_NAME = "id";
 
-    private static final String INDEX = ".async_search_response";
+    static final String INDEX = ".async_search_response";
 
     private static final String TASK_TYPE = "task";
 
@@ -168,7 +172,9 @@ public class AsyncSearchPersistenceService {
         DeleteRequest deleteRequest = new DeleteRequest(INDEX, id);
         client.delete(deleteRequest, new ActionListener<DeleteResponse>() {
             @Override
-            public void onResponse(DeleteResponse deleteResponse) {logger.debug("Deleted async search {}", id);}
+            public void onResponse(DeleteResponse deleteResponse) {
+                logger.debug("Deleted async search {}", id);
+            }
 
             @Override
             public void onFailure(Exception e) {
@@ -303,6 +309,28 @@ public class AsyncSearchPersistenceService {
                 .endObject();
 
         return builder;
+
+    }
+
+    public void deleteExpiredResponses() {
+        if (clusterService.state().routingTable().hasIndex(INDEX)) {
+            logger.info("Delete expired responses which are indexed from node [{}]",
+                    clusterService.localNode().getId());
+            DeleteByQueryRequest request = new DeleteByQueryRequest(INDEX);
+            request.setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_PROPERTY_NAME).lte(System.currentTimeMillis()));
+            client.execute(DeleteByQueryAction.INSTANCE, request, new ActionListener<BulkByScrollResponse>() {
+                @Override
+                public void onResponse(BulkByScrollResponse bulkByScrollResponse) {
+                }
+
+                @Override
+                public void onFailure(Exception e) {
+                    logger.error("Failed to perform delete by query", e);
+                }
+            });
+        } else {
+            logger.info("Async search index not yet created! Nothing to delete.");
+        }
 
     }
 }

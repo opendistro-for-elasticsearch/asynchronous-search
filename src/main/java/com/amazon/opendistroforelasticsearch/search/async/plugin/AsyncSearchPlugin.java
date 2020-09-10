@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchCleanUpService;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.TransportDeleteAsyncSearchAction;
@@ -79,7 +80,8 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSch
         AsyncSearchPersistenceService asyncSearchPersistenceService = new AsyncSearchPersistenceService(client
                 , clusterService, threadPool, namedWriteableRegistry);
         return Arrays.asList(asyncSearchPersistenceService,
-                new AsyncSearchService(asyncSearchPersistenceService,client, clusterService, threadPool));
+                new AsyncSearchCleanUpService(client, clusterService, threadPool, environment.settings(), asyncSearchPersistenceService),
+                new AsyncSearchService(asyncSearchPersistenceService, client, clusterService, threadPool));
     }
 
     @Override
@@ -94,7 +96,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSch
     public List<Setting<?>> getSettings() {
         return Arrays.asList(AsyncSearchService.DEFAULT_KEEPALIVE_SETTING,
                 AsyncSearchService.MAX_KEEPALIVE_SETTING,
-                AsyncSearchService.KEEPALIVE_INTERVAL_SETTING);
+                AsyncSearchService.KEEPALIVE_INTERVAL_SETTING, AsyncSearchCleanUpService.CLEANUP_INTERVAL_SETTING);
     }
 
    /* @Override
