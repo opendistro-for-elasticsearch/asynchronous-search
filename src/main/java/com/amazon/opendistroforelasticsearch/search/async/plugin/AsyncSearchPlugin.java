@@ -15,12 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchCleanUpService;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchPersistenceService;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.TransportDeleteAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.TransportGetAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.TransportSubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.*;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
@@ -33,16 +28,19 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.ParseField;
+import org.elasticsearch.common.component.LifecycleComponent;
+import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.IndexScopedSettings;
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.settings.SettingsFilter;
+import org.elasticsearch.common.settings.*;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
+import org.elasticsearch.persistent.PersistentTaskParams;
+import org.elasticsearch.persistent.PersistentTaskState;
+import org.elasticsearch.persistent.PersistentTasksExecutor;
 import org.elasticsearch.plugins.ActionPlugin;
+import org.elasticsearch.plugins.PersistentTaskPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.repositories.RepositoriesService;
 import org.elasticsearch.rest.RestController;
@@ -53,10 +51,11 @@ import org.elasticsearch.watcher.ResourceWatcherService;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
-public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSchedulerExtension {
+public class AsyncSearchPlugin extends Plugin implements ActionPlugin, PersistentTaskPlugin {
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
@@ -84,6 +83,32 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSch
                 new AsyncSearchService(asyncSearchPersistenceService, client, clusterService, threadPool));
     }
 
+
+    @Override
+    public Collection<Class<? extends LifecycleComponent>> getGuiceServiceClasses() {
+        return Collections.singletonList(AsyncSearchReaperService.class);
+    }
+
+    @Override
+    public Collection<Module> createGuiceModules() {
+        return super.createGuiceModules();
+    }
+
+    @Override
+    public List<NamedWriteableRegistry.Entry> getNamedWriteables() {
+        return Arrays.asList(
+                new NamedWriteableRegistry.Entry(PersistentTaskParams.class, AsyncSearchReaperPersistentTaskExecutor.NAME, AsyncSearchReaperPersistentTaskExecutor.TestParams::new)
+        );
+    }
+
+    @Override
+    public List<NamedXContentRegistry.Entry> getNamedXContent() {
+        return Arrays.asList(
+                new NamedXContentRegistry.Entry(PersistentTaskParams.class,
+                        new ParseField(AsyncSearchReaperPersistentTaskExecutor.NAME), AsyncSearchReaperPersistentTaskExecutor.TestParams::fromXContent)
+        );
+    }
+
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays.asList(
@@ -99,23 +124,8 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSch
                 AsyncSearchService.KEEPALIVE_INTERVAL_SETTING, AsyncSearchCleanUpService.CLEANUP_INTERVAL_SETTING);
     }
 
-   /* @Override
-    public String getJobType() {
-        return null;
-    }
-
     @Override
-    public String getJobIndex() {
-        return null;
+    public List<PersistentTasksExecutor<?>> getPersistentTasksExecutor(ClusterService clusterService, ThreadPool threadPool, Client client, SettingsModule settingsModule, IndexNameExpressionResolver expressionResolver) {
+        return Collections.singletonList(new AsyncSearchReaperPersistentTaskExecutor(clusterService, client));
     }
-
-    @Override
-    public ScheduledJobRunner getJobRunner() {
-        return null;
-    }
-
-    @Override
-    public ScheduledJobParser getJobParser() {
-        return null;
-    }*/
 }
