@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
+import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchActionFilter;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.TransportDeleteAsyncSearchAction;
@@ -28,6 +29,7 @@ import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearc
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
+import org.elasticsearch.action.support.ActionFilter;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
@@ -52,10 +54,11 @@ import org.elasticsearch.watcher.ResourceWatcherService;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
-public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSchedulerExtension {
+public class AsyncSearchPlugin extends Plugin implements ActionPlugin {
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
@@ -96,23 +99,8 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin { //JobSch
                 AsyncSearchService.KEEPALIVE_INTERVAL_SETTING);
     }
 
-   /* @Override
-    public String getJobType() {
-        return null;
-    }
-
     @Override
-    public String getJobIndex() {
-        return null;
+    public List<ActionFilter> getActionFilters() {
+        return Collections.singletonList(new AsyncSearchActionFilter());
     }
-
-    @Override
-    public ScheduledJobRunner getJobRunner() {
-        return null;
-    }
-
-    @Override
-    public ScheduledJobParser getJobParser() {
-        return null;
-    }*/
 }
