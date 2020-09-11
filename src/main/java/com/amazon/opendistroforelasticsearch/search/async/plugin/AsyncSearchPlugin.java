@@ -36,12 +36,14 @@ import org.elasticsearch.common.settings.*;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
+import org.elasticsearch.indices.SystemIndexDescriptor;
 import org.elasticsearch.persistent.PersistentTaskParams;
 import org.elasticsearch.persistent.PersistentTaskState;
 import org.elasticsearch.persistent.PersistentTasksExecutor;
 import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.PersistentTaskPlugin;
 import org.elasticsearch.plugins.Plugin;
+import org.elasticsearch.plugins.SystemIndexPlugin;
 import org.elasticsearch.repositories.RepositoriesService;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestHandler;
@@ -55,7 +57,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
-public class AsyncSearchPlugin extends Plugin implements ActionPlugin, PersistentTaskPlugin {
+public class AsyncSearchPlugin extends Plugin implements ActionPlugin, PersistentTaskPlugin, SystemIndexPlugin {
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
@@ -125,7 +127,14 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
     }
 
     @Override
+    public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
+        return Collections.singletonList(new SystemIndexDescriptor(".async_search_response", "Sores the response for async search"));
+    }
+
+    @Override
     public List<PersistentTasksExecutor<?>> getPersistentTasksExecutor(ClusterService clusterService, ThreadPool threadPool, Client client, SettingsModule settingsModule, IndexNameExpressionResolver expressionResolver) {
         return Collections.singletonList(new AsyncSearchReaperPersistentTaskExecutor(clusterService, client));
     }
+
+
 }
