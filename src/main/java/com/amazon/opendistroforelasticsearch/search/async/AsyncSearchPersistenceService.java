@@ -330,6 +330,7 @@ public class AsyncSearchPersistenceService {
             });
         } else {
             logger.info("Async search index not yet created! Nothing to delete.");
+            listener.onResponse(null);
         }
 
     }

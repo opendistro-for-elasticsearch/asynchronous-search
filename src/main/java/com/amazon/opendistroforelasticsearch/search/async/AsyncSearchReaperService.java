@@ -39,7 +39,7 @@ public class AsyncSearchReaperService extends AbstractLifecycleComponent impleme
 
     @Override
     public void onMaster() {
-        scheduledFuture = threadPool.scheduleWithFixedDelay(new RunnableReaper(), TimeValue.timeValueSeconds(3),
+        scheduledFuture = threadPool.scheduleWithFixedDelay(new RunnableReaper(), TimeValue.timeValueSeconds(30),
                 ThreadPool.Names.GENERIC);
     }
 

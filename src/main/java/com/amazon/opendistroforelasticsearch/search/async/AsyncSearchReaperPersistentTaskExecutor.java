@@ -114,6 +114,7 @@ public class AsyncSearchReaperPersistentTaskExecutor extends PersistentTasksExec
         asyncSearchPersistenceService.deleteExpiredResponses(new ActionListener<BulkByScrollResponse>() {
             @Override
             public void onResponse(BulkByScrollResponse bulkByScrollResponse) {
+                logger.info("COMPLETING TASK");
                 task.markAsCompleted();
             }
 
