@@ -15,7 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
-import com.amazon.opendistroforelasticsearch.search.async.*;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchCleanUpService;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchReaperPersistentTaskExecutor;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchReaperService;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.TransportDeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.TransportGetAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.TransportSubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
@@ -32,13 +39,17 @@ import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.component.LifecycleComponent;
 import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
-import org.elasticsearch.common.settings.*;
+import org.elasticsearch.common.settings.ClusterSettings;
+import org.elasticsearch.common.settings.IndexScopedSettings;
+import org.elasticsearch.common.settings.Setting;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.settings.SettingsFilter;
+import org.elasticsearch.common.settings.SettingsModule;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
 import org.elasticsearch.indices.SystemIndexDescriptor;
 import org.elasticsearch.persistent.PersistentTaskParams;
-import org.elasticsearch.persistent.PersistentTaskState;
 import org.elasticsearch.persistent.PersistentTasksExecutor;
 import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.PersistentTaskPlugin;
@@ -59,6 +70,7 @@ import java.util.function.Supplier;
 
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin, PersistentTaskPlugin, SystemIndexPlugin {
 
+    private AsyncSearchPersistenceService asyncSearchPersistenceService;
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
                                              IndexScopedSettings indexScopedSettings, SettingsFilter settingsFilter,
@@ -78,7 +90,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
                                                IndexNameExpressionResolver indexNameExpressionResolver,
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
         //FIXME can this instantiation be avoided
-        AsyncSearchPersistenceService asyncSearchPersistenceService = new AsyncSearchPersistenceService(client
+        this.asyncSearchPersistenceService = new AsyncSearchPersistenceService(client
                 , clusterService, threadPool, namedWriteableRegistry);
         return Arrays.asList(asyncSearchPersistenceService,
                 new AsyncSearchCleanUpService(client, clusterService, threadPool, environment.settings(), asyncSearchPersistenceService),
@@ -99,7 +111,8 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
     @Override
     public List<NamedWriteableRegistry.Entry> getNamedWriteables() {
         return Arrays.asList(
-                new NamedWriteableRegistry.Entry(PersistentTaskParams.class, AsyncSearchReaperPersistentTaskExecutor.NAME, AsyncSearchReaperPersistentTaskExecutor.TestParams::new)
+                new NamedWriteableRegistry.Entry(PersistentTaskParams.class, AsyncSearchReaperPersistentTaskExecutor.NAME,
+                        in -> new AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams())
         );
     }
 
@@ -107,7 +120,8 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
     public List<NamedXContentRegistry.Entry> getNamedXContent() {
         return Arrays.asList(
                 new NamedXContentRegistry.Entry(PersistentTaskParams.class,
-                        new ParseField(AsyncSearchReaperPersistentTaskExecutor.NAME), AsyncSearchReaperPersistentTaskExecutor.TestParams::fromXContent)
+                        new ParseField(AsyncSearchReaperPersistentTaskExecutor.NAME),
+                        AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams::fromXContent)
         );
     }
 
@@ -128,12 +142,16 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
 
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
-        return Collections.singletonList(new SystemIndexDescriptor(".async_search_response", "Sores the response for async search"));
+        return Collections.singletonList(new SystemIndexDescriptor(".async_search_response",
+                "Stores the response for async search"));
     }
 
     @Override
-    public List<PersistentTasksExecutor<?>> getPersistentTasksExecutor(ClusterService clusterService, ThreadPool threadPool, Client client, SettingsModule settingsModule, IndexNameExpressionResolver expressionResolver) {
-        return Collections.singletonList(new AsyncSearchReaperPersistentTaskExecutor(clusterService, client));
+    public List<PersistentTasksExecutor<?>> getPersistentTasksExecutor(ClusterService clusterService, ThreadPool threadPool,
+                                                                       Client client, SettingsModule settingsModule,
+                                                                       IndexNameExpressionResolver expressionResolver) {
+        return Collections.singletonList(
+                new AsyncSearchReaperPersistentTaskExecutor(clusterService, client, asyncSearchPersistenceService));
     }
 
 

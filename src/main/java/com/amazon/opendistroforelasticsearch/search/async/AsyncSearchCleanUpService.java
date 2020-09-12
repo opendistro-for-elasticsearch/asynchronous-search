@@ -101,7 +101,7 @@ public class AsyncSearchCleanUpService extends LifecycleListener implements Clus
             try {
                 synchronized (this) {
                     if (nodeRing.isOwningNode(getTimestampIntervalString())) {
-                        persistenceService.deleteExpiredResponses();
+//                        persistenceService.deleteExpiredResponses();
                     } else {
                         logger.debug("Async search clean up task will not run on node [{}]", clusterService.localNode().getId());
                     }

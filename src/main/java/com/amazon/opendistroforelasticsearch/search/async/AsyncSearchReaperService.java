@@ -1,5 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -10,7 +11,7 @@ import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.persistent.PersistentTasksCustomMetadata;
+import org.elasticsearch.persistent.PersistentTasksCustomMetadata.PersistentTask;
 import org.elasticsearch.persistent.PersistentTasksService;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -37,23 +38,8 @@ public class AsyncSearchReaperService extends AbstractLifecycleComponent impleme
     }
 
     @Override
-    protected void doStart() {
-
-    }
-
-    @Override
-    protected void doStop() {
-        scheduledFuture.cancel();
-    }
-
-    @Override
-    protected void doClose() throws IOException {
-
-    }
-
-    @Override
     public void onMaster() {
-        scheduledFuture = threadPool.scheduleWithFixedDelay(new RunnableReaper(), TimeValue.timeValueSeconds(30),
+        scheduledFuture = threadPool.scheduleWithFixedDelay(new RunnableReaper(), TimeValue.timeValueSeconds(3),
                 ThreadPool.Names.GENERIC);
     }
 
@@ -67,20 +53,31 @@ public class AsyncSearchReaperService extends AbstractLifecycleComponent impleme
         return ThreadPool.Names.GENERIC;
     }
 
+    @Override
+    protected void doStart() {
+
+    }
+
+    @Override
+    protected void doStop() {
+
+    }
+
+    @Override
+    protected void doClose() throws IOException {
+
+    }
+
     class RunnableReaper implements Runnable {
-
-        RunnableReaper() {
-
-        }
-
         @Override
         public void run() {
             try {
                 persistentTasksService.sendStartRequest(UUIDs.base64UUID(), AsyncSearchReaperPersistentTaskExecutor.NAME,
-                        new AsyncSearchReaperPersistentTaskExecutor.TestParams("Blah"), new ActionListener<PersistentTasksCustomMetadata.PersistentTask<AsyncSearchReaperPersistentTaskExecutor.TestParams>>() {
+                        new AsyncSearchReaperParams(),
+                        new ActionListener<PersistentTask<AsyncSearchReaperParams>>() {
                             @Override
-                            public void onResponse(PersistentTasksCustomMetadata.PersistentTask<AsyncSearchReaperPersistentTaskExecutor.TestParams> persistentTask) {
-                                logger.warn("on send start request");
+                            public void onResponse(PersistentTask<AsyncSearchReaperParams> persistentTask) {
+                                logger.warn("On send async search reaper request.");
                             }
 
                             @Override

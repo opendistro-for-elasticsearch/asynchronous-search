@@ -60,15 +60,13 @@ public class AsyncSearchPersistenceService {
 
     private static final String RESPONSE_PROPERTY_NAME = "response";
 
-    private static final String EXPIRATION_TIME_PROPERTY_NAME = "expiration_time";
+    static final String EXPIRATION_TIME_PROPERTY_NAME = "expiration_time";
 
     private static final String ID_PROPERTY_NAME = "id";
 
     static final String INDEX = ".async_search_response";
 
     private static final String TASK_TYPE = "task";
-
-    private static final String ASYNC_SEARCH_RESPONSE_INDEX_MAPPING_FILE = "async_search_response-index-mapping.json";
 
     private static final String ASYNC_SEARCH_RESPONSE_MAPPING_VERSION_META_FIELD = "version";
 
@@ -296,7 +294,7 @@ public class AsyncSearchPersistenceService {
                 //response
 
                 //expiry
-                .startObject(EXPIRATION_TIME_PROPERTY_NAME).field("type", "keyword").endObject()
+                .startObject(EXPIRATION_TIME_PROPERTY_NAME).field("type", "long").endObject()
                 //expiry
 
                 //id
@@ -312,7 +310,7 @@ public class AsyncSearchPersistenceService {
 
     }
 
-    public void deleteExpiredResponses() {
+    public void deleteExpiredResponses(ActionListener<BulkByScrollResponse> listener) {
         if (clusterService.state().routingTable().hasIndex(INDEX)) {
             logger.info("Delete expired responses which are indexed from node [{}]",
                     clusterService.localNode().getId());
@@ -321,11 +319,13 @@ public class AsyncSearchPersistenceService {
             client.execute(DeleteByQueryAction.INSTANCE, request, new ActionListener<BulkByScrollResponse>() {
                 @Override
                 public void onResponse(BulkByScrollResponse bulkByScrollResponse) {
+                    listener.onResponse(bulkByScrollResponse);
                 }
 
                 @Override
                 public void onFailure(Exception e) {
-                    logger.error("Failed to perform delete by query", e);
+                    logger.warn("Failed to perform delete by query", e);
+                    listener.onFailure(e);
                 }
             });
         } else {
