@@ -5,23 +5,23 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
 
-public class CustomSearchRequest extends SearchRequest {
-    public CustomSearchRequest() {
+public class SearchProgressAwareSearchRequest extends SearchRequest {
+    public SearchProgressAwareSearchRequest() {
     }
 
-    public CustomSearchRequest(SearchRequest searchRequest) {
+    public SearchProgressAwareSearchRequest(SearchRequest searchRequest) {
         super(searchRequest);
     }
 
-    public CustomSearchRequest(String... indices) {
+    public SearchProgressAwareSearchRequest(String... indices) {
         super(indices);
     }
 
-    public CustomSearchRequest(String[] indices, SearchSourceBuilder source) {
+    public SearchProgressAwareSearchRequest(String[] indices, SearchSourceBuilder source) {
         super(indices, source);
     }
 
-    public CustomSearchRequest(StreamInput in) throws IOException {
+    public SearchProgressAwareSearchRequest(StreamInput in) throws IOException {
         super(in);
     }
 

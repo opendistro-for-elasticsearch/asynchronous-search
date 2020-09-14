@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchPr
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.CustomSearchRequest;
+import org.elasticsearch.action.search.SearchProgressAwareSearchRequest;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
@@ -71,7 +71,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
             AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, timeProvider);
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext);
-            ((CustomSearchRequest)request.getSearchRequest()).setSearchProgressActionListener(progressActionListener);
+            ((SearchProgressAwareSearchRequest)request.getSearchRequest()).setSearchProgressActionListener(progressActionListener);
             logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
 
             logger.info("Initiating sync search request");
