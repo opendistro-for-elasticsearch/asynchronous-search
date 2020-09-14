@@ -1,29 +1,12 @@
 package org.elasticsearch.action.search;
 
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.tasks.TaskId;
 
-import java.io.IOException;
+import java.util.Map;
 
 public class SearchProgressAwareSearchRequest extends SearchRequest {
-    public SearchProgressAwareSearchRequest() {
-    }
 
-    public SearchProgressAwareSearchRequest(SearchRequest searchRequest) {
-        super(searchRequest);
-    }
-
-    public SearchProgressAwareSearchRequest(String... indices) {
-        super(indices);
-    }
-
-    public SearchProgressAwareSearchRequest(String[] indices, SearchSourceBuilder source) {
-        super(indices, source);
-    }
-
-    public SearchProgressAwareSearchRequest(StreamInput in) throws IOException {
-        super(in);
-    }
+    private SearchProgressActionListener searchProgressActionListener;
 
     public SearchProgressActionListener getSearchProgressActionListener() {
         return searchProgressActionListener;
@@ -33,5 +16,10 @@ public class SearchProgressAwareSearchRequest extends SearchRequest {
         this.searchProgressActionListener = searchProgressActionListener;
     }
 
-    private SearchProgressActionListener searchProgressActionListener;
+    @Override
+    public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
+        SearchTask task = super.createTask(id, type, action, parentTaskId, headers);
+        task.setProgressListener(searchProgressActionListener);
+        return task;
+    }
 }
