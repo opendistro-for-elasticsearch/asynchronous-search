@@ -15,9 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksRequest;
@@ -59,7 +61,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
 
-    private final SearchTask task;
+    private SetOnce<SearchTask> task;
     private final Client client;
     private final AtomicReference<PartialResultsHolder> resultsHolder;
     private final long startTimeMillis;
@@ -75,14 +77,13 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
 
     public AsyncSearchContext(AsyncSearchPersistenceService persistenceService, Client client, String nodeId,
-                              AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, SearchTask task,
+                              AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion,
                               TransportSubmitAsyncSearchAction.SearchTimeProvider searchTimeProvider) {
         super("async_search_context");
         this.persistenceService = persistenceService;
         this.client = client;
         this.nodeId = nodeId;
         this.asyncSearchContextId = asyncSearchContextId;
-        this.task = task;
         this.keepOnCompletion = keepOnCompletion;
         this.searchTimeProvider = searchTimeProvider;
         this.resultsHolder = new AtomicReference<>(new PartialResultsHolder());
@@ -94,10 +95,15 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.persisted = new AtomicBoolean(false);
         this.error = new AtomicReference<>();
         this.searchResponse = new AtomicReference<>();
+        this.task = new SetOnce<>();
     }
 
     public SearchTask getTask() {
-        return task;
+        return task.get();
+    }
+
+    public void setTask(SearchTask task) {
+        this.task.set(task);
     }
 
     public PartialResultsHolder getResultsHolder() {
@@ -160,11 +166,11 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     public boolean isRunning() {
-        return !task.isCancelled() && isRunning.get();
+        return !getTask().isCancelled() && isRunning.get();
     }
 
     public boolean isCancelled() {
-        return task.isCancelled();
+        return getTask().isCancelled();
     }
 
     public boolean isPartial() {
@@ -176,7 +182,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     private void cancelIfRequired() {
-        if (!task.isCancelled()) {
+        if (!getTask().isCancelled()) {
             if (isExpired()) {
                 cancelTask();
             }
@@ -187,9 +193,9 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     public void cancelTask() {
         if (isCancelled())
             return;
-        logger.info("Cancelling task [{}] on node : [{}]", task.getId(), nodeId);
+        logger.info("Cancelling task [{}] on node : [{}]", getTask().getId(), nodeId);
         CancelTasksRequest cancelTasksRequest = new CancelTasksRequest();
-        cancelTasksRequest.setTaskId(task.taskInfo(nodeId, false).getTaskId());
+        cancelTasksRequest.setTaskId(getTask().taskInfo(nodeId, false).getTaskId());
         cancelTasksRequest.setReason("Async search request expired");
         client.admin().cluster().cancelTasks(cancelTasksRequest, new ActionListener<CancelTasksResponse>() {
             @Override
@@ -199,7 +205,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
             @Override
             public void onFailure(Exception e) {
-                logger.error("Failed to cancel async search task {} not cancelled upon expiry", task.getId());
+                logger.error("Failed to cancel async search task {} not cancelled upon expiry", getTask().getId());
             }
         });
     }
@@ -215,7 +221,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
             InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits, partialResultsHolder.internalAggregations,
                     null, null, false, false, partialResultsHolder.reducePhase.get());
             ShardSearchFailure[] shardSearchFailures = partialResultsHolder.shardSearchFailuresFailures.toArray(new ShardSearchFailure[]{});
-            long tookInMillis = System.currentTimeMillis() - task.getStartTime();
+            long tookInMillis = System.currentTimeMillis() - getTask().getStartTime();
             return new SearchResponse(internalSearchResponse, null, partialResultsHolder.totalShards.get(),
                     partialResultsHolder.successfulShards.get(), partialResultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures,
                     partialResultsHolder.clusters);
@@ -239,7 +245,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.isRunning.set(false);
         this.isPartial.set(false);
         AsyncSearchResponse asyncSearchResponse = getAsyncSearchResponse();
-        this.persistenceService.createResponse(new TaskResult(task.taskInfo(nodeId, false), asyncSearchResponse), asyncSearchResponse,
+        this.persistenceService.createResponse(new TaskResult(getTask().taskInfo(nodeId, false), asyncSearchResponse), asyncSearchResponse,
                 new ActionListener<IndexResponse>() {
                     @Override
                     public void onResponse(IndexResponse indexResponse) {

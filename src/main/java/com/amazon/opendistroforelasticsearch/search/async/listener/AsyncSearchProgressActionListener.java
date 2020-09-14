@@ -38,7 +38,6 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     private final Logger logger = LogManager.getLogger(getClass());
 
     private AsyncSearchContext asyncSearchContext;
-    private Runnable unregisterTask;
     private AtomicBoolean hasFetchPhase = new AtomicBoolean();
     private AtomicInteger numQueryResults = new AtomicInteger();
     private AtomicInteger numQueryFailures = new AtomicInteger();
@@ -46,9 +45,8 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
     private AtomicInteger numFetchFailures = new AtomicInteger();
     private AtomicInteger numReducePhases = new AtomicInteger();
 
-    public AsyncSearchProgressActionListener(AsyncSearchContext asyncSearchContext, Runnable unregisterTask) {
+    public AsyncSearchProgressActionListener(AsyncSearchContext asyncSearchContext) {
         this.asyncSearchContext = asyncSearchContext;
-        this.unregisterTask = unregisterTask;
     }
 
     @Override
@@ -60,11 +58,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
-        try {
-//            Thread.sleep(20000);
-        } catch (Exception e) {
-            logger.info("erro");
-        }
+
         this.hasFetchPhase.set(fetchPhase);
         asyncSearchContext.getResultsHolder().initialiseResultHolderShardLists(shards, skippedShards, clusters, fetchPhase);
     }
@@ -79,11 +73,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
-        try {
-//           Thread.sleep(20000);
-        } catch (Exception e) {
-            logger.info("erro");
-        }
+
         numReducePhases.incrementAndGet();
         if (hasFetchPhase.get()) {
             asyncSearchContext.getResultsHolder().updateResultFromReduceEvent(aggs == null ? null : aggs.expand(), totalHits, reducePhase);
@@ -100,11 +90,6 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
         if (asyncSearchContext.isCancelled()) {
             logger.warn("Discarding event as search is cancelled!");
             return;
-        }
-        try {
-//           Thread.sleep(40000);
-        } catch (Exception e) {
-            logger.info("erro");
         }
         numReducePhases.incrementAndGet();
         if (hasFetchPhase.get()) {
@@ -133,11 +118,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
-        try {
-//            Thread.sleep(20000);
-        } catch (Exception e) {
-            logger.info("erro");
-        }
+
         numFetchResults.incrementAndGet();
         asyncSearchContext.getResultsHolder().incrementSuccessfulShards();
     }
@@ -165,11 +146,7 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
             logger.warn("Discarding event as search is cancelled!");
             return;
         }
-        try {
-//            Thread.sleep(50000);
-        } catch (Exception e) {
-            logger.info("error");
-        }
+
         numQueryResults.incrementAndGet();
         if (!hasFetchPhase.get() && numReducePhases.get() == 0) {
             asyncSearchContext.getResultsHolder().incrementSuccessfulShards();
@@ -178,36 +155,28 @@ public class AsyncSearchProgressActionListener extends SearchProgressActionListe
 
     @Override
     public void onResponse(SearchResponse searchResponse) {
-        try {
-            logger.info("Search response completed {}", searchResponse);
-            if (asyncSearchContext.isCancelled()) {
-                logger.warn("Discarding event as search is cancelled!");
-                return;
-            }
-            //asyncSearchContext.getListeners().forEach(listener -> listener.onResponse(null));
-            try {
-                asyncSearchContext.processFinalResponse(searchResponse);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        } finally {
-            unregisterTask.run();
+        logger.info("Search response completed {}", searchResponse);
+        if (asyncSearchContext.isCancelled()) {
+            logger.warn("Discarding event as search is cancelled!");
+            return;
         }
+        try {
+            asyncSearchContext.processFinalResponse(searchResponse);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
 
     }
 
     @Override
     public void onFailure(Exception e) {
-        try {
-            if (asyncSearchContext.isCancelled()) {
-                logger.warn("Discarding event as search is cancelled!");
-                return;
-            }
-            logger.info("Search response failure", e);
-            asyncSearchContext.processFailure(e);
-        } finally {
-            unregisterTask.run();
+        if (asyncSearchContext.isCancelled()) {
+            logger.warn("Discarding event as search is cancelled!");
+            return;
         }
+        logger.info("Search response failure", e);
+        asyncSearchContext.processFailure(e);
     }
 
 

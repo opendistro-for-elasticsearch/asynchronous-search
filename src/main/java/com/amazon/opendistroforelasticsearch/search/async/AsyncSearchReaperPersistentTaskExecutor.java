@@ -1,5 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -19,14 +20,13 @@ import org.elasticsearch.persistent.PersistentTaskParams;
 import org.elasticsearch.persistent.PersistentTaskState;
 import org.elasticsearch.persistent.PersistentTasksCustomMetadata;
 import org.elasticsearch.persistent.PersistentTasksExecutor;
-import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.io.IOException;
-import java.util.Map;
 import java.util.function.Predicate;
 
-public class AsyncSearchReaperPersistentTaskExecutor extends PersistentTasksExecutor<AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams> {
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams;
+
+public class AsyncSearchReaperPersistentTaskExecutor extends PersistentTasksExecutor<AsyncSearchReaperParams> {
 
     public static final String NAME = "cluster:admin/persistent/asycn_search_reaper";
 
@@ -51,7 +51,7 @@ public class AsyncSearchReaperPersistentTaskExecutor extends PersistentTasksExec
 
         @Override
         public String getWriteableName() {
-            return AsyncSearchReaperPersistentTaskExecutor.NAME;
+            return NAME;
         }
 
         @Override
@@ -60,11 +60,11 @@ public class AsyncSearchReaperPersistentTaskExecutor extends PersistentTasksExec
         }
 
         @Override
-        public void writeTo(StreamOutput out) throws IOException {
+        public void writeTo(StreamOutput out) {
         }
 
         @Override
-        public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        public XContentBuilder toXContent(XContentBuilder builder, Params params) {
             return builder;
         }
 
@@ -73,19 +73,9 @@ public class AsyncSearchReaperPersistentTaskExecutor extends PersistentTasksExec
         }
     }
 
-    public static class AsyncSearchReaperTask extends AllocatedPersistentTask {
-
-        public AsyncSearchReaperTask(long id, String type, String action, String description, TaskId parentTask,
-                                     Map<String, String> headers) {
-            super(id, type, action, description, parentTask, headers);
-        }
-
-        @Override
-        public String toString() {
-            return "TestTask[" + this.getId() + ", " + this.getParentTaskId() + "]";
-        }
-    }
-
+    /**
+     * @return least loaded data node
+     */
     @Override
     protected DiscoveryNode selectLeastLoadedNode(ClusterState clusterState, Predicate<DiscoveryNode> selector) {
         long minLoad = Long.MAX_VALUE;
@@ -95,7 +85,6 @@ public class AsyncSearchReaperPersistentTaskExecutor extends PersistentTasksExec
             DiscoveryNode node = nodeObjectCursor.value;
             if (selector.test(node)) {
                 if (persistentTasks == null) {
-                    // We don't have any task running yet, pick the first available node
                     return node;
                 }
                 long numberOfTasks = persistentTasks.getNumberOfTasksOnNode(node.getId(), NAME);

@@ -15,8 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchCleanUpService;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchReaperPersistentTaskExecutor;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchReaperService;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
@@ -26,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.search.async.TransportSubmitAsyncSe
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
@@ -71,6 +70,7 @@ import java.util.function.Supplier;
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin, PersistentTaskPlugin, SystemIndexPlugin {
 
     private AsyncSearchPersistenceService asyncSearchPersistenceService;
+
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
                                              IndexScopedSettings indexScopedSettings, SettingsFilter settingsFilter,
@@ -93,7 +93,6 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
         this.asyncSearchPersistenceService = new AsyncSearchPersistenceService(client
                 , clusterService, threadPool, namedWriteableRegistry);
         return Arrays.asList(asyncSearchPersistenceService,
-                new AsyncSearchCleanUpService(client, clusterService, threadPool, environment.settings(), asyncSearchPersistenceService),
                 new AsyncSearchService(asyncSearchPersistenceService, client, clusterService, threadPool));
     }
 
@@ -110,7 +109,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
 
     @Override
     public List<NamedWriteableRegistry.Entry> getNamedWriteables() {
-        return Arrays.asList(
+        return Collections.singletonList(
                 new NamedWriteableRegistry.Entry(PersistentTaskParams.class, AsyncSearchReaperPersistentTaskExecutor.NAME,
                         in -> new AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams())
         );
@@ -118,7 +117,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
 
     @Override
     public List<NamedXContentRegistry.Entry> getNamedXContent() {
-        return Arrays.asList(
+        return Collections.singletonList(
                 new NamedXContentRegistry.Entry(PersistentTaskParams.class,
                         new ParseField(AsyncSearchReaperPersistentTaskExecutor.NAME),
                         AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams::fromXContent)
@@ -137,7 +136,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
     public List<Setting<?>> getSettings() {
         return Arrays.asList(AsyncSearchService.DEFAULT_KEEPALIVE_SETTING,
                 AsyncSearchService.MAX_KEEPALIVE_SETTING,
-                AsyncSearchService.KEEPALIVE_INTERVAL_SETTING, AsyncSearchCleanUpService.CLEANUP_INTERVAL_SETTING);
+                AsyncSearchService.KEEPALIVE_INTERVAL_SETTING);
     }
 
     @Override
@@ -146,7 +145,6 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
                 "Stores the response for async search"));
     }
 
-    @Override
     public List<PersistentTasksExecutor<?>> getPersistentTasksExecutor(ClusterService clusterService, ThreadPool threadPool,
                                                                        Client client, SettingsModule settingsModule,
                                                                        IndexNameExpressionResolver expressionResolver) {

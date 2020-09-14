@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
+import com.amazon.opendistroforelasticsearch.search.async.task.SubmitAsyncSearchTask;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.search.SearchRequest;
@@ -156,9 +156,9 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
     }
 
     @Override
-    public AsyncSearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
+    public SubmitAsyncSearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
         // generating description in a lazy way since source can be quite big
-        AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, action, null, parentTaskId, headers) {
+        SubmitAsyncSearchTask submitAsyncSearchTask = new SubmitAsyncSearchTask(id, type, action, null, parentTaskId, headers) {
             @Override
             public String getDescription() {
                 StringBuilder sb = new StringBuilder();
@@ -177,7 +177,7 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
                 return sb.toString();
             }
         };
-        return asyncSearchTask;
+        return submitAsyncSearchTask;
     }
 
     @Override

@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchPr
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.SearchAction;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
@@ -28,12 +28,13 @@ import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.tasks.Task;
+import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 
@@ -59,34 +60,25 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         this.transportSearchAction = transportSearchAction;
     }
 
-    /**
-     * @param task Since RestCancellableNodeClient is used, the onResponse() event will unregister this task on final response or timeout,
-     *            whichever causes the channel to close. Hence the synchronous SearchAction executed needs a task which we can hold onto
-     *             to monitor progress, listen on SPAL events and cancel if required. We require it to remain registered.
-     */
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
-            //For cancellation of child task, simply setting parent task id won't suffice.
-            //It also requires registering node on which child task (transport search action) will be executed with parent task id in the task manager.
-            Releasable unregisterChildNode = taskManager.registerChildNode(task.getId(), clusterService.localNode());
-            request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
-            SearchTask searchTask = (SearchTask) taskManager.register("transport", SearchAction.INSTANCE.name(), request.getSearchRequest());
-
             final SearchTimeProvider timeProvider = new SearchTimeProvider(System.currentTimeMillis(), System.nanoTime(), System::nanoTime);
-            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, searchTask, timeProvider);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, timeProvider);
+            AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext);
 
-            AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(asyncSearchContext,
-                    () -> {
-                    taskManager.unregister(searchTask);
-                    unregisterChildNode.close();
-            });
-            searchTask.setProgressListener(progressActionListener);
-            logger.info("Bootstrapping async search progress action listener {}", progressActionListener);
+            request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
+            SearchTask searchTask = (SearchTask) transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
+                @Override
+                public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
+                    SearchTask task = super.createTask(id, type, action, parentTaskId, headers);
+                    task.setProgressListener(progressActionListener);
+                    return task;
+                }
+            }, progressActionListener);
 
-            logger.info("Initiating sync search request");
-            threadPool.executor(ThreadPool.Names.SEARCH).execute(
-                    () -> transportSearchAction.execute(searchTask, request.getSearchRequest(), progressActionListener));
+            logger.debug("Initiated sync search request {}", asyncSearchContext.getId());
+            asyncSearchContext.setTask(searchTask);
 
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                     request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
@@ -101,8 +93,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     private void onCompletion(ActionListener<AsyncSearchResponse> listener, AsyncSearchContext asyncSearchContext,
                               ActionListener<AsyncSearchResponse> contextListener) {
         logger.info("Timeout triggered for async search");
-        if(asyncSearchContext.isCancelled()) {
-          listener.onFailure(new ResourceNotFoundException("Search cancelled"));
+        if (asyncSearchContext.isCancelled()) {
+            listener.onFailure(new ResourceNotFoundException("Search cancelled"));
         }
         try {
             listener.onResponse(asyncSearchContext.getAsyncSearchResponse());

@@ -15,9 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.UUIDs;
@@ -25,7 +25,6 @@ import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.ConcurrentCollections;
 import org.elasticsearch.common.util.concurrent.ConcurrentMapLong;
 import org.elasticsearch.search.SearchService;
 import org.elasticsearch.threadpool.Scheduler;
@@ -36,8 +35,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
+import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
 
-public class  AsyncSearchService extends AbstractLifecycleComponent {
+public class AsyncSearchService extends AbstractLifecycleComponent {
 
     private static final Logger logger = LogManager.getLogger(SearchService.class);
 
@@ -64,11 +64,14 @@ public class  AsyncSearchService extends AbstractLifecycleComponent {
 
     private final ClusterService clusterService;
 
-    private final ConcurrentMapLong<AsyncSearchContext> activeContexts = ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency();
+    private final ConcurrentMapLong<AsyncSearchContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
 
-    private final AsyncSearchPersistenceService persistenceService ;
+    private final AsyncSearchPersistenceService persistenceService;
 
-    public AsyncSearchService(AsyncSearchPersistenceService persistenceService, Client client, ClusterService clusterService, ThreadPool threadPool) {
+    public AsyncSearchService(AsyncSearchPersistenceService persistenceService,
+                              Client client,
+                              ClusterService clusterService,
+                              ThreadPool threadPool) {
         this.client = client;
         Settings settings = clusterService.getSettings();
         TimeValue keepAliveInterval = KEEPALIVE_INTERVAL_SETTING.get(settings);
@@ -118,14 +121,13 @@ public class  AsyncSearchService extends AbstractLifecycleComponent {
         activeContexts.put(asyncSearchContext.getAsyncSearchContextId().getId(), asyncSearchContext);
     }
 
-    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, SearchTask task,
-                                                        TransportSubmitAsyncSearchAction.SearchTimeProvider timeProvider)
-            throws IOException {
+    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest,
+                                                        TransportSubmitAsyncSearchAction.SearchTimeProvider timeProvider) {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchContext asyncSearchContext = new AsyncSearchContext(persistenceService,
                 client, clusterService.localNode().getId(), asyncSearchContextId,
                 submitAsyncSearchRequest.getKeepAlive(),
-                submitAsyncSearchRequest.keepOnCompletion(), task, timeProvider);
+                submitAsyncSearchRequest.keepOnCompletion(), timeProvider);
         putContext(asyncSearchContext);
         return asyncSearchContext;
     }
