@@ -1,10 +1,9 @@
 package com.amazon.opendistroforelasticsearch.search.async.action;
 
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
-import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.CustomSearchRequest;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.support.ActionFilter;
 import org.elasticsearch.action.support.ActionFilterChain;
@@ -17,11 +16,11 @@ public class AsyncSearchActionFilter implements ActionFilter {
     }
 
     @Override
-    public <Request extends ActionRequest, Response extends ActionResponse> void apply(Task task, String action, Request request, ActionListener<Response> listener, ActionFilterChain<Request, Response> chain) {
+    public <Request extends ActionRequest, Response extends ActionResponse> void apply(
+            Task task, String action, Request request, ActionListener<Response> listener, ActionFilterChain<Request, Response> chain) {
         if (task instanceof SearchTask) {
-            if (listener instanceof AsyncSearchProgressActionListener) {
-                AsyncSearchProgressActionListener progressListener = (AsyncSearchProgressActionListener) listener;
-                ((SearchTask) task).setProgressListener(progressListener);
+            if (request instanceof CustomSearchRequest) {
+                ((SearchTask) task).setProgressListener(((CustomSearchRequest) request).getSearchProgressActionListener());
             }
         }
         chain.proceed(task, action, request, listener);

@@ -16,7 +16,7 @@ package com.amazon.opendistroforelasticsearch.search.async.rest;
 
 import com.amazon.opendistroforelasticsearch.search.async.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
-import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.CustomSearchRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.RestRequest;
@@ -62,7 +62,7 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
 
     @Override
     public RestChannelConsumer prepareRequest(final RestRequest request, final NodeClient client) throws IOException {
-        SearchRequest searchRequest = new SearchRequest();
+        CustomSearchRequest searchRequest = new CustomSearchRequest();
 
         IntConsumer setSize = size -> searchRequest.source().size(size);
         request.withContentOrSourceParamParserOrNull(parser ->
