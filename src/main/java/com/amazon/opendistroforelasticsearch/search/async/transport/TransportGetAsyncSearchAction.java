@@ -1,47 +1,50 @@
-package com.amazon.opendistroforelasticsearch.search.async.action;
+package com.amazon.opendistroforelasticsearch.search.async.transport;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.GetAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.search.TransportSearchAction;
+import org.elasticsearch.action.support.ActionFilters;
+import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
-public class GetAsyncSearchActionHandler extends AbstractAsyncSearchAction<GetAsyncSearchRequest, AsyncSearchResponse> {
 
-    private static final Logger logger = LogManager.getLogger(GetAsyncSearchActionHandler.class);
-    private ClusterService clusterService;
-    private TransportService transportService;
-    private AsyncSearchService asyncSearchService;
+public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchAction<GetAsyncSearchRequest, AsyncSearchResponse> {
+
     private ThreadPool threadPool;
+    private TransportService transportService;
+    private ClusterService clusterService;
+    private IndexNameExpressionResolver indexNameExpressionResolver;
+    private final TransportSearchAction transportSearchAction;
+    private final AsyncSearchService asyncSearchService;
 
-    public GetAsyncSearchActionHandler(ClusterService clusterService, TransportService transportService,
-                                       AsyncSearchService asyncSearchService, ThreadPool threadPool) {
-        super(transportService, asyncSearchService);
-        this.clusterService = clusterService;
-        this.transportService = transportService;
-        this.asyncSearchService = asyncSearchService;
+    @Inject
+    public TransportGetAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
+                                         ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
+                                         AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction) {
+        super(transportService, clusterService, asyncSearchService, GetAsyncSearchAction.NAME, actionFilters, GetAsyncSearchRequest::new, AsyncSearchResponse::new);
         this.threadPool = threadPool;
+        this.transportService = transportService;
+        this.clusterService = clusterService;
+        this.indexNameExpressionResolver = indexNameExpressionResolver;
+        this.asyncSearchService = asyncSearchService;
+        this.transportSearchAction = transportSearchAction;
     }
 
     @Override
     public void handleRequest(AsyncSearchId asyncSearchId, GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
-
-        if (!clusterService.localNode().getId().equals(asyncSearchId.getNode())) {
-            forwardRequest(clusterService.state().getNodes().get(asyncSearchId.getNode()), request, listener, this::read,
-                    GetAsyncSearchAction.NAME);
-        }
         AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
         if (asyncSearchContext.isCancelled() || asyncSearchContext.isExpired()) {
             try {
@@ -74,7 +77,7 @@ public class GetAsyncSearchActionHandler extends AbstractAsyncSearchAction<GetAs
         } else {
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                     request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
-                            listener.onFailure(new TimeoutException("Fetching response from index timed out."));
+                        listener.onFailure(new TimeoutException("Fetching response from index timed out."));
                     });
             asyncSearchContext.getAsyncSearchResponse(wrappedListener);
         }
@@ -89,9 +92,5 @@ public class GetAsyncSearchActionHandler extends AbstractAsyncSearchAction<GetAs
                 asyncSearchContext.updateExpirationTime(requestedExpirationTime);
             }
         }
-    }
-
-    private AsyncSearchResponse read(StreamInput in) throws IOException {
-        return new AsyncSearchResponse(in);
     }
 }

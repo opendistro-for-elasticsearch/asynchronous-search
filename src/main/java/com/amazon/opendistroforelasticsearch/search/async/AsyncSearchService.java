@@ -16,6 +16,8 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportSubmitAsyncSearchAction;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.client.Client;
@@ -68,10 +70,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
 
     private final AsyncSearchPersistenceService persistenceService;
 
-    public AsyncSearchService(AsyncSearchPersistenceService persistenceService,
-                              Client client,
-                              ClusterService clusterService,
-                              ThreadPool threadPool) {
+    public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService, Client client, ClusterService clusterService, ThreadPool threadPool) {
         this.client = client;
         Settings settings = clusterService.getSettings();
         TimeValue keepAliveInterval = KEEPALIVE_INTERVAL_SETTING.get(settings);
@@ -81,8 +80,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
         this.threadPool = threadPool;
         this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new Reaper(), keepAliveInterval, ThreadPool.Names.SAME);
         this.clusterService = clusterService;
-        this.persistenceService = persistenceService;
+        this.persistenceService =  asyncSearchPersistenceService;
     }
+
 
     private void validateKeepAlives(TimeValue defaultKeepAlive, TimeValue maxKeepAlive) {
         if (defaultKeepAlive.millis() > maxKeepAlive.millis()) {

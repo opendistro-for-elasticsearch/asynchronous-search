@@ -13,7 +13,7 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.request;
 
 import com.amazon.opendistroforelasticsearch.search.async.task.SubmitAsyncSearchTask;
 import org.elasticsearch.action.ActionRequest;
