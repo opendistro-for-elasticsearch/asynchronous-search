@@ -14,7 +14,7 @@
  */
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
-import com.amazon.opendistroforelasticsearch.search.async.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.node.NodeClient;

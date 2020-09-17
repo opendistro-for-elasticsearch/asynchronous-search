@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
-import com.amazon.opendistroforelasticsearch.search.async.GetAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.rest.BaseRestHandler;

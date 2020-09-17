@@ -18,9 +18,9 @@ package com.amazon.opendistroforelasticsearch.search.async.plugin;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchReaperPersistentTaskExecutor;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchReaperService;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.TransportDeleteAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.TransportGetAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.TransportSubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportSubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
@@ -36,6 +36,7 @@ import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.component.LifecycleComponent;
+import org.elasticsearch.common.inject.Binder;
 import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.ClusterSettings;
@@ -69,7 +70,7 @@ import java.util.function.Supplier;
 
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin, PersistentTaskPlugin, SystemIndexPlugin {
 
-    private AsyncSearchPersistenceService asyncSearchPersistenceService;
+    private AsyncSearchPersistenceService persistenceService;
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
@@ -89,11 +90,9 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
                                                NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry,
                                                IndexNameExpressionResolver indexNameExpressionResolver,
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
-        //FIXME can this instantiation be avoided
-        this.asyncSearchPersistenceService = new AsyncSearchPersistenceService(client
-                , clusterService, threadPool, namedWriteableRegistry);
-        return Arrays.asList(asyncSearchPersistenceService,
-                new AsyncSearchService(asyncSearchPersistenceService, client, clusterService, threadPool));
+
+        this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool, namedWriteableRegistry);
+        return Arrays.asList(new AsyncSearchService(persistenceService, client, clusterService, threadPool));
     }
 
 
@@ -103,16 +102,16 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
     }
 
     @Override
-    public Collection<Module> createGuiceModules() {
-        return super.createGuiceModules();
-    }
-
-    @Override
     public List<NamedWriteableRegistry.Entry> getNamedWriteables() {
         return Collections.singletonList(
                 new NamedWriteableRegistry.Entry(PersistentTaskParams.class, AsyncSearchReaperPersistentTaskExecutor.NAME,
                         in -> new AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams())
         );
+    }
+
+    @Override
+    public Collection<Module> createGuiceModules() {
+        return Collections.singletonList(binder -> binder.bind(AsyncSearchPersistenceService.class).toInstance(persistenceService));
     }
 
     @Override
@@ -149,7 +148,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
                                                                        Client client, SettingsModule settingsModule,
                                                                        IndexNameExpressionResolver expressionResolver) {
         return Collections.singletonList(
-                new AsyncSearchReaperPersistentTaskExecutor(clusterService, client, asyncSearchPersistenceService));
+                new AsyncSearchReaperPersistentTaskExecutor(clusterService, client, persistenceService));
     }
 
 

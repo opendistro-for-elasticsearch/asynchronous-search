@@ -1,21 +1,25 @@
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.transport;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchActionHandler;
+import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
-public class TransportDeleteAsyncSearchAction extends HandledTransportAction<DeleteAsyncSearchRequest, AcknowledgedResponse> {
+import java.io.IOException;
+
+public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchAction<DeleteAsyncSearchRequest, AcknowledgedResponse> {
 
     private ThreadPool threadPool;
     private TransportService transportService;
@@ -30,7 +34,8 @@ public class TransportDeleteAsyncSearchAction extends HandledTransportAction<Del
                                             ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
                                             AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction,
                                             Client client) {
-        super(DeleteAsyncSearchAction.NAME, transportService, actionFilters, DeleteAsyncSearchRequest::new);
+        super(transportService, clusterService, asyncSearchService, DeleteAsyncSearchAction.NAME, actionFilters,
+                DeleteAsyncSearchRequest::new, AcknowledgedResponse::new);
         this.threadPool = threadPool;
         this.transportService = transportService;
         this.clusterService = clusterService;
@@ -41,12 +46,17 @@ public class TransportDeleteAsyncSearchAction extends HandledTransportAction<Del
     }
 
     @Override
-    protected void doExecute(Task task, DeleteAsyncSearchRequest request, ActionListener<AcknowledgedResponse> listener) {
+    public void handleRequest(AsyncSearchId asyncSearchId, DeleteAsyncSearchRequest request, ActionListener<AcknowledgedResponse> listener) {
         try {
-            AsyncSearchId asyncSearchId = AsyncSearchId.parseAsyncId(request.getId());
-            DeleteAsyncSearchActionHandler deleteAsyncSearchActionHandler = new DeleteAsyncSearchActionHandler(transportService,
-                    asyncSearchService, client, logger);
-            deleteAsyncSearchActionHandler.handleRequest(asyncSearchId, request, listener);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
+            try {
+                asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());
+            } catch (IOException e) {
+                logger.error("Failed to free context {}", asyncSearchId.getAsyncSearchContextId());
+            }
+            if (asyncSearchContext.isCancelled()) {
+                listener.onFailure(new ResourceNotFoundException(request.getId()));
+            }
             listener.onResponse(new AcknowledgedResponse(true));
         } catch (Exception e) {
             listener.onFailure(e);

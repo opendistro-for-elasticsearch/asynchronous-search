@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
-import com.amazon.opendistroforelasticsearch.search.async.DeleteAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.rest.BaseRestHandler;

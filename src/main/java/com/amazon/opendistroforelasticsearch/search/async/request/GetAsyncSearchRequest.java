@@ -1,13 +1,12 @@
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.request;
 
-import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.unit.TimeValue;
 
 import java.io.IOException;
 
-public class GetAsyncSearchRequest extends ActionRequest {
+public class GetAsyncSearchRequest extends FetchAsyncSearchRequest<GetAsyncSearchRequest> {
 
     public static final TimeValue DEFAULT_KEEP_ALIVE = TimeValue.timeValueDays(5);
     public static final TimeValue DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT = TimeValue.timeValueSeconds(1);
@@ -15,14 +14,8 @@ public class GetAsyncSearchRequest extends ActionRequest {
     private TimeValue waitForCompletion = DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT;
     private TimeValue keepAlive;
 
-    private final String id;
-
     public GetAsyncSearchRequest(String id) {
-        this.id = id;
-    }
-
-    public String getId() {
-        return this.id;
+        super(id);
     }
 
     public TimeValue getWaitForCompletion() {
@@ -43,7 +36,7 @@ public class GetAsyncSearchRequest extends ActionRequest {
 
 
     public GetAsyncSearchRequest(StreamInput streamInput) throws IOException {
-        this.id = streamInput.readString();
+        super(streamInput);
     }
 
     @Override
