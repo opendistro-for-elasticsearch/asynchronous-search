@@ -25,9 +25,12 @@ import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.StatusToXContentObject;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.rest.RestStatus;
 
 import java.io.IOException;
+
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 public class AsyncSearchResponse extends ActionResponse implements StatusToXContentObject {
 
@@ -81,6 +84,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     }
 
     public AsyncSearchResponse(AsyncSearchResponse response, long expirationTimeMillis) {
+        this.id=response.getId();
         this.isPartial = response.isPartial();
         this.isRunning = response.isRunning();
         this.startTimeMillis = response.getStartTimeMillis();
@@ -154,5 +158,51 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     @Override
     public String toString() {
         return Strings.toString(this);
+    }
+
+    public static AsyncSearchResponse fromXContent(XContentParser parser) throws IOException {
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation);
+        parser.nextToken();
+        return innerFromXContent(parser);
+    }
+
+    public static AsyncSearchResponse innerFromXContent(XContentParser parser) throws IOException {
+        ensureExpectedToken(XContentParser.Token.FIELD_NAME, parser.currentToken(), parser::getTokenLocation);
+        String id=null;
+        boolean isPartial=false;
+        boolean isRunning=false;
+        long startTimeMillis=-1;
+        long expirationTimeMillis=-1;
+        SearchResponse searchResponse=null;
+        ElasticsearchException error=null;
+        String currentFieldName = parser.currentName();
+
+        for (XContentParser.Token token = parser.nextToken(); token != XContentParser.Token.END_OBJECT; token = parser.nextToken()) {
+            if (token == XContentParser.Token.FIELD_NAME) {
+                currentFieldName = parser.currentName();
+                if (RESPONSE.getPreferredName().equals(currentFieldName)) {
+                    searchResponse = SearchResponse.fromXContent(parser);
+                } else if (ERROR.getPreferredName().equals(currentFieldName)) {
+                    error = ElasticsearchException.fromXContent(parser);
+                } else {
+                    parser.skipChildren();
+                }
+            } else if (token.isValue()) {
+                if (ID.match(currentFieldName, parser.getDeprecationHandler())) {
+                    id = parser.text();
+                } else if (START_TIME_IN_MILLIS.match(currentFieldName, parser.getDeprecationHandler())) {
+                    startTimeMillis = parser.longValue();
+                } else if (EXPIRATION_TIME_IN_MILLIS.match(currentFieldName, parser.getDeprecationHandler())) {
+                    expirationTimeMillis = parser.longValue();
+                } else if (IS_PARTIAL.match(currentFieldName, parser.getDeprecationHandler())) {
+                    isPartial = parser.booleanValue();
+                } else if (IS_RUNNING.match(currentFieldName, parser.getDeprecationHandler())) {
+                    isRunning = parser.booleanValue();
+                } else {
+                    parser.skipChildren();
+                }
+            }
+        }
+        return new AsyncSearchResponse(id, isPartial, isRunning, startTimeMillis, expirationTimeMillis,searchResponse,error);
     }
 }

@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSear
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.rest.BaseRestHandler;
+import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.action.RestCancellableNodeClient;
 import org.elasticsearch.rest.action.RestStatusToXContentListener;
@@ -96,9 +97,12 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
                     SubmitAsyncSearchRequest.DEFAULT_BATCHED_REDUCE_SIZE);
             searchRequest.setBatchedReduceSize(batchedReduceSize);
         }
-        return channel -> {
-            RestCancellableNodeClient cancelClient = new RestCancellableNodeClient(client, request.getHttpChannel());
-            cancelClient.execute(SubmitAsyncSearchAction.INSTANCE, submitAsyncSearchRequest, new RestStatusToXContentListener<>(channel));
+        return new RestChannelConsumer() {
+            @Override
+            public void accept(RestChannel channel) throws Exception {
+                RestCancellableNodeClient cancelClient = new RestCancellableNodeClient(client, request.getHttpChannel());
+                cancelClient.execute(SubmitAsyncSearchAction.INSTANCE, submitAsyncSearchRequest, new RestStatusToXContentListener<>(channel));
+            }
         };
     }
 
