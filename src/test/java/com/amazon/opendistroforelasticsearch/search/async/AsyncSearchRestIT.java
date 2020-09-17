@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 //FIXME : Deserialize the response from http entity
-public class AsyncSearchIT extends ESRestTestCase {
+public class AsyncSearchRestIT extends ESRestTestCase {
 
 
     private static RestClient restClient;

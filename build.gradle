@@ -118,7 +118,7 @@ integTest {
         }
 
         // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
-        if (System.getProperty("test.debug") == null) {
+        if (System.getProperty("test.debug") != null) {
             jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
         }
     }

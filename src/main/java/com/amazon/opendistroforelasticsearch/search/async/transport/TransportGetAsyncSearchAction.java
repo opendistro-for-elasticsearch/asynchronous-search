@@ -4,9 +4,9 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
+import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.TransportSearchAction;
@@ -18,7 +18,6 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
 import java.io.IOException;
-import java.util.concurrent.TimeoutException;
 
 
 public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchAction<GetAsyncSearchRequest, AsyncSearchResponse> {
@@ -75,11 +74,8 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
             // times out we return the most upto state from the AsyncContext
             asyncSearchContext.addListener(wrappedListener);
         } else {
-            ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                    request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
-                        listener.onFailure(new TimeoutException("Fetching response from index timed out."));
-                    });
-            asyncSearchContext.getAsyncSearchResponse(wrappedListener);
+
+            asyncSearchContext.getAsyncSearchResponse(listener);
         }
 
     }
