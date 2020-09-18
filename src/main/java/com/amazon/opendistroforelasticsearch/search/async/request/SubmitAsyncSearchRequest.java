@@ -121,10 +121,10 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
         if (searchRequest.isSuggestOnly()) {
             validationException.addValidationError("suggest-only queries are not supported");
         }
-        if (searchRequest.isCcsMinimizeRoundtrips()) {
-            validationException.addValidationError("[ccs_minimize_roundtrips] must be false, got: "
-                    + searchRequest.isCcsMinimizeRoundtrips());
-        }
+//        if (searchRequest.isCcsMinimizeRoundtrips()) {
+//            validationException.addValidationError("[ccs_minimize_roundtrips] must be false, got: "
+//                    + searchRequest.isCcsMinimizeRoundtrips());
+//        }
         if (keepAlive != null && keepAlive.getMillis() < MIN_KEEP_ALIVE) {
             validationException.addValidationError("[keep_alive] must be greater than 1 minute, got: " + keepAlive.toString());
         }

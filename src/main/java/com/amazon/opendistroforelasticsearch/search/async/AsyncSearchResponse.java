@@ -181,11 +181,12 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
             if (token == XContentParser.Token.FIELD_NAME) {
                 currentFieldName = parser.currentName();
                 if (RESPONSE.getPreferredName().equals(currentFieldName)) {
+
                     searchResponse = SearchResponse.fromXContent(parser);
                 } else if (ERROR.getPreferredName().equals(currentFieldName)) {
                     error = ElasticsearchException.fromXContent(parser);
                 } else {
-                    parser.skipChildren();
+                    continue;
                 }
             } else if (token.isValue()) {
                 if (ID.match(currentFieldName, parser.getDeprecationHandler())) {

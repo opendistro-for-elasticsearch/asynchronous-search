@@ -14,12 +14,11 @@
  */
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
-import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.rest.BaseRestHandler;
-import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.action.RestCancellableNodeClient;
 import org.elasticsearch.rest.action.RestStatusToXContentListener;
@@ -81,28 +80,23 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
                     SubmitAsyncSearchRequest.DEFAULT_KEEP_ON_COMPLETION));
         }
         if (request.hasParam("ccs_minimize_roundtrips")) {
-            searchRequest.requestCache(request.paramAsBoolean("ccs_minimize_roundtrips",
-                    SubmitAsyncSearchRequest.CCR_MINIMIZE_ROUNDTRIPS));
+            searchRequest.setCcsMinimizeRoundtrips(false);
         }
         if (request.hasParam("pre_filter_shard_size")) {
             searchRequest.setPreFilterShardSize(request.paramAsInt("pre_filter_shard_size",
                     SubmitAsyncSearchRequest.DEFAULT_PRE_FILTER_SHARD_SIZE));
         }
         if (request.hasParam("request_cache")) {
-            searchRequest.setCcsMinimizeRoundtrips(request.paramAsBoolean("request_cache",
-                    SubmitAsyncSearchRequest.DEFAULT_REQUEST_CACHE));
+            searchRequest.requestCache(false);
         }
         if (request.hasParam("batched_reduce_size")) {
             final int batchedReduceSize = request.paramAsInt("batched_reduce_size",
                     SubmitAsyncSearchRequest.DEFAULT_BATCHED_REDUCE_SIZE);
             searchRequest.setBatchedReduceSize(batchedReduceSize);
         }
-        return new RestChannelConsumer() {
-            @Override
-            public void accept(RestChannel channel) throws Exception {
-                RestCancellableNodeClient cancelClient = new RestCancellableNodeClient(client, request.getHttpChannel());
-                cancelClient.execute(SubmitAsyncSearchAction.INSTANCE, submitAsyncSearchRequest, new RestStatusToXContentListener<>(channel));
-            }
+        return channel -> {
+            RestCancellableNodeClient cancelClient = new RestCancellableNodeClient(client, request.getHttpChannel());
+            cancelClient.execute(SubmitAsyncSearchAction.INSTANCE, submitAsyncSearchRequest, new RestStatusToXContentListener<>(channel));
         };
     }
 
