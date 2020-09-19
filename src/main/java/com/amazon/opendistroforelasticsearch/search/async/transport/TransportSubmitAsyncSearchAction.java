@@ -70,20 +70,11 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, searchTask);
             CompositeAsyncSearchProgressActionListener progressActionListener = new CompositeAsyncSearchProgressActionListener(asyncSearchContext);
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
-            transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
-                @Override
-                public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
-                    SearchTask task = super.createTask(id, type, action, parentTaskId, headers);
-                    searchTask.set(task);
-                    task.setProgressListener(progressActionListener);
-                    return task;
-                }
-            }, progressActionListener);
 
             logger.debug("Initiated sync search request {}", asyncSearchContext.getId());
 
             ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                    request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
+                    request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (actionListener) -> {
                         logger.info("Timeout triggered for async search");
                         if (asyncSearchContext.isCancelled()) {
                             listener.onFailure(new ResourceNotFoundException("Search cancelled"));
@@ -93,9 +84,18 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                         } catch (IOException e) {
                             listener.onFailure(e);
                         }
-                        progressActionListener.removeListener(contextListener);
+                        progressActionListener.removeListener(actionListener);
                     });
             progressActionListener.addListener(wrappedListener);
+            transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
+                @Override
+                public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
+                    SearchTask task = super.createTask(id, type, action, parentTaskId, headers);
+                    searchTask.set(task);
+                    task.setProgressListener(progressActionListener);
+                    return task;
+                }
+            }, progressActionListener);
         } catch (Exception e) {
             listener.onFailure(e);
         }

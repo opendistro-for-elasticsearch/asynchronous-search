@@ -30,6 +30,7 @@ import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -55,8 +56,12 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
         this.actionListeners = new ArrayList<>();
     }
 
-    public void addListener(ActionListener<AsyncSearchResponse> listener) {
-        this.actionListeners.add(listener);
+    public synchronized void addListener(ActionListener<AsyncSearchResponse> listener) throws IOException {
+        if (asyncSearchContext.isRunning() == false) {
+            this.actionListeners.add(listener);
+        } else {
+            listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+        }
     }
 
     public void removeListener(ActionListener<AsyncSearchResponse> listener) { this.actionListeners.remove(listener); }
