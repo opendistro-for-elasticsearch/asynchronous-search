@@ -81,9 +81,7 @@ public class AsyncSearchPersistenceService {
             BackoffPolicy.exponentialBackoff(timeValueMillis(250), 14);
 
     private final Client client;
-
     private final ClusterService clusterService;
-
     private final ThreadPool threadPool;
     private final NamedWriteableRegistry namedWriteableRegistry;
 

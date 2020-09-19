@@ -1,4 +1,4 @@
-package com.amazon.opendistroforelasticsearch.search.async.plugin;
+package com.amazon.opendistroforelasticsearch.search.async.reaper;
 
 import org.elasticsearch.Version;
 import org.elasticsearch.common.io.stream.StreamOutput;

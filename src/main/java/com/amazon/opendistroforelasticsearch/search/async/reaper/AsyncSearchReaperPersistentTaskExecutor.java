@@ -1,4 +1,4 @@
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.reaper;
 
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
@@ -24,7 +24,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.function.Predicate;
 
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams;
+import static com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams;
 
 public class AsyncSearchReaperPersistentTaskExecutor extends PersistentTasksExecutor<AsyncSearchReaperParams> {
 

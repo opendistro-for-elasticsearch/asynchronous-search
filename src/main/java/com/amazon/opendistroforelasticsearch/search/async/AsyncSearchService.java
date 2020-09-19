@@ -17,9 +17,9 @@ package com.amazon.opendistroforelasticsearch.search.async;
 
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
-import com.amazon.opendistroforelasticsearch.search.async.transport.TransportSubmitAsyncSearchAction;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.UUIDs;
@@ -34,6 +34,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
@@ -66,11 +67,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
 
     private final ClusterService clusterService;
 
-    private final ConcurrentMapLong<AsyncSearchContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
-
     private final AsyncSearchPersistenceService persistenceService;
 
-    public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService, Client client, ClusterService clusterService, ThreadPool threadPool) {
+    private final ConcurrentMapLong<AsyncSearchContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
+
+    public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService, Client client, ClusterService clusterService,
+                              ThreadPool threadPool) {
         this.client = client;
         Settings settings = clusterService.getSettings();
         TimeValue keepAliveInterval = KEEPALIVE_INTERVAL_SETTING.get(settings);
@@ -98,6 +100,15 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
         this.maxKeepAlive = maxKeepAlive.millis();
     }
 
+    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, AtomicReference<SearchTask> task) {
+        AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
+        AsyncSearchContext asyncSearchContext = new AsyncSearchContext(clusterService.localNode().getId(), asyncSearchContextId,
+                submitAsyncSearchRequest.getKeepAlive(),
+                submitAsyncSearchRequest.keepOnCompletion(), task);
+        putContext(asyncSearchContext);
+        return asyncSearchContext;
+    }
+
     private AsyncSearchContext getContext(AsyncSearchContextId contextId) {
         final AsyncSearchContext context = activeContexts.get(contextId.getId());
         if (context == null) {
@@ -121,18 +132,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
         activeContexts.put(asyncSearchContext.getAsyncSearchContextId().getId(), asyncSearchContext);
     }
 
-    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest,
-                                                        TransportSubmitAsyncSearchAction.SearchTimeProvider timeProvider) {
-        AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
-        AsyncSearchContext asyncSearchContext = new AsyncSearchContext(persistenceService,
-                client, clusterService.localNode().getId(), asyncSearchContextId,
-                submitAsyncSearchRequest.getKeepAlive(),
-                submitAsyncSearchRequest.keepOnCompletion(), timeProvider);
-        putContext(asyncSearchContext);
-        return asyncSearchContext;
-    }
-
-
     public boolean freeContext(AsyncSearchContextId asyncSearchContextId) throws IOException {
         persistenceService.deleteResponse(AsyncSearchId.buildAsyncId(
                 new AsyncSearchId(clusterService.localNode().getId(), asyncSearchContextId)));
@@ -146,6 +145,25 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
         return false;
     }
 
+    /*public void cancelTask() {
+        if (isCancelled())
+            return;
+        logger.info("Cancelling task [{}] on node : [{}]", getTask().getId(), nodeId);
+        CancelTasksRequest cancelTasksRequest = new CancelTasksRequest();
+        cancelTasksRequest.setTaskId(.taskInfo(nodeId, false).getTaskId());
+        cancelTasksRequest.setReason("Async search request expired");
+        client.admin().cluster().cancelTasks(cancelTasksRequest, new ActionListener<CancelTasksResponse>() {
+            @Override
+            public void onResponse(CancelTasksResponse cancelTasksResponse) {
+                logger.info(cancelTasksResponse.toString());
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                logger.error("Failed to cancel async search task {} not cancelled upon expiry", getTask().getId());
+            }
+        });
+    }*/
 
     @Override
     protected void doStart() {
@@ -168,6 +186,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
     protected void doClose() throws IOException {
         doStop();
         keepAliveReaper.cancel();
+    }
+
+    public void updateExpirationTime(long requestedExpirationTime) {
     }
 
     class Reaper implements Runnable {

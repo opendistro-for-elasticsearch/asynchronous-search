@@ -1,6 +1,6 @@
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.reaper;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams;
+import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;

@@ -4,9 +4,10 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeAsyncSearchProgressActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
-import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.TransportSearchAction;
@@ -18,6 +19,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
 import java.io.IOException;
+import java.util.concurrent.TimeoutException;
 
 
 public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchAction<GetAsyncSearchRequest, AsyncSearchResponse> {
@@ -44,38 +46,45 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
 
     @Override
     public void handleRequest(AsyncSearchId asyncSearchId, GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
-        AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
-        if (asyncSearchContext.isCancelled() || asyncSearchContext.isExpired()) {
-            try {
-                asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());
-            } catch (IOException e) {
-
-            }
-            throw new ResourceNotFoundException(request.getId());
-        }
         try {
-            updateExpiryTimeIfRequired(request, asyncSearchContext);
-        } catch (IOException e) {
+            AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
+            if (asyncSearchContext.isCancelled() || asyncSearchContext.isExpired()) {
+                try {
+                    asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());
+                } catch (IOException e) {
+
+                }
+                throw new ResourceNotFoundException(request.getId());
+            }
+            try {
+                updateExpiryTimeIfRequired(request, asyncSearchContext);
+            } catch (IOException e) {
+                listener.onFailure(e);
+            }
+
+            if (asyncSearchContext.isRunning()) {
+                ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+                        request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (actionListener) -> {
+                            try {
+                                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                            } catch (IOException e) {
+                                listener.onFailure(e);
+                            }
+                            ((CompositeAsyncSearchProgressActionListener) asyncSearchContext.getTask().getProgressListener()).removeListener(actionListener);
+                        });
+                //Here we want to be listen onto onFailure/onResponse ONLY or a timeout whichever happens earlier.
+                //The original progress listener is responsible for updating the context. So whenever we search finishes or
+                // times out we return the most upto state from the AsyncContext
+                ((CompositeAsyncSearchProgressActionListener) asyncSearchContext.getTask().getProgressListener()).addListener(wrappedListener);
+            } else {
+                ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+                        request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
+                            listener.onFailure(new TimeoutException("Fetching response from index timed out."));
+                        });
+                asyncSearchContext.getAsyncSearchResponse();
+            }
+        } catch (Exception e) {
             listener.onFailure(e);
-        }
-
-        if (asyncSearchContext.isRunning()) {
-            ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                    request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
-                        try {
-                            listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                        } catch (IOException e) {
-                            listener.onFailure(e);
-                        }
-                        asyncSearchContext.removeListener(contextListener);
-                    });
-            //Here we want to be listen onto onFailure/onResponse ONLY or a timeout whichever happens earlier.
-            //The original progress listener is responsible for updating the context. So whenever we search finishes or
-            // times out we return the most upto state from the AsyncContext
-            asyncSearchContext.addListener(wrappedListener);
-        } else {
-
-            asyncSearchContext.getAsyncSearchResponse(listener);
         }
 
     }
@@ -85,7 +94,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
         if (request.getKeepAlive() != null) {
             long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
             if (requestedExpirationTime > asyncSearchContext.getExpirationTimeMillis()) {
-                asyncSearchContext.updateExpirationTime(requestedExpirationTime);
+                asyncSearchService.updateExpirationTime(requestedExpirationTime);
             }
         }
     }
