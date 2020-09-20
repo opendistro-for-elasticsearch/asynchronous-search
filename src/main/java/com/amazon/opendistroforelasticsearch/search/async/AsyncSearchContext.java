@@ -97,11 +97,9 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         return resultsHolder;
     }
 
-
     public AsyncSearchContextId getAsyncSearchContextId() {
         return asyncSearchContextId;
     }
-
 
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(getId(), isPartial(), isRunning(), searchTask.get().getStartTime(), getExpirationTimeMillis(),
@@ -156,22 +154,24 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
 
-    public void processFailure(Exception e) {
+    public synchronized void processFailure(Exception e) {
         this.isCompleted.set(true);
         this.isPartial.set(false);
         this.isRunning.set(false);
         error.set(new ElasticsearchException(e));
+        setStage(Stage.FAILED);
     }
 
 
-    public void processFinalResponse(SearchResponse response) {
+    public synchronized void processFinalResponse(SearchResponse response) {
         this.searchResponse.compareAndSet(null, response);
         this.isCompleted.set(true);
         this.isRunning.set(false);
         this.isPartial.set(false);
+        setStage(Stage.COMPLETED);
     }
 
-    public synchronized AsyncSearchContext setStage(AsyncSearchContext.Stage stage) {
+    public synchronized AsyncSearchContext setStage(Stage stage) {
         switch (stage) {
             case INIT:
                 this.stage = AsyncSearchContext.Stage.INIT;
@@ -183,26 +183,16 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
                 validateAndSetStage(AsyncSearchContext.Stage.RUNNING, stage);
                 break;
             case FAILED:
-                //validateAndSetStage(AsyncSearchContext.Stage.VERIFY_INDEX, stage);
-                break;
-            case PERSISTED:
-                //validateAndSetStage(AsyncSearchContext.Stage.TRANSLOG, stage);
-                break;
-            case EXPIRED:
-                //validateAndSetStage(AsyncSearchContext.Stage.FINALIZE, stage);
-                break;
-            case ABORTED:
-                //validateAndSetStage(AsyncSearchContext.Stage.FINALIZE, stage);
                 break;
             default:
-                throw new IllegalArgumentException("unknown RecoveryState.Stage [" + stage + "]");
+                throw new IllegalArgumentException("unknown AsyncSearchContext.Stage [" + stage + "]");
         }
         return this;
     }
 
-    private void validateAndSetStage(AsyncSearchContext.Stage expected, AsyncSearchContext.Stage next) {
+    private void validateAndSetStage(Stage expected, Stage next) {
         if (stage != expected) {
-            throw new IllegalStateException("can't move recovery to stage [" + next + "]. current stage: ["
+            throw new IllegalStateException("can't move to stage [" + next + "]. current stage: ["
                     + stage + "] (expected [" + expected + "])");
         }
         stage = next;
