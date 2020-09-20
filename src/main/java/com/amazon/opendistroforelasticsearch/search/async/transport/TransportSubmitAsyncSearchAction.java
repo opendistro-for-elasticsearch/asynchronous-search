@@ -37,9 +37,7 @@ import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
-import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class TransportSubmitAsyncSearchAction extends HandledTransportAction<SubmitAsyncSearchRequest, AsyncSearchResponse> {
 
@@ -65,10 +63,11 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
 
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
-        AtomicReference<SearchTask> searchTask = new AtomicReference<>();
         try {
-            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request, searchTask);
-            CompositeAsyncSearchProgressActionListener progressActionListener = new CompositeAsyncSearchProgressActionListener(asyncSearchContext);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request);
+            CompositeAsyncSearchProgressActionListener progressActionListener = new CompositeAsyncSearchProgressActionListener(
+                    asyncSearchContext.getResultsHolder(), asyncSearchContext::getAsyncSearchResponse,
+                    (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext), (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext));
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
 
             logger.debug("Initiated sync search request {}", asyncSearchContext.getId());
@@ -79,21 +78,17 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                         if (asyncSearchContext.isCancelled()) {
                             listener.onFailure(new ResourceNotFoundException("Search cancelled"));
                         }
-                        try {
-                            listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                        } catch (IOException e) {
-                            listener.onFailure(e);
-                        }
+                        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                         progressActionListener.removeListener(actionListener);
                     });
             progressActionListener.addListener(wrappedListener);
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
                 @Override
                 public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
-                    SearchTask task = super.createTask(id, type, action, parentTaskId, headers);
-                    searchTask.set(task);
-                    task.setProgressListener(progressActionListener);
-                    return task;
+                    SearchTask searchTask = super.createTask(id, type, action, parentTaskId, headers);
+                    asyncSearchContext.setSearchTask(searchTask);
+                    searchTask.setProgressListener(progressActionListener);
+                    return searchTask;
                 }
             }, progressActionListener);
         } catch (Exception e) {

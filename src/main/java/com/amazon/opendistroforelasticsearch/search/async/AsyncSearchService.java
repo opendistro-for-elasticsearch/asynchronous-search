@@ -19,8 +19,10 @@ import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearc
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.search.SearchTask;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.ClusterChangedEvent;
+import org.elasticsearch.cluster.ClusterStateListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
@@ -34,13 +36,12 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
 
-public class AsyncSearchService extends AbstractLifecycleComponent {
+public class AsyncSearchService extends AbstractLifecycleComponent implements ClusterStateListener {
 
     private static final Logger logger = LogManager.getLogger(SearchService.class);
 
@@ -100,11 +101,11 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
         this.maxKeepAlive = maxKeepAlive.millis();
     }
 
-    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, AtomicReference<SearchTask> task) {
+    public final AsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest) {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchContext asyncSearchContext = new AsyncSearchContext(clusterService.localNode().getId(), asyncSearchContextId,
                 submitAsyncSearchRequest.getKeepAlive(),
-                submitAsyncSearchRequest.keepOnCompletion(), task);
+                submitAsyncSearchRequest.keepOnCompletion());
         putContext(asyncSearchContext);
         return asyncSearchContext;
     }
@@ -143,6 +144,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
             return true;
         }
         return false;
+    }
+
+    public void onSearchResponse(SearchResponse searchResponse, AsyncSearchContext asyncSearchContext) {
+        asyncSearchContext.processFinalResponse(searchResponse);
+    }
+
+    public void onSearchFailure(Exception e, AsyncSearchContext asyncSearchContext) {
+        asyncSearchContext.processFailure(e);
     }
 
     /*public void cancelTask() {
@@ -189,6 +198,11 @@ public class AsyncSearchService extends AbstractLifecycleComponent {
     }
 
     public void updateExpirationTime(long requestedExpirationTime) {
+    }
+
+    @Override
+    public void clusterChanged(ClusterChangedEvent event) {
+
     }
 
     class Reaper implements Runnable {

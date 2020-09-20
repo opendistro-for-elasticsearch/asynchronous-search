@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
@@ -36,8 +37,19 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 
 public class AsyncSearchContext extends AbstractRefCounted implements Releasable {
+
+    public enum Stage {
+        INIT,
+        RUNNING,
+        COMPLETED,
+        FAILED,
+        PERSISTED,
+        EXPIRED,
+        ABORTED
+    }
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchContext.class);
 
@@ -48,32 +60,36 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
-    private AtomicReference<SearchTask> searchTask;
+    private SetOnce<SearchTask> searchTask = new SetOnce<>();
     private final String nodeId;
     private final Boolean keepOnCompletion;
     private final AsyncSearchContextId asyncSearchContextId;
     private final ResultsHolder resultsHolder;
     private TimeValue keepAlive;
+    private Stage stage;
 
 
-    public AsyncSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion,
-                              AtomicReference<SearchTask> searchTask) {
+    public AsyncSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion) {
         super("async_search_context");
         this.nodeId = nodeId;
         this.asyncSearchContextId = asyncSearchContextId;
         this.keepOnCompletion = keepOnCompletion;
-        this.resultsHolder = new ResultsHolder();
         this.isRunning = new AtomicBoolean(true);
         this.isPartial = new AtomicBoolean(true);
         this.isCompleted = new AtomicBoolean(false);
         this.persisted = new AtomicBoolean(false);
         this.error = new AtomicReference<>();
         this.searchResponse = new AtomicReference<>();
-        this.searchTask = searchTask;
         this.keepAlive = keepAlive;
+        this.resultsHolder = new ResultsHolder(this::getStartTimeMillis);
+        this.stage = Stage.INIT;
     }
 
-    public SearchTask getTask() {
+    public void setSearchTask(SearchTask searchTask) {
+        this.searchTask.set(searchTask);
+    }
+
+    public SearchTask getSearchTask() {
         return searchTask.get();
     }
 
@@ -86,25 +102,19 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         return asyncSearchContextId;
     }
 
-    @Override
-    public void close() {
 
-    }
-
-    @Override
-    protected void closeInternal() {
-
-    }
-
-    public AsyncSearchResponse getAsyncSearchResponse() throws IOException {
+    public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(getId(), isPartial(), isRunning(), searchTask.get().getStartTime(), getExpirationTimeMillis(),
                         isRunning() ? resultsHolder.buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
 
-
     }
 
-    public String getId() throws IOException {
-        return AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, asyncSearchContextId));
+    public String getId() {
+        try {
+            return AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, asyncSearchContextId));
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     public SearchResponse getFinalSearchResponse() {
@@ -112,11 +122,11 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     public boolean isRunning() {
-        return !getTask().isCancelled() && isRunning.get();
+        return !getSearchTask().isCancelled() && isRunning.get();
     }
 
     public boolean isCancelled() {
-        return getTask().isCancelled();
+        return getSearchTask().isCancelled();
     }
 
     public boolean isPartial() {
@@ -127,8 +137,22 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         return searchTask.get().getStartTime() + keepAlive.getMillis();
     }
 
+    public long getStartTimeMillis() {
+        return searchTask.get().getStartTime();
+    }
+
     public boolean isExpired() {
         return System.currentTimeMillis() > getExpirationTimeMillis();
+    }
+
+    @Override
+    public void close() {
+
+    }
+
+    @Override
+    protected void closeInternal() {
+
     }
 
 
@@ -147,44 +171,44 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.isPartial.set(false);
     }
 
-    public synchronized void addShardFailure(ShardSearchFailure failure) {
-        resultsHolder.shardSearchFailuresFailures.add(failure);
-    }
-
-    /**
-     * @param reducePhase Version of reduce. If reducePhase version in resultHolder is greater than the event's reducePhase version, this event can be discarded.
-     */
-    public synchronized void updateResultFromReduceEvent(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
-        resultsHolder.successfulShards.set(shards.size());
-        resultsHolder.internalAggregations = aggs;
-        resultsHolder.reducePhase.set(reducePhase);
-        resultsHolder.totalHits = totalHits;
-    }
-
-    public synchronized void updateResultFromReduceEvent(InternalAggregations aggs, TotalHits totalHits, int reducePhase) {
-        if (resultsHolder.reducePhase.get() > reducePhase) {
-            logger.warn("ResultHolder reducePhase version {} is ahead of the event reducePhase version {}. Discarding event",
-                    resultsHolder.reducePhase, reducePhase);
-            return;
+    public synchronized AsyncSearchContext setStage(AsyncSearchContext.Stage stage) {
+        switch (stage) {
+            case INIT:
+                this.stage = AsyncSearchContext.Stage.INIT;
+                break;
+            case RUNNING:
+                validateAndSetStage(AsyncSearchContext.Stage.INIT, stage);
+                break;
+            case COMPLETED:
+                validateAndSetStage(AsyncSearchContext.Stage.RUNNING, stage);
+                break;
+            case FAILED:
+                //validateAndSetStage(AsyncSearchContext.Stage.VERIFY_INDEX, stage);
+                break;
+            case PERSISTED:
+                //validateAndSetStage(AsyncSearchContext.Stage.TRANSLOG, stage);
+                break;
+            case EXPIRED:
+                //validateAndSetStage(AsyncSearchContext.Stage.FINALIZE, stage);
+                break;
+            case ABORTED:
+                //validateAndSetStage(AsyncSearchContext.Stage.FINALIZE, stage);
+                break;
+            default:
+                throw new IllegalArgumentException("unknown RecoveryState.Stage [" + stage + "]");
         }
-        resultsHolder.totalHits = totalHits;
-        resultsHolder.internalAggregations = aggs;
-        resultsHolder.reducePhase.set(reducePhase);
+        return this;
     }
 
-    public synchronized void initialiseResultHolderShardLists(
-            List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters, boolean fetchPhase) {
-        resultsHolder.totalShards.set(shards.size());
-        resultsHolder.skippedShards.set(skippedShards.size());
-        resultsHolder.clusters = clusters;
-        resultsHolder.isResponseInitialized.set(true);
+    private void validateAndSetStage(AsyncSearchContext.Stage expected, AsyncSearchContext.Stage next) {
+        if (stage != expected) {
+            throw new IllegalStateException("can't move recovery to stage [" + next + "]. current stage: ["
+                    + stage + "] (expected [" + expected + "])");
+        }
+        stage = next;
     }
 
-    public synchronized void incrementSuccessfulShards() {
-        resultsHolder.successfulShards.incrementAndGet();
-    }
-
-    class ResultsHolder {
+    public static class ResultsHolder {
         private AtomicInteger reducePhase;
         private TotalHits totalHits;
         private InternalAggregations internalAggregations;
@@ -193,16 +217,18 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         private AtomicInteger successfulShards;
         private AtomicInteger skippedShards;
         private SearchResponse.Clusters clusters;
+        private LongSupplier startTimeSupplier;
         private final List<ShardSearchFailure> shardSearchFailuresFailures;
 
-        ResultsHolder() {
+        ResultsHolder(LongSupplier startTimeSupplier) {
             this.internalAggregations = InternalAggregations.EMPTY;
             this.shardSearchFailuresFailures = new ArrayList<>();
-            totalShards = new AtomicInteger();
-            successfulShards = new AtomicInteger();
-            skippedShards = new AtomicInteger();
-            reducePhase = new AtomicInteger();
-            isResponseInitialized = new AtomicBoolean(false);
+            this.totalShards = new AtomicInteger();
+            this.successfulShards = new AtomicInteger();
+            this.skippedShards = new AtomicInteger();
+            this.reducePhase = new AtomicInteger();
+            this.isResponseInitialized = new AtomicBoolean(false);
+            this.startTimeSupplier = startTimeSupplier;
         }
 
         private SearchResponse buildPartialSearchResponse() {
@@ -211,13 +237,50 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
                 InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits, internalAggregations,
                         null, null, false, false, reducePhase.get());
                 ShardSearchFailure[] shardSearchFailures = shardSearchFailuresFailures.toArray(new ShardSearchFailure[]{});
-                long tookInMillis = System.currentTimeMillis() - searchTask.get().getStartTime();
+                long tookInMillis = System.currentTimeMillis() - startTimeSupplier.getAsLong();
                 return new SearchResponse(internalSearchResponse, null, totalShards.get(),
                         successfulShards.get(), skippedShards.get(), tookInMillis, shardSearchFailures,
                         clusters);
             } else {
                 return null;
             }
+        }
+
+        /**
+         * @param reducePhase Version of reduce. If reducePhase version in resultHolder is greater than the event's reducePhase version, this event can be discarded.
+         */
+        public synchronized void updateResultFromReduceEvent(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
+            this.successfulShards.set(shards.size());
+            this.internalAggregations = aggs;
+            this.reducePhase.set(reducePhase);
+            this.totalHits = totalHits;
+        }
+
+        public synchronized void updateResultFromReduceEvent(InternalAggregations aggs, TotalHits totalHits, int reducePhase) {
+            if (this.reducePhase.get() > reducePhase) {
+                logger.warn("ResultHolder reducePhase version {} is ahead of the event reducePhase version {}. Discarding event",
+                        this.reducePhase, reducePhase);
+                return;
+            }
+            this.totalHits = totalHits;
+            this.internalAggregations = aggs;
+            this.reducePhase.set(reducePhase);
+        }
+
+        public synchronized void initialiseResultHolderShardLists(
+                List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters, boolean fetchPhase) {
+            this.totalShards.set(shards.size());
+            this.skippedShards.set(skippedShards.size());
+            this.clusters = clusters;
+            this.isResponseInitialized.set(true);
+        }
+
+        public synchronized void incrementSuccessfulShards() {
+            this.successfulShards.incrementAndGet();
+        }
+
+        public synchronized void addShardFailure(ShardSearchFailure failure) {
+            this.shardSearchFailuresFailures.add(failure);
         }
     }
 }

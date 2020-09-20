@@ -35,6 +35,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 
 public class CompositeAsyncSearchProgressActionListener extends SearchProgressActionListener {
@@ -49,18 +51,25 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
     private AtomicInteger numReducePhases = new AtomicInteger();
 
     private final List<ActionListener<AsyncSearchResponse>> actionListeners;
-    private AsyncSearchContext asyncSearchContext;
+    private AsyncSearchContext.ResultsHolder resultsHolder;
+    private Supplier<AsyncSearchResponse> asyncSearchResponseSupplier;
+    private Consumer<Exception> exceptionConsumer;
+    private Consumer<SearchResponse> searchResponseConsumer;
 
-    public CompositeAsyncSearchProgressActionListener(AsyncSearchContext asyncSearchContext) {
-        this.asyncSearchContext = asyncSearchContext;
-        this.actionListeners = new ArrayList<>();
+    public CompositeAsyncSearchProgressActionListener(AsyncSearchContext.ResultsHolder resultsHolder, Supplier<AsyncSearchResponse> asyncSearchResponseSupplier,
+                                                      Consumer<SearchResponse> searchResponseConsumer, Consumer<Exception> exceptionConsumer) {
+        this.resultsHolder = resultsHolder;
+        this.asyncSearchResponseSupplier = asyncSearchResponseSupplier;
+        this.searchResponseConsumer = searchResponseConsumer;
+        this.exceptionConsumer = exceptionConsumer;
+        this.actionListeners = new ArrayList<>(1);
     }
 
     public synchronized void addListener(ActionListener<AsyncSearchResponse> listener) throws IOException {
-        if (asyncSearchContext.isRunning() == false) {
+        if (true) {//(resultsHolder.isRunning() == false) {
             this.actionListeners.add(listener);
         } else {
-            listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+            listener.onResponse(asyncSearchResponseSupplier.get());
         }
     }
 
@@ -72,7 +81,7 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
         logger.warn("onListShards --> shards :{}, skippedShards: {}, clusters: {}, fetchPhase: {}", shards, skippedShards,
                 clusters, fetchPhase);
         this.hasFetchPhase.set(fetchPhase);
-        asyncSearchContext.initialiseResultHolderShardLists(shards, skippedShards, clusters, fetchPhase);
+        resultsHolder.initialiseResultHolderShardLists(shards, skippedShards, clusters, fetchPhase);
     }
 
     //FIXME : Delay deserializing aggregations up until partial SearchResponse has to be built.
@@ -83,9 +92,9 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
                 reducePhase);
         numReducePhases.incrementAndGet();
         if (hasFetchPhase.get()) {
-            asyncSearchContext.updateResultFromReduceEvent(aggs == null ? null : aggs.expand(), totalHits, reducePhase);
+            resultsHolder.updateResultFromReduceEvent(aggs == null ? null : aggs.expand(), totalHits, reducePhase);
         } else {
-            asyncSearchContext.updateResultFromReduceEvent(shards, totalHits, aggs == null ? null : aggs.expand(),
+            resultsHolder.updateResultFromReduceEvent(shards, totalHits, aggs == null ? null : aggs.expand(),
                     reducePhase);
         }
     }
@@ -96,9 +105,9 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
         logger.warn("onFinalReduce --> shards: {}, totalHits: {}, aggs :{}, reducePhase:{}", shards, totalHits, aggs, reducePhase);
         numReducePhases.incrementAndGet();
         if (hasFetchPhase.get()) {
-            asyncSearchContext.updateResultFromReduceEvent(aggs, totalHits, reducePhase);
+            resultsHolder.updateResultFromReduceEvent(aggs, totalHits, reducePhase);
         } else {
-            asyncSearchContext.updateResultFromReduceEvent(shards, totalHits, aggs, reducePhase);
+            resultsHolder.updateResultFromReduceEvent(shards, totalHits, aggs, reducePhase);
         }
     }
 
@@ -107,14 +116,14 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
         logger.warn("onFetchFailure --> shardIndex :{}, shardTarget: {}", shardIndex, shardTarget);
         ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
         numFetchFailures.incrementAndGet();
-        asyncSearchContext.addShardFailure(shardSearchFailure);
+        resultsHolder.addShardFailure(shardSearchFailure);
     }
 
     @Override
     protected void onFetchResult(int shardIndex) {
         logger.warn("onFetchResult --> shardIndex: {} Thread : {}", shardIndex, Thread.currentThread().getId());
         numFetchResults.incrementAndGet();
-        asyncSearchContext.incrementSuccessfulShards();
+        resultsHolder.incrementSuccessfulShards();
     }
 
     @Override
@@ -122,7 +131,7 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
         logger.warn("onQueryFailure --> shardIndex: {}, searchTarget: {}", shardIndex, shardTarget, exc);
         ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
         numQueryFailures.incrementAndGet();
-        asyncSearchContext.addShardFailure(shardSearchFailure);
+        resultsHolder.addShardFailure(shardSearchFailure);
     }
 
     /**
@@ -134,17 +143,17 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
         logger.warn("onQueryResult --> shardIndex: {}", shardIndex);
         numQueryResults.incrementAndGet();
         if (!hasFetchPhase.get() && numReducePhases.get() == 0) {
-            asyncSearchContext.incrementSuccessfulShards();
+            resultsHolder.incrementSuccessfulShards();
         }
     }
 
     @Override
     public void onResponse(SearchResponse searchResponse) {
-        asyncSearchContext.processFinalResponse(searchResponse);
+        searchResponseConsumer.accept(searchResponse);
         for (ActionListener<AsyncSearchResponse> listener : actionListeners) {
             try {
                 logger.info("Search response completed {}", searchResponse);
-                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                listener.onResponse(asyncSearchResponseSupplier.get());
             } catch (Exception e) {
                 logger.warn(() -> new ParameterizedMessage("onResponse listener [{}] failed", listener), e);
             }
@@ -153,7 +162,7 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
 
     @Override
     public void onFailure(Exception e) {
-        asyncSearchContext.processFailure(e);
+        exceptionConsumer.accept(e);
         for (ActionListener<AsyncSearchResponse> listener : actionListeners) {
             try {
                 logger.info("Search response failure", e);
