@@ -69,11 +69,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     asyncSearchContext.getResultsHolder(), asyncSearchContext::getAsyncSearchResponse,
                     (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext), (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext));
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
-
             logger.debug("Initiated sync search request {}", asyncSearchContext.getId());
-
-            ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                    request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (actionListener) -> {
+            ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapListener(listener, (actionListener) -> {
                         logger.info("Timeout triggered for async search");
                         if (asyncSearchContext.isCancelled()) {
                             listener.onFailure(new ResourceNotFoundException("Search cancelled"));
@@ -91,6 +88,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     return searchTask;
                 }
             }, progressActionListener);
+            AsyncSearchTimeoutWrapper.scheduleTimeout(threadPool, request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC,
+                    (AsyncSearchTimeoutWrapper.CompletionTimeoutListener<AsyncSearchResponse>)wrappedListener);
         } catch (Exception e) {
             listener.onFailure(e);
         }

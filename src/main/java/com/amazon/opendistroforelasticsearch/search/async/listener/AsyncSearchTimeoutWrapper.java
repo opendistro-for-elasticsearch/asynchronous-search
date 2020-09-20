@@ -34,11 +34,22 @@ public class AsyncSearchTimeoutWrapper {
                                                                            ActionListener<Response> actionListener,
                                                                            Consumer<ActionListener<Response>> timeoutConsumer) {
         CompletionTimeoutListener<Response> completionTimeoutListener = new CompletionTimeoutListener<>(actionListener, timeoutConsumer);
+        scheduleTimeout(threadPool, timeout, executor, completionTimeoutListener);
+        return completionTimeoutListener;
+    }
+
+    public static <Response> ActionListener<Response> wrapListener(ActionListener<Response> actionListener,  Consumer<ActionListener<Response>> timeoutConsumer) {
+        CompletionTimeoutListener<Response> completionTimeoutListener = new CompletionTimeoutListener<>(actionListener, timeoutConsumer);
+        return completionTimeoutListener;
+    }
+
+    public static <Response> ActionListener<Response> scheduleTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
+                                                                      CompletionTimeoutListener<Response> completionTimeoutListener) {
         completionTimeoutListener.cancellable = threadPool.schedule(completionTimeoutListener, timeout, executor);
         return completionTimeoutListener;
     }
 
-    static class CompletionTimeoutListener<Response> implements ActionListener<Response>, Runnable {
+    public static class CompletionTimeoutListener<Response> implements ActionListener<Response>, Runnable {
         private final ActionListener<Response> actionListener;
         private volatile Scheduler.ScheduledCancellable cancellable;
         private final AtomicBoolean complete = new AtomicBoolean(false);
