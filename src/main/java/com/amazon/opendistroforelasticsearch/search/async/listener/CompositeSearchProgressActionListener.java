@@ -39,7 +39,7 @@ import java.util.function.Supplier;
 
 import static com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper.CompletionTimeoutListener;
 
-public class CompositeAsyncSearchProgressActionListener extends SearchProgressActionListener {
+public class CompositeSearchProgressActionListener extends SearchProgressActionListener {
 
     private final Logger logger = LogManager.getLogger(getClass());
 
@@ -56,9 +56,9 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
     private Function<SearchResponse, AsyncSearchResponse> asyncSearchFunction;
     private Consumer<Exception> exceptionConsumer;
 
-    public CompositeAsyncSearchProgressActionListener(AsyncSearchContext.ResultsHolder resultsHolder, Supplier<AsyncSearchContext.Stage> stageSupplier,
-                                                      Function<SearchResponse, AsyncSearchResponse> asyncSearchFunction,
-                                                      Consumer<Exception> exceptionConsumer) {
+    public CompositeSearchProgressActionListener(AsyncSearchContext.ResultsHolder resultsHolder, Supplier<AsyncSearchContext.Stage> stageSupplier,
+                                                 Function<SearchResponse, AsyncSearchResponse> asyncSearchFunction,
+                                                 Consumer<Exception> exceptionConsumer) {
         this.resultsHolder = resultsHolder;
         this.asyncSearchFunction = asyncSearchFunction;
         this.exceptionConsumer = exceptionConsumer;

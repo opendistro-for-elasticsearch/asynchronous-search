@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeAsyncSearchProgressActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeSearchProgressActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.elasticsearch.ResourceNotFoundException;
@@ -68,7 +68,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
             AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request);
-            CompositeAsyncSearchProgressActionListener progressActionListener = new CompositeAsyncSearchProgressActionListener(
+            CompositeSearchProgressActionListener progressActionListener = new CompositeSearchProgressActionListener(
                     asyncSearchContext.getResultsHolder(), asyncSearchContext::getStage,
                     (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),
                     (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext));
@@ -90,11 +90,10 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                             (contextId) -> asyncSearchService.onCancelled(contextId));
                     asyncSearchContext.setSearchTask(asyncSearchTask);
                     asyncSearchTask.setProgressListener(progressActionListener);
-                    asyncSearchContext.setStage(AsyncSearchContext.Stage.RUNNING);
                     return asyncSearchTask;
                 }
             }, progressActionListener);
-
+            asyncSearchContext.setStage(AsyncSearchContext.Stage.RUNNING);
             AsyncSearchTimeoutWrapper.scheduleTimeout(threadPool, request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC,
                     (AsyncSearchTimeoutWrapper.CompletionTimeoutListener<AsyncSearchResponse>)wrappedListener);
         } catch (Exception e) {

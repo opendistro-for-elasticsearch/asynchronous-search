@@ -4,7 +4,7 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeAsyncSearchProgressActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeSearchProgressActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
@@ -65,13 +65,13 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                 ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                         request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (actionListener) -> {
                             listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                            ((CompositeAsyncSearchProgressActionListener)
+                            ((CompositeSearchProgressActionListener)
                                     asyncSearchContext.getSearchTask().getProgressListener()).removeListener(actionListener);
                         });
                 //Here we want to be listen onto onFailure/onResponse ONLY or a timeout whichever happens earlier.
                 //The original progress listener is responsible for updating the context. So whenever we search finishes or
                 // times out we return the most upto state from the AsyncContext
-                ((CompositeAsyncSearchProgressActionListener) asyncSearchContext.getSearchTask().getProgressListener()).addListener(wrappedListener);
+                ((CompositeSearchProgressActionListener) asyncSearchContext.getSearchTask().getProgressListener()).addListener(wrappedListener);
             } else {
                 listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
             }
