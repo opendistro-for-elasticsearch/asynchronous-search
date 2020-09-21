@@ -29,15 +29,15 @@ import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
-
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper.CompletionTimeoutListener;
 
 public class CompositeAsyncSearchProgressActionListener extends SearchProgressActionListener {
 
@@ -52,24 +52,25 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
 
     private final List<ActionListener<AsyncSearchResponse>> actionListeners;
     private AsyncSearchContext.ResultsHolder resultsHolder;
-    private Supplier<AsyncSearchResponse> asyncSearchResponseSupplier;
+    private Supplier<AsyncSearchContext.Stage> stageSupplier;
+    private Function<SearchResponse, AsyncSearchResponse> asyncSearchFunction;
     private Consumer<Exception> exceptionConsumer;
-    private Consumer<SearchResponse> searchResponseConsumer;
 
-    public CompositeAsyncSearchProgressActionListener(AsyncSearchContext.ResultsHolder resultsHolder, Supplier<AsyncSearchResponse> asyncSearchResponseSupplier,
-                                                      Consumer<SearchResponse> searchResponseConsumer, Consumer<Exception> exceptionConsumer) {
+    public CompositeAsyncSearchProgressActionListener(AsyncSearchContext.ResultsHolder resultsHolder, Supplier<AsyncSearchContext.Stage> stageSupplier,
+                                                      Function<SearchResponse, AsyncSearchResponse> asyncSearchFunction,
+                                                      Consumer<Exception> exceptionConsumer) {
         this.resultsHolder = resultsHolder;
-        this.asyncSearchResponseSupplier = asyncSearchResponseSupplier;
-        this.searchResponseConsumer = searchResponseConsumer;
+        this.asyncSearchFunction = asyncSearchFunction;
         this.exceptionConsumer = exceptionConsumer;
+        this.stageSupplier = stageSupplier;
         this.actionListeners = new ArrayList<>(1);
     }
 
-    public synchronized void addListener(ActionListener<AsyncSearchResponse> listener) throws IOException {
-        if (true) {//(resultsHolder.isRunning() == false) {
+    public synchronized void addListener(ActionListener<AsyncSearchResponse> listener) {
+        if (stageSupplier.get() == AsyncSearchContext.Stage.RUNNING) {
             this.actionListeners.add(listener);
         } else {
-            listener.onResponse(asyncSearchResponseSupplier.get());
+            ((CompletionTimeoutListener)listener).executeImmediately();
         }
     }
 
@@ -149,11 +150,11 @@ public class CompositeAsyncSearchProgressActionListener extends SearchProgressAc
 
     @Override
     public void onResponse(SearchResponse searchResponse) {
-        searchResponseConsumer.accept(searchResponse);
+        AsyncSearchResponse asyncSearchResponse = asyncSearchFunction.apply(searchResponse);
         for (ActionListener<AsyncSearchResponse> listener : actionListeners) {
             try {
                 logger.info("Search response completed {}", searchResponse);
-                listener.onResponse(asyncSearchResponseSupplier.get());
+                listener.onResponse(asyncSearchResponse);
             } catch (Exception e) {
                 logger.warn(() -> new ParameterizedMessage("onResponse listener [{}] failed", listener), e);
             }

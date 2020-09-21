@@ -146,8 +146,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         return false;
     }
 
-    public void onSearchResponse(SearchResponse searchResponse, AsyncSearchContext asyncSearchContext) {
+    public AsyncSearchResponse onSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
+        AsyncSearchContext asyncSearchContext = findContext(asyncSearchContextId);
         asyncSearchContext.processFinalResponse(searchResponse);
+        return asyncSearchContext.getAsyncSearchResponse();
     }
 
     public void onSearchFailure(Exception e, AsyncSearchContext asyncSearchContext) {
@@ -203,6 +205,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
 
+    }
+
+    public void onCancelled(AsyncSearchContextId contextId) {
     }
 
     class Reaper implements Runnable {

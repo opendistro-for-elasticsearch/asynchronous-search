@@ -19,7 +19,6 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
 import java.io.IOException;
-import java.util.concurrent.TimeoutException;
 
 
 public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchAction<GetAsyncSearchRequest, AsyncSearchResponse> {
@@ -74,11 +73,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                 // times out we return the most upto state from the AsyncContext
                 ((CompositeAsyncSearchProgressActionListener) asyncSearchContext.getSearchTask().getProgressListener()).addListener(wrappedListener);
             } else {
-                ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                        request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (contextListener) -> {
-                            listener.onFailure(new TimeoutException("Fetching response from index timed out."));
-                        });
-                asyncSearchContext.getAsyncSearchResponse();
+                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
             }
         } catch (Exception e) {
             listener.onFailure(e);

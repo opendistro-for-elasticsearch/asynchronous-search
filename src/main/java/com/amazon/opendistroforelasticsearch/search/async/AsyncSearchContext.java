@@ -68,7 +68,6 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private TimeValue keepAlive;
     private Stage stage;
 
-
     public AsyncSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion) {
         super("async_search_context");
         this.nodeId = nodeId;
@@ -87,6 +86,10 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     public void setSearchTask(SearchTask searchTask) {
         this.searchTask.set(searchTask);
+    }
+
+    public Stage getStage() {
+        return stage;
     }
 
     public SearchTask getSearchTask() {

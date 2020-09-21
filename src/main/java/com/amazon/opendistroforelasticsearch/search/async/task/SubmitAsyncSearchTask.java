@@ -15,9 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.task;
 
+import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.tasks.CancellableTask;
 import org.elasticsearch.tasks.TaskId;
+import org.elasticsearch.tasks.TaskResult;
 
+import java.io.IOException;
 import java.util.Map;
 
 public class SubmitAsyncSearchTask extends CancellableTask {

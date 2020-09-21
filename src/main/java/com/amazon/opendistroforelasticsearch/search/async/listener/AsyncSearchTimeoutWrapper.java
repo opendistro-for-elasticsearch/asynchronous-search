@@ -60,28 +60,32 @@ public class AsyncSearchTimeoutWrapper {
             this.timeoutConsumer = timeoutConsumer;
         }
 
-        boolean cancel() {
-            if (complete.compareAndSet(false, true)) {
-                if (cancellable != null) {
-                    return cancellable.cancel();
-                }
+        void cancel() {
+            if (cancellable != null) {
+                cancellable.cancel();
             }
-            return false;
         }
 
         @Override
         public void run() {
             if (complete.compareAndSet(false, true)) {
-                if (cancellable != null && cancellable.isCancelled()) {
-                    return;
-                }
                 timeoutConsumer.accept(this);
+            }
+        }
+
+        public void executeImmediately() {
+            if (complete.compareAndSet(false, true)) {
+                if (cancellable != null && cancellable.isCancelled() == false) {
+                    cancel();
+                    timeoutConsumer.accept(this);
+                }
             }
         }
 
         @Override
         public void onResponse(Response response) {
-            if (cancel()) {
+            if (complete.compareAndSet(false, true)) {
+                cancel();
                 logger.info("Invoking onResponse after cancel");
                 actionListener.onResponse(response);
             }
@@ -89,7 +93,8 @@ public class AsyncSearchTimeoutWrapper {
 
         @Override
         public void onFailure(Exception e) {
-            if (cancel()) {
+            if (complete.compareAndSet(false, true)) {
+                cancel();
                 actionListener.onFailure(e);
             }
         }
