@@ -65,12 +65,9 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
             if (asyncSearchContext.isRunning()) {
                 ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                         request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (actionListener) -> {
-                            try {
-                                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                            } catch (IOException e) {
-                                listener.onFailure(e);
-                            }
-                            ((CompositeAsyncSearchProgressActionListener) asyncSearchContext.getSearchTask().getProgressListener()).removeListener(actionListener);
+                            listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                            ((CompositeAsyncSearchProgressActionListener)
+                                    asyncSearchContext.getSearchTask().getProgressListener()).removeListener(actionListener);
                         });
                 //Here we want to be listen onto onFailure/onResponse ONLY or a timeout whichever happens earlier.
                 //The original progress listener is responsible for updating the context. So whenever we search finishes or

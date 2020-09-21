@@ -85,6 +85,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     SearchTask searchTask = super.createTask(id, type, action, parentTaskId, headers);
                     asyncSearchContext.setSearchTask(searchTask);
                     searchTask.setProgressListener(progressActionListener);
+                    asyncSearchContext.setStage(AsyncSearchContext.Stage.RUNNING);
                     return searchTask;
                 }
             }, progressActionListener);
