@@ -18,10 +18,10 @@ package com.amazon.opendistroforelasticsearch.search.async.transport;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeSearchProgressActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
+import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeSearchProgressActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
@@ -38,9 +38,9 @@ import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
-import static com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper.wrapListener;
-
 import java.util.Map;
+
+import static com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper.wrapListener;
 
 public class TransportSubmitAsyncSearchAction extends HandledTransportAction<SubmitAsyncSearchRequest, AsyncSearchResponse> {
 
@@ -82,13 +82,15 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                         progressActionListener.removeListener(actionListener);
                     });
             progressActionListener.addListener(wrappedListener);
+            request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
                 @Override
                 public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
                     AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, AsyncSearchTask.NAME,
-                            task.taskInfo(clusterService.localNode().getId(), false).getTaskId(), headers, asyncSearchContext.getAsyncSearchContextId(),
+                            parentTaskId, headers, asyncSearchContext.getAsyncSearchContextId(),
                             (contextId) -> asyncSearchService.onCancelled(contextId));
                     asyncSearchContext.setSearchTask(asyncSearchTask);
+                    asyncSearchContext.setExpirationMillis(asyncSearchTask.getStartTime() + request.getKeepAlive().getMillis());
                     asyncSearchTask.setProgressListener(progressActionListener);
                     return asyncSearchTask;
                 }

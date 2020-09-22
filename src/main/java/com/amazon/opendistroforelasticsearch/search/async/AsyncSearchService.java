@@ -15,10 +15,15 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
+import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeSearchProgressActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterChangedEvent;
@@ -37,6 +42,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.PERSISTED;
 import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
@@ -149,6 +155,22 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     public AsyncSearchResponse onSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
         AsyncSearchContext asyncSearchContext = findContext(asyncSearchContextId);
         asyncSearchContext.processFinalResponse(searchResponse);
+        this.persistenceService.createResponseAsync(asyncSearchContext.getAsyncSearchResponse(),
+                new ActionListener<IndexResponse>() {
+                    @Override
+                    public void onResponse(IndexResponse indexResponse) {
+                        asyncSearchContext.performPostPersistenceCleanup();
+                        asyncSearchContext.setStage(PERSISTED);
+                    }
+
+                    @Override
+                    public void onFailure(Exception e) {
+                        //FIXME : What to do in this case? Do we need a
+                        // stage FAILED_TO_PERSIST for completed searches which can be swept and persisted later. The search response is
+                        // still in memory.
+                        logger.error("Failed to persist final response for {}", asyncSearchContext.getId(), e);
+                    }
+                });
         return asyncSearchContext.getAsyncSearchResponse();
     }
 
@@ -194,17 +216,69 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
     @Override
-    protected void doClose() throws IOException {
+    protected void doClose() {
         doStop();
         keepAliveReaper.cancel();
     }
 
-    public void updateExpirationTime(long requestedExpirationTime) {
+    public void updateExpiryTimeIfRequired(GetAsyncSearchRequest request,
+                                           AsyncSearchContext asyncSearchContext, ActionListener<AsyncSearchResponse> listener) {
+        if (PERSISTED.equals(asyncSearchContext.getStage())) {
+            updatePersistedResponseIfRequired(request, listener);
+        } else {
+            updateInMemoryResponseIfRequired(request, asyncSearchContext, listener);
+        }
+    }
+
+    public void updateInMemoryResponseIfRequired(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext,
+                                                 ActionListener<AsyncSearchResponse> listener) {
+        if (request.getKeepAlive() != null) {
+            long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
+            if (requestedExpirationTime > asyncSearchContext.getExpirationTimeMillis()) {
+                asyncSearchContext.setExpirationMillis(requestedExpirationTime);
+            }
+        }
+        ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+                request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (actionListener) -> {
+                    listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                    ((CompositeSearchProgressActionListener)
+                            asyncSearchContext.getSearchTask().getProgressListener()).removeListener(actionListener);
+                });
+        ((CompositeSearchProgressActionListener) asyncSearchContext.getSearchTask().getProgressListener())
+                .addListener(wrappedListener);
+
+    }
+
+    public void updatePersistedResponseIfRequired(GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
+        persistenceService.getResponse(request.getId(), new ActionListener<AsyncSearchResponse>() {
+            @Override
+            public void onResponse(AsyncSearchResponse asyncSearchResponse) {
+                if (request.getKeepAlive() != null) {
+                    long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
+                    if (requestedExpirationTime > asyncSearchResponse.getExpirationTimeMillis()) {
+                        persistenceService.updateExpirationTimeAsync(request.getId(), requestedExpirationTime);
+                    }
+                    listener.onResponse(new AsyncSearchResponse(asyncSearchResponse, requestedExpirationTime));
+                } else {
+                    listener.onResponse(asyncSearchResponse);
+                }
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                logger.error("Failed to get async search response {} from index", request.getId());
+                listener.onFailure(e);
+            }
+        });
     }
 
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
 
+    }
+
+    public void getAsyncSearchResponse(AsyncSearchContext context, ActionListener<AsyncSearchResponse> listener) {
+        persistenceService.getResponse(context.getId(), listener);
     }
 
     public void onCancelled(AsyncSearchContextId contextId) {

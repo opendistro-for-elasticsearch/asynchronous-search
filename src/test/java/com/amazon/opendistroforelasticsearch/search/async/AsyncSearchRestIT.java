@@ -24,9 +24,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         AsyncSearchResponse getResponse;
         do {
             logger.info("Get async search {}", submitResponse.getId());
-            getResponse = getAsyncSearchApi(getAsyncSearchRequest);
-            assertEquals(submitResponse.getId(), getResponse.getId());
-            assertEquals(submitResponse.getStartTimeMillis(), getResponse.getStartTimeMillis());
+            getResponse = getAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
             assertEquals(submitResponse.getExpirationTimeMillis(), getResponse.getExpirationTimeMillis());
         } while (getResponse.isRunning());
 
@@ -56,9 +54,8 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         AsyncSearchResponse getResponse;
         do {
             logger.info("Get async search {}", submitResponse.getId());
-            getResponse = getAsyncSearchApi(new GetAsyncSearchRequest(submitResponse.getId()));
-            assertEquals(submitResponse.getId(), getResponse.getId());
-            assertEquals(submitResponse.getStartTimeMillis(), getResponse.getStartTimeMillis());
+            getResponse = getAsyncSearchResponse(submitResponse,
+                    new GetAsyncSearchRequest(submitResponse.getId()));
         } while (getResponse.isRunning());
         assertEquals(getResponse.getSearchResponse().getHits().getHits().length, 1);
     }
@@ -72,17 +69,46 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
             logger.info("Get async search {}", submitResponse.getId());
             GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
             getAsyncSearchRequest.setKeepAlive(new TimeValue(10, TimeUnit.DAYS));
-            getResponse = getAsyncSearchApi(getAsyncSearchRequest);
-
-            assertEquals(submitResponse.getId(), getResponse.getId());
+            getResponse = getAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
             assertTrue(getResponse.getExpirationTimeMillis() > submitResponse.getExpirationTimeMillis());
 
         } while (getResponse.isRunning());
-        assertEquals(getResponse.getSearchResponse().getHits().getHits().length, 1);
+
+        do {
+            logger.info("Get async search {}", submitResponse.getId());
+            GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
+            getResponse = getAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
+            assertTrue(getResponse.getExpirationTimeMillis() > submitResponse.getExpirationTimeMillis());
+
+        } while (getResponse.isRunning());
+
+        assertEquals(getResponse.getSearchResponse().getHits().getHits().length, 5);
     }
 
+    @Test
+    public void submitAsyncSearchNoQuery() throws Exception {
+        AsyncSearchResponse submitResponse = submitAsyncSearchApi(null);
+        GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
+
+        AsyncSearchResponse getResponse;
+        do {
+            logger.info("Get async search {}", submitResponse.getId());
+            getResponse = getAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
+        } while (getResponse.isRunning());
+        assertNull(getResponse.getSearchResponse().getAggregations());
+        assertEquals(5, getResponse.getSearchResponse().getHits().getTotalHits().value);
+        assertFalse(getResponse.isPartial());
+
+        DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(getResponse.getId());
+        Response response = deleteAsyncSearchApi(deleteAsyncSearchRequest);
+        assertEquals(response.getStatusLine().getStatusCode(), 200);
+
+        //test delete after deletion expect 404
+        assert404(deleteAsyncSearchRequest, this::deleteAsyncSearchApi);
+        assert404(getAsyncSearchRequest, this::getAsyncSearchApi);
 
 
+    }
 
     //FIXME right now if id is not parseable or if parsed id renders a node not found its
     // throwing 400 and 500 respectively. Should be uniformly 404?

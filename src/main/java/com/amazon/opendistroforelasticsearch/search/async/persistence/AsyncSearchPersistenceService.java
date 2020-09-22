@@ -39,7 +39,6 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
 import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
-import org.elasticsearch.tasks.TaskResult;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
@@ -95,7 +94,18 @@ public class AsyncSearchPersistenceService {
         this.threadPool = threadPool;
     }
 
-    public void createResponse(TaskResult taskResult, AsyncSearchResponse asyncSearchResponse, ActionListener<IndexResponse> listener)
+    public void createResponseAsync(AsyncSearchResponse asyncSearchResponse, ActionListener<IndexResponse> listener) {
+        threadPool.generic().submit(() -> {
+                    try {
+                        AsyncSearchPersistenceService.this.createResponse(asyncSearchResponse, listener);
+                    } catch (IOException e) {
+                        listener.onFailure(e);
+                    }
+                },
+                ThreadPool.Names.SAME);
+    }
+
+    public void createResponse(AsyncSearchResponse asyncSearchResponse, ActionListener<IndexResponse> listener)
             throws IOException {
         ClusterState state = clusterService.state();
 
@@ -109,7 +119,7 @@ public class AsyncSearchPersistenceService {
             client.admin().indices().create(createIndexRequest, new ActionListener<CreateIndexResponse>() {
                 @Override
                 public void onResponse(CreateIndexResponse result) {
-                    doStoreResult(taskResult, asyncSearchResponse, listener);
+                    doStoreResult(asyncSearchResponse, listener);
                 }
 
                 @Override
@@ -117,7 +127,7 @@ public class AsyncSearchPersistenceService {
                     if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
                         // we have the index, do it
                         try {
-                            doStoreResult(taskResult, asyncSearchResponse, listener);
+                            doStoreResult(asyncSearchResponse, listener);
                         } catch (Exception inner) {
                             inner.addSuppressed(e);
                             listener.onFailure(inner);
@@ -133,10 +143,10 @@ public class AsyncSearchPersistenceService {
                 // The index already exists but doesn't have our mapping
                 client.admin().indices().preparePutMapping(INDEX).setType(TASK_TYPE)
                         .setSource(mappingSource(), XContentType.JSON)
-                        .execute(ActionListener.delegateFailure(listener, (l, r) -> doStoreResult(taskResult, asyncSearchResponse,
+                        .execute(ActionListener.delegateFailure(listener, (l, r) -> doStoreResult(asyncSearchResponse,
                                 listener)));
             } else {
-                doStoreResult(taskResult, asyncSearchResponse, listener);
+                doStoreResult(asyncSearchResponse, listener);
             }
         }
     }
@@ -179,7 +189,9 @@ public class AsyncSearchPersistenceService {
             }
         });
     }
-
+    public void updateExpirationTimeAsync(String id, long expirationTimeMillis) {
+        threadPool.generic().execute(() -> updateExpirationTime(id, expirationTimeMillis));
+    }
     public void updateExpirationTime(String id, long expirationTimeMillis) {
         Map<String, Object> source = new HashMap<>();
         source.put(EXPIRATION_TIME_PROPERTY_NAME, expirationTimeMillis);
@@ -208,7 +220,7 @@ public class AsyncSearchPersistenceService {
         return (int) meta.get(ASYNC_SEARCH_RESPONSE_MAPPING_VERSION_META_FIELD);
     }
 
-    private void doStoreResult(TaskResult taskResult, AsyncSearchResponse asyncSearchResponse, ActionListener<IndexResponse> listener) {
+    private void doStoreResult(AsyncSearchResponse asyncSearchResponse, ActionListener<IndexResponse> listener) {
 
         Map<String, Object> source = new HashMap<>();
         try {

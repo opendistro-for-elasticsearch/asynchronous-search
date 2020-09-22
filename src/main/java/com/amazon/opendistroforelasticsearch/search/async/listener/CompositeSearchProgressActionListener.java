@@ -67,7 +67,7 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
     }
 
     public synchronized void addListener(ActionListener<AsyncSearchResponse> listener) {
-        if (stageSupplier.get() == AsyncSearchContext.Stage.RUNNING) {
+        if (stageSupplier.get() == AsyncSearchContext.Stage.RUNNING || stageSupplier.get() == AsyncSearchContext.Stage.INIT) {
             this.actionListeners.add(listener);
         } else {
             ((CompletionTimeoutListener)listener).executeImmediately();

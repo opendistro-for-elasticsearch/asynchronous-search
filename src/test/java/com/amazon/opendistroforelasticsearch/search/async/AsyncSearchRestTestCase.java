@@ -22,7 +22,6 @@ import org.elasticsearch.search.SearchModule;
 import org.elasticsearch.test.rest.ESRestTestCase;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -36,33 +35,6 @@ public abstract class AsyncSearchRestTestCase extends ESRestTestCase {
 
     private final NamedXContentRegistry registry = new NamedXContentRegistry(
             new SearchModule(Settings.EMPTY, false, Collections.emptyList()).getNamedXContents());
-
-    @Test
-    public void submitAsyncSearchNoQuery() throws Exception {
-        AsyncSearchResponse submitResponse = submitAsyncSearchApi(null);
-        GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
-
-        AsyncSearchResponse getResponse;
-        do {
-            logger.info("Get async search {}", submitResponse.getId());
-            getResponse = getAsyncSearchApi(getAsyncSearchRequest);
-            assertEquals(submitResponse.getId(), getResponse.getId());
-            assertEquals(submitResponse.getStartTimeMillis(), getResponse.getStartTimeMillis());
-        } while (getResponse.isRunning());
-        assertNull(getResponse.getSearchResponse().getAggregations());
-        assertEquals(5, getResponse.getSearchResponse().getHits().getTotalHits().value);
-        assertFalse(getResponse.isPartial());
-
-        DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(getResponse.getId());
-        Response response = deleteAsyncSearchApi(deleteAsyncSearchRequest);
-        assertEquals(response.getStatusLine().getStatusCode(), 200);
-
-        //test delete after deletion expect 404
-        assert404(deleteAsyncSearchRequest, this::deleteAsyncSearchApi);
-        assert404(getAsyncSearchRequest, this::getAsyncSearchApi);
-
-
-    }
 
 
     final <Req extends ActionRequest, Resp> void assert404(
@@ -156,6 +128,15 @@ public abstract class AsyncSearchRestTestCase extends ESRestTestCase {
                 registry, DeprecationHandler.IGNORE_DEPRECATIONS, entity.getContent())) {
             return entityParser.apply(parser);
         }
+    }
+
+    public AsyncSearchResponse getAsyncSearchResponse(AsyncSearchResponse submitResponse,
+                                                      GetAsyncSearchRequest getAsyncSearchRequest) throws IOException {
+        AsyncSearchResponse getResponse;
+        getResponse = getAsyncSearchApi(getAsyncSearchRequest);
+        assertEquals(submitResponse.getId(), getResponse.getId());
+        assertEquals(submitResponse.getStartTimeMillis(), getResponse.getStartTimeMillis());
+        return getResponse;
     }
 }
 

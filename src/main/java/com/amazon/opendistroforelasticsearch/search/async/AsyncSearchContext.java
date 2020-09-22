@@ -36,10 +36,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.COMPLETED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.FAILED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.INIT;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.RUNNING;
+
 public class AsyncSearchContext extends AbstractRefCounted implements Releasable {
+
 
     public enum Stage {
         INIT,
@@ -48,23 +55,26 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         FAILED,
         PERSISTED,
         EXPIRED,
-        ABORTED
-    }
+        ABORTED;
 
+    }
     private static final Logger logger = LogManager.getLogger(AsyncSearchContext.class);
 
     private final AtomicBoolean isRunning;
+
     private final AtomicBoolean isPartial;
+
     private final AtomicBoolean isCompleted;
     private final AtomicBoolean persisted;
-
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
+
     private SetOnce<SearchTask> searchTask = new SetOnce<>();
     private final String nodeId;
+    private final AtomicLong expirationTimeInMills;
     private final Boolean keepOnCompletion;
     private final AsyncSearchContextId asyncSearchContextId;
-    private final ResultsHolder resultsHolder;
+    private final AtomicReference<ResultsHolder> resultsHolder = new AtomicReference<>();
     private TimeValue keepAlive;
     private Stage stage;
 
@@ -80,8 +90,9 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.error = new AtomicReference<>();
         this.searchResponse = new AtomicReference<>();
         this.keepAlive = keepAlive;
-        this.resultsHolder = new ResultsHolder(this::getStartTimeMillis);
-        this.stage = Stage.INIT;
+        this.resultsHolder.set(new ResultsHolder(this::getStartTimeMillis));
+        this.stage = INIT;
+        this.expirationTimeInMills = new AtomicLong();
     }
 
     public void setSearchTask(SearchTask searchTask) {
@@ -97,7 +108,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     public ResultsHolder getResultsHolder() {
-        return resultsHolder;
+        return resultsHolder.get();
     }
 
     public AsyncSearchContextId getAsyncSearchContextId() {
@@ -106,8 +117,12 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(getId(), isPartial(), isRunning(), searchTask.get().getStartTime(), getExpirationTimeMillis(),
-                        isRunning() ? resultsHolder.buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
+                isRunning() ? buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
 
+    }
+
+    private SearchResponse buildPartialSearchResponse() {
+        return resultsHolder.get().buildPartialSearchResponse();
     }
 
     public String getId() {
@@ -135,7 +150,20 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     public long getExpirationTimeMillis() {
-        return searchTask.get().getStartTime() + keepAlive.getMillis();
+        return expirationTimeInMills.get();
+    }
+
+    public void getExpirationTimeMillis(long expirationTimeMillis) {
+
+    }
+
+    public void setExpirationMillis(long expirationTimeInMills) {
+        this.expirationTimeInMills.set(expirationTimeInMills);
+    }
+
+    public void performPostPersistenceCleanup() {
+        searchResponse.set(null);
+        resultsHolder.set(null);
     }
 
     public long getStartTimeMillis() {
@@ -162,7 +190,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.isPartial.set(false);
         this.isRunning.set(false);
         error.set(new ElasticsearchException(e));
-        setStage(Stage.FAILED);
+        setStage(FAILED);
     }
 
 
@@ -171,19 +199,22 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.isCompleted.set(true);
         this.isRunning.set(false);
         this.isPartial.set(false);
-        setStage(Stage.COMPLETED);
+        setStage(COMPLETED);
     }
 
     public synchronized AsyncSearchContext setStage(Stage stage) {
         switch (stage) {
             case INIT:
-                this.stage = AsyncSearchContext.Stage.INIT;
+                this.stage = INIT;
                 break;
             case RUNNING:
-                validateAndSetStage(AsyncSearchContext.Stage.INIT, stage);
+                validateAndSetStage(INIT, stage);
                 break;
             case COMPLETED:
-                validateAndSetStage(AsyncSearchContext.Stage.RUNNING, stage);
+                validateAndSetStage(RUNNING, stage);
+                break;
+            case PERSISTED:
+                validateAndSetStage(COMPLETED, stage);
                 break;
             case FAILED:
                 break;
@@ -240,9 +271,11 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         }
 
         /**
-         * @param reducePhase Version of reduce. If reducePhase version in resultHolder is greater than the event's reducePhase version, this event can be discarded.
+         * @param reducePhase Version of reduce. If reducePhase version in resultHolder is greater than the event's reducePhase version,
+         *                    this event can be discarded.
          */
-        public synchronized void updateResultFromReduceEvent(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
+        public synchronized void updateResultFromReduceEvent(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs,
+                                                             int reducePhase) {
             this.successfulShards.set(shards.size());
             this.internalAggregations = aggs;
             this.reducePhase.set(reducePhase);
