@@ -204,19 +204,16 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     public synchronized AsyncSearchContext setStage(Stage stage) {
         switch (stage) {
-            case INIT:
-                this.stage = INIT;
-                break;
             case RUNNING:
                 validateAndSetStage(INIT, stage);
                 break;
             case COMPLETED:
+            case ABORTED:
+            case FAILED:
                 validateAndSetStage(RUNNING, stage);
                 break;
             case PERSISTED:
                 validateAndSetStage(COMPLETED, stage);
-                break;
-            case FAILED:
                 break;
             default:
                 throw new IllegalArgumentException("unknown AsyncSearchContext.Stage [" + stage + "]");

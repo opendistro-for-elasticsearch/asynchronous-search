@@ -42,6 +42,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.ABORTED;
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.PERSISTED;
 import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
@@ -282,6 +283,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
     public void onCancelled(AsyncSearchContextId contextId) {
+        AsyncSearchContext asyncSearchContext = findContext(contextId);
+        asyncSearchContext.setStage(ABORTED);
     }
 
     class Reaper implements Runnable {
