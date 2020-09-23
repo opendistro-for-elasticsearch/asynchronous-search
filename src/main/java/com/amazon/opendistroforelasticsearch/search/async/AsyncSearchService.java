@@ -239,7 +239,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             }
         }
         ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                request.getWaitForCompletion(), ThreadPool.Names.GENERIC, listener, (actionListener) -> {
+                request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (actionListener) -> {
                     listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                     ((CompositeSearchProgressActionListener)
                             asyncSearchContext.getSearchTask().getProgressListener()).removeListener(actionListener);

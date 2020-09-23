@@ -87,16 +87,16 @@ public final class AsyncSearchContextLockManager {
             }
         }
 
-        private void decWaitCount() {
-            synchronized (contextLocks) {
-                assert waitCount > 0 : "waitCount is " + waitCount + " but should be > 0";
-                --waitCount;
-                logger.trace("context lock wait count for {} is now [{}]", asyncSearchContextId, waitCount);
-                if (waitCount == 0) {
-                    logger.trace("last context lock wait decremented, removing lock for {}", asyncSearchContextId);
+            private void decWaitCount() {
+                synchronized (contextLocks) {
+                    assert waitCount > 0 : "waitCount is " + waitCount + " but should be > 0";
+                    --waitCount;
+                    logger.trace("context lock wait count for {} is now [{}]", asyncSearchContextId, waitCount);
+                    if (waitCount == 0) {
+                        logger.trace("last context lock wait decremented, removing lock for {}", asyncSearchContextId);
+                    }
                 }
             }
-        }
 
         void acquire(long timeoutInMillis, final String details) throws RuntimeException {
             try {

@@ -91,11 +91,12 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                             (contextId) -> asyncSearchService.onCancelled(contextId));
                     asyncSearchContext.setSearchTask(asyncSearchTask);
                     asyncSearchContext.setExpirationMillis(asyncSearchTask.getStartTime() + request.getKeepAlive().getMillis());
+                    asyncSearchContext.setStage(AsyncSearchContext.Stage.RUNNING);
                     asyncSearchTask.setProgressListener(progressActionListener);
                     return asyncSearchTask;
                 }
             }, progressActionListener);
-            asyncSearchContext.setStage(AsyncSearchContext.Stage.RUNNING);
+
             AsyncSearchTimeoutWrapper.scheduleTimeout(threadPool, request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC,
                     (AsyncSearchTimeoutWrapper.CompletionTimeoutListener<AsyncSearchResponse>)wrappedListener);
         } catch (Exception e) {

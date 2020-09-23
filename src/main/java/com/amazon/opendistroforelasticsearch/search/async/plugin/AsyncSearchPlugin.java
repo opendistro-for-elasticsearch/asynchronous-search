@@ -15,19 +15,18 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
-import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchReaperPersistentTaskExecutor;
-import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchReaperService;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.transport.TransportSubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchReaperPersistentTaskExecutor;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportSubmitAsyncSearchAction;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.client.Client;
@@ -35,8 +34,6 @@ import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.ParseField;
-import org.elasticsearch.common.component.LifecycleComponent;
-import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.IndexScopedSettings;
@@ -95,10 +92,10 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
     }
 
 
-    @Override
-    public Collection<Class<? extends LifecycleComponent>> getGuiceServiceClasses() {
-        return Collections.singletonList(AsyncSearchReaperService.class);
-    }
+//    @Override
+//    public Collection<Class<? extends LifecycleComponent>> getGuiceServiceClasses() {
+//        return Collections.singletonList(AsyncSearchReaperService.class);
+//    }
 
     @Override
     public List<NamedWriteableRegistry.Entry> getNamedWriteables() {
@@ -108,10 +105,10 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
         );
     }
 
-    @Override
-    public Collection<Module> createGuiceModules() {
-        return Collections.singletonList(binder -> binder.bind(AsyncSearchPersistenceService.class).toInstance(persistenceService));
-    }
+//    @Override
+//    public Collection<Module> createGuiceModules() {
+//        return Collections.singletonList(binder -> binder.bind(AsyncSearchPersistenceService.class).toInstance(persistenceService));
+//    }
 
     @Override
     public List<NamedXContentRegistry.Entry> getNamedXContent() {

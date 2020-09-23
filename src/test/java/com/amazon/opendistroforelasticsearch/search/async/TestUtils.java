@@ -75,7 +75,7 @@ public class TestUtils {
 
     private static void addGetAsyncSearchRequestParams(Params params, GetAsyncSearchRequest getAsyncSearchRequest) {
         params.withKeepAlive(getAsyncSearchRequest.getKeepAlive());
-        params.withWaitForCompletionTimeout(getAsyncSearchRequest.getWaitForCompletion());
+        params.withWaitForCompletionTimeout(getAsyncSearchRequest.getWaitForCompletionTimeout());
     }
 
     private static void addSubmitAsyncSearchRequestParams(Params params, SubmitAsyncSearchRequest
