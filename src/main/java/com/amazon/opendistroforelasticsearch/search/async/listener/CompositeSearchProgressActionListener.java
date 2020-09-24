@@ -30,6 +30,7 @@ import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -63,11 +64,16 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
         this.resultsHolder = resultsHolder;
         this.asyncSearchFunction = asyncSearchFunction;
         this.exceptionConsumer = exceptionConsumer;
-        this.actionListeners = new ArrayList<>(1);
+        this.actionListeners = Collections.synchronizedList(new ArrayList<>(1));
         this.complete = new AtomicBoolean(false);
     }
 
-    public synchronized void addListener(PrioritizedListener<AsyncSearchResponse> listener) {
+    /***
+     * Adds a prioritized listener to listen on to the progress of the search started by a previous request. If the search
+     * has completed the timeout consumer is immediately invoked.
+     * @param listener the listener
+     */
+    public void addListener(PrioritizedListener<AsyncSearchResponse> listener) {
         if (complete.get() == false) {
             this.actionListeners.add(listener);
         } else {
@@ -75,7 +81,9 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
         }
     }
 
-    public void removeListener(ActionListener<AsyncSearchResponse> listener) { this.actionListeners.remove(listener); }
+    public void removeListener(ActionListener<AsyncSearchResponse> listener) {
+        this.actionListeners.remove(listener);
+    }
 
     @Override
     protected void onListShards(List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters,

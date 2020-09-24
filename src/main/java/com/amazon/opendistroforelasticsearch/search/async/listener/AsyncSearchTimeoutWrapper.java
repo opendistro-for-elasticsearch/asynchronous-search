@@ -25,11 +25,25 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-
+/***
+ * The wrapper that schedules a timeout and wraps it in an actual {@link ActionListener}. The {@link AsyncSearchTimeoutWrapper}
+ * guarantees that only one of timeout/response/failure gets executed so that responses are not sent over a closed channel
+ * The wrap and actual scheduling has been split to avoid races in listeners as they get attached.
+ */
 public class AsyncSearchTimeoutWrapper {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchTimeoutWrapper.class);
 
+    /***
+     * Wraps the listener and schedules the timeout
+     * @param threadPool threadPool
+     * @param timeout timeout
+     * @param executor executor
+     * @param actionListener actionListener
+     * @param timeoutConsumer timeoutConsumer
+     * @param <Response> the response
+     * @return PrioritizedListener
+     */
     public static <Response> PrioritizedListener<Response> wrapScheduledTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
                                                                                 ActionListener<Response> actionListener,
                                                                                 Consumer<ActionListener<Response>> timeoutConsumer) {
@@ -38,11 +52,27 @@ public class AsyncSearchTimeoutWrapper {
         return completionTimeoutListener;
     }
 
-    public static <Response> PrioritizedListener<Response> wrapListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
+    /**
+     *
+     * @param actionListener actionListener
+     * @param timeoutConsumer timeoutConsumer
+     * @param <Response> Response
+     * @return PrioritizedListener
+     */
+    public static <Response> PrioritizedListener<Response> initListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
         CompletionPrioritizedListener<Response> completionTimeoutListener = new CompletionPrioritizedListener<>(actionListener, timeoutConsumer);
         return completionTimeoutListener;
     }
 
+    /**
+     *
+     * @param threadPool the thread pool instance
+     * @param timeout the configured timeout
+     * @param executor the thread pool name
+     * @param completionTimeoutListener the listener
+     * @param <Response> Response
+     * @return PrioritizedListener
+     */
     public static <Response> PrioritizedListener<Response> scheduleTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
                                                                            PrioritizedListener<Response> completionTimeoutListener) {
         ((CompletionPrioritizedListener)completionTimeoutListener).cancellable = threadPool.schedule(completionTimeoutListener, timeout, executor);

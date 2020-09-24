@@ -41,7 +41,7 @@ import org.elasticsearch.transport.TransportService;
 
 import java.util.Map;
 
-import static com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper.wrapListener;
+import static com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper.initListener;
 
 public class TransportSubmitAsyncSearchAction extends HandledTransportAction<SubmitAsyncSearchRequest, AsyncSearchResponse> {
 
@@ -70,11 +70,10 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         try {
             AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request);
             CompositeSearchProgressActionListener progressActionListener = new CompositeSearchProgressActionListener(
-                    asyncSearchContext.getResultsHolder(), asyncSearchContext::getStage,
-                    (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),
+                    asyncSearchContext.getResultsHolder(), (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),
                     (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext));
             logger.debug("Initiated sync search request {}", asyncSearchContext.getId());
-            PrioritizedListener<AsyncSearchResponse> wrappedListener = wrapListener(listener, (actionListener) -> {
+            PrioritizedListener<AsyncSearchResponse> wrappedListener = initListener(listener, (actionListener) -> {
                         logger.info("Timeout triggered for async search");
                         if (asyncSearchContext.isCancelled()) {
                             listener.onFailure(new ResourceNotFoundException("Search cancelled"));

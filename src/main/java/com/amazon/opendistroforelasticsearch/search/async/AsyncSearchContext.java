@@ -33,6 +33,7 @@ import org.elasticsearch.search.internal.InternalSearchResponse;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -243,7 +244,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
         ResultsHolder(LongSupplier startTimeSupplier) {
             this.internalAggregations = InternalAggregations.EMPTY;
-            this.shardSearchFailures = new ArrayList<>();
+            this.shardSearchFailures = Collections.synchronizedList(new ArrayList<>());
             this.totalShards = new AtomicInteger();
             this.successfulShards = new AtomicInteger();
             this.skippedShards = new AtomicInteger();
