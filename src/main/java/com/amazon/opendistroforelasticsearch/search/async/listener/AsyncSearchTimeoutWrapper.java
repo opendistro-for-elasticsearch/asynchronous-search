@@ -30,32 +30,32 @@ public class AsyncSearchTimeoutWrapper {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchTimeoutWrapper.class);
 
-    public static <Response> ActionListener<Response> wrapScheduledTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
-                                                                           ActionListener<Response> actionListener,
-                                                                           Consumer<ActionListener<Response>> timeoutConsumer) {
-        CompletionPrioritizedListener<Response> completionTimeoutListener = new CompletionPrioritizedListener<>(actionListener, timeoutConsumer);
+    public static <Response> PrioritizedCompletionListener<Response> wrapScheduledTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
+                                                                                          ActionListener<Response> actionListener,
+                                                                                          Consumer<ActionListener<Response>> timeoutConsumer) {
+        CompletionPrioritizedCompletionListener<Response> completionTimeoutListener = new CompletionPrioritizedCompletionListener<>(actionListener, timeoutConsumer);
         scheduleTimeout(threadPool, timeout, executor, completionTimeoutListener);
         return completionTimeoutListener;
     }
 
-    public static <Response> ActionListener<Response> wrapListener(ActionListener<Response> actionListener,  Consumer<ActionListener<Response>> timeoutConsumer) {
-        CompletionPrioritizedListener<Response> completionTimeoutListener = new CompletionPrioritizedListener<>(actionListener, timeoutConsumer);
+    public static <Response> PrioritizedCompletionListener<Response> wrapListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
+        CompletionPrioritizedCompletionListener<Response> completionTimeoutListener = new CompletionPrioritizedCompletionListener<>(actionListener, timeoutConsumer);
         return completionTimeoutListener;
     }
 
-    public static <Response> ActionListener<Response> scheduleTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
-                                                                      CompletionPrioritizedListener<Response> completionTimeoutListener) {
-        completionTimeoutListener.cancellable = threadPool.schedule(completionTimeoutListener, timeout, executor);
+    public static <Response> PrioritizedCompletionListener<Response> scheduleTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
+                                                                                     PrioritizedCompletionListener<Response> completionTimeoutListener) {
+        ((CompletionPrioritizedCompletionListener)completionTimeoutListener).cancellable = threadPool.schedule(completionTimeoutListener, timeout, executor);
         return completionTimeoutListener;
     }
 
-    public static class CompletionPrioritizedListener<Response> implements PrioritizedListener<Response>, Runnable {
+    public static class CompletionPrioritizedCompletionListener<Response> implements PrioritizedCompletionListener<Response> {
         private final ActionListener<Response> actionListener;
         private volatile Scheduler.ScheduledCancellable cancellable;
         private final AtomicBoolean complete = new AtomicBoolean(false);
         private final Consumer<ActionListener<Response>> timeoutConsumer;
 
-        CompletionPrioritizedListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
+        CompletionPrioritizedCompletionListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
             this.actionListener = actionListener;
             this.timeoutConsumer = timeoutConsumer;
         }
@@ -76,10 +76,8 @@ public class AsyncSearchTimeoutWrapper {
         @Override
         public void executeImmediately() {
             if (complete.compareAndSet(false, true)) {
-                if (cancellable != null && cancellable.isCancelled() == false) {
-                    cancel();
-                    timeoutConsumer.accept(this);
-                }
+                cancel();
+                timeoutConsumer.accept(this);
             }
         }
 
