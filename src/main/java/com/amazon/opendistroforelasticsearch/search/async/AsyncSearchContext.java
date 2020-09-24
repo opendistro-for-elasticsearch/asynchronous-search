@@ -299,8 +299,10 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
             this.isResponseInitialized.set(true);
         }
 
-        public void incrementSuccessfulShards() {
-            this.successfulShards.incrementAndGet();
+        public void incrementSuccessfulShards(boolean hasFetchPhase, int shardIndex) {
+            if (hasFetchPhase == false) {
+                this.successfulShards.incrementAndGet();
+            }
         }
 
         public void addShardFailure(ShardSearchFailure failure) {
