@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeSearchProgressActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.elasticsearch.ResourceNotFoundException;
@@ -73,7 +74,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),
                     (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext));
             logger.debug("Initiated sync search request {}", asyncSearchContext.getId());
-            ActionListener<AsyncSearchResponse> wrappedListener = wrapListener(listener, (actionListener) -> {
+            PrioritizedListener<AsyncSearchResponse> wrappedListener = wrapListener(listener, (actionListener) -> {
                         logger.info("Timeout triggered for async search");
                         if (asyncSearchContext.isCancelled()) {
                             listener.onFailure(new ResourceNotFoundException("Search cancelled"));
@@ -98,7 +99,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             }, progressActionListener);
 
             AsyncSearchTimeoutWrapper.scheduleTimeout(threadPool, request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC,
-                    (AsyncSearchTimeoutWrapper.CompletionTimeoutListener<AsyncSearchResponse>)wrappedListener);
+                    wrappedListener);
         } catch (Exception e) {
             listener.onFailure(e);
         }

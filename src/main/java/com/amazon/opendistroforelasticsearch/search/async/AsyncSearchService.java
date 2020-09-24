@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.search.async;
 
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeSearchProgressActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedListener;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
@@ -239,7 +240,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 asyncSearchContext.setExpirationMillis(requestedExpirationTime);
             }
         }
-        ActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+        PrioritizedListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                 request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (actionListener) -> {
                     listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                     ((CompositeSearchProgressActionListener)
@@ -291,7 +292,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         @Override
         public void run() {
             final long time = threadPool.relativeTimeInMillis();
-            //TODO reaper logic
+            //freeContext(Stream.of(activeContexts).filter(a -> a.)
         }
     }
 }

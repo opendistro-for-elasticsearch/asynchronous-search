@@ -61,4 +61,14 @@ public abstract class AsyncSearchIntegTestCase extends ESIntegTestCase {
         assert getResponse.getStartTimeMillis() == submitResponse.getStartTimeMillis();
         return getResponse;
     }
+
+    AsyncSearchResponse getFinalAsyncSearchResponse(AsyncSearchResponse submitResponse, GetAsyncSearchRequest getAsyncSearchRequest) {
+        AsyncSearchResponse getResponse;
+        do {
+            logger.info("Get async search {}", submitResponse.getId());
+            getResponse = getAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
+            assertEquals(submitResponse.getExpirationTimeMillis(), getResponse.getExpirationTimeMillis());
+        } while (getResponse.isRunning());
+        return getResponse;
+    }
 }

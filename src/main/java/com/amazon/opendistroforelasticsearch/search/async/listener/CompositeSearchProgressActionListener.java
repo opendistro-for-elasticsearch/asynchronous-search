@@ -37,8 +37,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper.CompletionTimeoutListener;
-
 public class CompositeSearchProgressActionListener extends SearchProgressActionListener {
 
     private final Logger logger = LogManager.getLogger(getClass());
@@ -66,11 +64,11 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
         this.actionListeners = new ArrayList<>(1);
     }
 
-    public synchronized void addListener(ActionListener<AsyncSearchResponse> listener) {
+    public synchronized void addListener(PrioritizedListener<AsyncSearchResponse> listener) {
         if (stageSupplier.get() == AsyncSearchContext.Stage.RUNNING || stageSupplier.get() == AsyncSearchContext.Stage.INIT) {
             this.actionListeners.add(listener);
         } else {
-            ((CompletionTimeoutListener)listener).executeImmediately();
+            listener.executeImmediately();
         }
     }
 
