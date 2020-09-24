@@ -239,11 +239,11 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         private AtomicInteger skippedShards;
         private SearchResponse.Clusters clusters;
         private LongSupplier startTimeSupplier;
-        private final List<ShardSearchFailure> shardSearchFailuresFailures;
+        private final List<ShardSearchFailure> shardSearchFailures;
 
         ResultsHolder(LongSupplier startTimeSupplier) {
             this.internalAggregations = InternalAggregations.EMPTY;
-            this.shardSearchFailuresFailures = new ArrayList<>();
+            this.shardSearchFailures = new ArrayList<>();
             this.totalShards = new AtomicInteger();
             this.successfulShards = new AtomicInteger();
             this.skippedShards = new AtomicInteger();
@@ -257,7 +257,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
                 SearchHits searchHits = new SearchHits(SearchHits.EMPTY, totalHits, Float.NaN);
                 InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits, internalAggregations,
                         null, null, false, false, reducePhase.get());
-                ShardSearchFailure[] shardSearchFailures = shardSearchFailuresFailures.toArray(new ShardSearchFailure[]{});
+                ShardSearchFailure[] shardSearchFailures = this.shardSearchFailures.toArray(new ShardSearchFailure[]{});
                 long tookInMillis = System.currentTimeMillis() - startTimeSupplier.getAsLong();
                 return new SearchResponse(internalSearchResponse, null, totalShards.get(),
                         successfulShards.get(), skippedShards.get(), tookInMillis, shardSearchFailures,
@@ -298,12 +298,12 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
             this.isResponseInitialized.set(true);
         }
 
-        public synchronized void incrementSuccessfulShards() {
+        public void incrementSuccessfulShards() {
             this.successfulShards.incrementAndGet();
         }
 
-        public synchronized void addShardFailure(ShardSearchFailure failure) {
-            this.shardSearchFailuresFailures.add(failure);
+        public void addShardFailure(ShardSearchFailure failure) {
+            this.shardSearchFailures.add(failure);
         }
     }
 }

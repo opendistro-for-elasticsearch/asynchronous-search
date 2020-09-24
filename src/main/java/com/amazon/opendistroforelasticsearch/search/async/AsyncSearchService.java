@@ -41,7 +41,10 @@ import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.ABORTED;
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.PERSISTED;
@@ -291,8 +294,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     class Reaper implements Runnable {
         @Override
         public void run() {
-            final long time = threadPool.relativeTimeInMillis();
-            //freeContext(Stream.of(activeContexts).filter(a -> a.)
+            Set<AsyncSearchContext> toReap = activeContexts.values().stream().
+                    filter(a -> a.getStage().equals(ABORTED) || a.getStage().equals(PERSISTED)).
+                    collect(Collectors.toSet());
+            //toReap.forEach(a -> freeContext(a.getAsyncSearchContextId()));
         }
     }
 }

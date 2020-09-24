@@ -35,37 +35,40 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
+/***
+ * The implementation of {@link SearchProgressActionListener} responsible for updating the partial results of a single async
+ * search request and maintaining a list of {@link PrioritizedListener} to be invoked when a full response is available
+ * The implementation guarantees that the listener once added will exactly be invoked once. If the search completes before the
+ * listener was added, the listener will be invoked immediately. All partial results are updated atomically.
+ */
 public class CompositeSearchProgressActionListener extends SearchProgressActionListener {
 
     private final Logger logger = LogManager.getLogger(getClass());
 
-    private AtomicBoolean hasFetchPhase = new AtomicBoolean();
+    private volatile boolean hasFetchPhase;
     private AtomicInteger numQueryResults = new AtomicInteger();
-    private AtomicInteger numQueryFailures = new AtomicInteger();
     private AtomicInteger numFetchResults = new AtomicInteger();
-    private AtomicInteger numFetchFailures = new AtomicInteger();
     private AtomicInteger numReducePhases = new AtomicInteger();
 
     private final List<ActionListener<AsyncSearchResponse>> actionListeners;
     private AsyncSearchContext.ResultsHolder resultsHolder;
-    private Supplier<AsyncSearchContext.Stage> stageSupplier;
     private Function<SearchResponse, AsyncSearchResponse> asyncSearchFunction;
     private Consumer<Exception> exceptionConsumer;
+    private final AtomicBoolean complete;
 
-    public CompositeSearchProgressActionListener(AsyncSearchContext.ResultsHolder resultsHolder, Supplier<AsyncSearchContext.Stage> stageSupplier,
+    public CompositeSearchProgressActionListener(AsyncSearchContext.ResultsHolder resultsHolder,
                                                  Function<SearchResponse, AsyncSearchResponse> asyncSearchFunction,
                                                  Consumer<Exception> exceptionConsumer) {
         this.resultsHolder = resultsHolder;
         this.asyncSearchFunction = asyncSearchFunction;
         this.exceptionConsumer = exceptionConsumer;
-        this.stageSupplier = stageSupplier;
         this.actionListeners = new ArrayList<>(1);
+        this.complete = new AtomicBoolean(false);
     }
 
     public synchronized void addListener(PrioritizedListener<AsyncSearchResponse> listener) {
-        if (stageSupplier.get() == AsyncSearchContext.Stage.RUNNING || stageSupplier.get() == AsyncSearchContext.Stage.INIT) {
+        if (complete.get() == false) {
             this.actionListeners.add(listener);
         } else {
             listener.executeImmediately();
@@ -79,7 +82,7 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
                                 boolean fetchPhase) {
         logger.warn("onListShards --> shards :{}, skippedShards: {}, clusters: {}, fetchPhase: {}", shards, skippedShards,
                 clusters, fetchPhase);
-        this.hasFetchPhase.set(fetchPhase);
+        this.hasFetchPhase = fetchPhase;
         resultsHolder.initialiseResultHolderShardLists(shards, skippedShards, clusters, fetchPhase);
     }
 
@@ -90,7 +93,7 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
         logger.warn("onPartialReduce --> shards; {}, totalHits: {}, aggs: {}, reducePhase: {}", shards, totalHits, aggs,
                 reducePhase);
         numReducePhases.incrementAndGet();
-        if (hasFetchPhase.get()) {
+        if (hasFetchPhase) {
             resultsHolder.updateResultFromReduceEvent(aggs == null ? null : aggs.expand(), totalHits, reducePhase);
         } else {
             resultsHolder.updateResultFromReduceEvent(shards, totalHits, aggs == null ? null : aggs.expand(),
@@ -103,7 +106,7 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
     protected void onFinalReduce(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
         logger.warn("onFinalReduce --> shards: {}, totalHits: {}, aggs :{}, reducePhase:{}", shards, totalHits, aggs, reducePhase);
         numReducePhases.incrementAndGet();
-        if (hasFetchPhase.get()) {
+        if (hasFetchPhase) {
             resultsHolder.updateResultFromReduceEvent(aggs, totalHits, reducePhase);
         } else {
             resultsHolder.updateResultFromReduceEvent(shards, totalHits, aggs, reducePhase);
@@ -114,7 +117,6 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
     protected void onFetchFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
         logger.warn("onFetchFailure --> shardIndex :{}, shardTarget: {}", shardIndex, shardTarget);
         ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
-        numFetchFailures.incrementAndGet();
         resultsHolder.addShardFailure(shardSearchFailure);
     }
 
@@ -129,7 +131,6 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
     protected void onQueryFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
         logger.warn("onQueryFailure --> shardIndex: {}, searchTarget: {}", shardIndex, shardTarget, exc);
         ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
-        numQueryFailures.incrementAndGet();
         resultsHolder.addShardFailure(shardSearchFailure);
     }
 
@@ -141,20 +142,24 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
     protected void onQueryResult(int shardIndex) {
         logger.warn("onQueryResult --> shardIndex: {}", shardIndex);
         numQueryResults.incrementAndGet();
-        if (!hasFetchPhase.get() && numReducePhases.get() == 0) {
-            resultsHolder.incrementSuccessfulShards();
+        synchronized (this) {
+            if (hasFetchPhase && numReducePhases.get() == 0) {
+                resultsHolder.incrementSuccessfulShards();
+            }
         }
     }
 
     @Override
     public void onResponse(SearchResponse searchResponse) {
         AsyncSearchResponse asyncSearchResponse = asyncSearchFunction.apply(searchResponse);
-        for (ActionListener<AsyncSearchResponse> listener : actionListeners) {
-            try {
-                logger.info("Search response completed {}", searchResponse);
-                listener.onResponse(asyncSearchResponse);
-            } catch (Exception e) {
-                logger.warn(() -> new ParameterizedMessage("onResponse listener [{}] failed", listener), e);
+        if (complete.compareAndSet(false, true)) {
+            for (ActionListener<AsyncSearchResponse> listener : actionListeners) {
+                try {
+                    logger.info("Search response completed {}", searchResponse);
+                    listener.onResponse(asyncSearchResponse);
+                } catch (Exception e) {
+                    logger.warn(() -> new ParameterizedMessage("onResponse listener [{}] failed", listener), e);
+                }
             }
         }
     }
@@ -162,12 +167,14 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
     @Override
     public void onFailure(Exception e) {
         exceptionConsumer.accept(e);
-        for (ActionListener<AsyncSearchResponse> listener : actionListeners) {
-            try {
-                logger.info("Search response failure", e);
-                listener.onFailure(e);
-            } catch (Exception ex) {
-                logger.warn(() -> new ParameterizedMessage("onFailure listener [{}] failed", listener), e);
+        if (complete.compareAndSet(false, true)) {
+            for (ActionListener<AsyncSearchResponse> listener : actionListeners) {
+                try {
+                    logger.info("Search response failure", e);
+                    listener.onFailure(e);
+                } catch (Exception ex) {
+                    logger.warn(() -> new ParameterizedMessage("onFailure listener [{}] failed", listener), e);
+                }
             }
         }
     }

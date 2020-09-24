@@ -49,7 +49,7 @@ public class AsyncSearchTimeoutWrapper {
         return completionTimeoutListener;
     }
 
-    public static class CompletionPrioritizedListener<Response> implements PrioritizedListener<Response> {
+    static class CompletionPrioritizedListener<Response> implements PrioritizedListener<Response> {
         private final ActionListener<Response> actionListener;
         private volatile Scheduler.ScheduledCancellable cancellable;
         private final AtomicBoolean complete = new AtomicBoolean(false);
