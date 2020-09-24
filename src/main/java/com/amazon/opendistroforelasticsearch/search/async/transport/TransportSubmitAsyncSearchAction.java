@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeSearchProgressActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.elasticsearch.ResourceNotFoundException;
@@ -81,7 +82,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                         listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                         progressActionListener.removeListener(actionListener);
                     });
-            progressActionListener.addListener(wrappedListener);
+            progressActionListener.addListener((PrioritizedListener<AsyncSearchResponse>)wrappedListener);
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
                 @Override
@@ -97,7 +98,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             }, progressActionListener);
             asyncSearchContext.setStage(AsyncSearchContext.Stage.RUNNING);
             AsyncSearchTimeoutWrapper.scheduleTimeout(threadPool, request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC,
-                    (AsyncSearchTimeoutWrapper.CompletionTimeoutListener<AsyncSearchResponse>)wrappedListener);
+                    (AsyncSearchTimeoutWrapper.CompletionPrioritizedListener<AsyncSearchResponse>)wrappedListener);
         } catch (Exception e) {
             listener.onFailure(e);
         }
