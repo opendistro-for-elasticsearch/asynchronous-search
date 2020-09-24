@@ -81,7 +81,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                         listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                         progressActionListener.removeListener(actionListener);
                     });
-            progressActionListener.addListener(wrappedListener);
+            progressActionListener.addOrExecuteListener(wrappedListener);
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
                 @Override

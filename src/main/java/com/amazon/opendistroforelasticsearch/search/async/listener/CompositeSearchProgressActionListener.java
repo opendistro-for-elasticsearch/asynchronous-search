@@ -32,7 +32,6 @@ import org.elasticsearch.search.aggregations.InternalAggregations;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -54,7 +53,7 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
     private AsyncSearchContext.ResultsHolder resultsHolder;
     private Function<SearchResponse, AsyncSearchResponse> asyncSearchFunction;
     private Consumer<Exception> exceptionConsumer;
-    private final AtomicBoolean complete;
+    private volatile boolean complete;
 
     public CompositeSearchProgressActionListener(AsyncSearchContext.ResultsHolder resultsHolder,
                                                  Function<SearchResponse, AsyncSearchResponse> asyncSearchFunction,
@@ -63,7 +62,6 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
         this.asyncSearchFunction = asyncSearchFunction;
         this.exceptionConsumer = exceptionConsumer;
         this.actionListeners = new ArrayList<>(1);
-        this.complete = new AtomicBoolean(false);
     }
 
     /***
@@ -71,18 +69,22 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
      * has completed the timeout consumer is immediately invoked.
      * @param listener the listener
      */
-    public void addListener(PrioritizedListener<AsyncSearchResponse> listener) {
-        if (complete.get() == false) {
-            synchronized (this) {
-                this.actionListeners.add(listener);
-            }
-        } else {
+    public void addOrExecuteListener(PrioritizedListener<AsyncSearchResponse> listener) {
+        if (addListener(listener) == false) {
             listener.executeImmediately();
         }
     }
 
     public synchronized void removeListener(ActionListener<AsyncSearchResponse> listener) {
         this.actionListeners.remove(listener);
+    }
+
+    private synchronized boolean addListener(PrioritizedListener<AsyncSearchResponse> listener) {
+        if (complete == false) {
+            this.actionListeners.add(listener);
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -156,15 +158,11 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
     @Override
     public void onResponse(SearchResponse searchResponse) {
         AsyncSearchResponse asyncSearchResponse = null;
-        final List<ActionListener<AsyncSearchResponse>> actionListenersToBeInvoked;
         try {
             asyncSearchResponse = asyncSearchFunction.apply(searchResponse);
         } finally {
-            if (complete.compareAndSet(false, true)) {
-                synchronized (this) {
-                    actionListenersToBeInvoked = new ArrayList<>(actionListeners);
-                    actionListeners.clear();
-                }
+            List<ActionListener<AsyncSearchResponse>> actionListenersToBeInvoked = listenerInvocations();
+            if (actionListenersToBeInvoked != null) {
                 for (ActionListener<AsyncSearchResponse> listener : actionListenersToBeInvoked) {
                     try {
                         logger.debug("Search response completed");
@@ -179,15 +177,11 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
 
     @Override
     public void onFailure(Exception e) {
-        final List<ActionListener<AsyncSearchResponse>> actionListenersToBeInvoked;
         try {
             exceptionConsumer.accept(e);
         } finally {
-            if (complete.compareAndSet(false, true)) {
-                synchronized (this) {
-                    actionListenersToBeInvoked = new ArrayList<>(actionListeners);
-                    actionListeners.clear();
-                }
+            List<ActionListener<AsyncSearchResponse>> actionListenersToBeInvoked = listenerInvocations();
+            if (actionListenersToBeInvoked != null) {
                 for (ActionListener<AsyncSearchResponse> listener : actionListenersToBeInvoked) {
                     try {
                         logger.info("Search response failure", e);
@@ -198,5 +192,17 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
                 }
             }
         }
+    }
+
+    private List<ActionListener<AsyncSearchResponse>> listenerInvocations() {
+        List<ActionListener<AsyncSearchResponse>> actionListenersToBeInvoked = null;
+        synchronized (this) {
+            if (complete == false) {
+                actionListenersToBeInvoked = new ArrayList<>(actionListeners);
+                actionListeners.clear();
+                complete = true;
+            }
+        }
+        return actionListenersToBeInvoked;
     }
 }
