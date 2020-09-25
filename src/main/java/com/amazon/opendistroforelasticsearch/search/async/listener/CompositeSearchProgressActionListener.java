@@ -91,7 +91,7 @@ public class CompositeSearchProgressActionListener extends SearchProgressActionL
         logger.warn("onListShards --> shards :{}, skippedShards: {}, clusters: {}, fetchPhase: {}", shards, skippedShards,
                 clusters, fetchPhase);
         this.hasFetchPhase = fetchPhase;
-        resultsHolder.initialiseResultHolderShardLists(shards, skippedShards, clusters, fetchPhase);
+        resultsHolder.initialiseResultHolderShardLists(shards, skippedShards, clusters);
     }
 
     //FIXME : Delay deserializing aggregations up until partial SearchResponse has to be built.

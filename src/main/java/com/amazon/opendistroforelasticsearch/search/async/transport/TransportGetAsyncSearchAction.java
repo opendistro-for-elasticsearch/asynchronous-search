@@ -43,7 +43,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
     @Override
     public void handleRequest(AsyncSearchId asyncSearchId, GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
-            AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
+            AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(request.getId(), asyncSearchId.getAsyncSearchContextId());
             if (asyncSearchContext.isCancelled() || asyncSearchContext.isExpired()) {
 
                 asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());

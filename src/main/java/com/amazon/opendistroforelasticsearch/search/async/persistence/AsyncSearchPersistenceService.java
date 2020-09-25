@@ -345,4 +345,8 @@ public class AsyncSearchPersistenceService {
         }
 
     }
+
+    public void deleteResponseAsync(String id) {
+        threadPool.generic().execute(() -> deleteResponse(id));
+    }
 }

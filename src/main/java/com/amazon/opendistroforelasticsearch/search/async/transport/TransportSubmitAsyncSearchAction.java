@@ -24,6 +24,8 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeSear
 import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
@@ -45,6 +47,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.listener.AsyncS
 
 public class TransportSubmitAsyncSearchAction extends HandledTransportAction<SubmitAsyncSearchRequest, AsyncSearchResponse> {
 
+    private static final Logger logger = LogManager.getLogger(TransportSubmitAsyncSearchAction.class);
     private ThreadPool threadPool;
     private TransportService transportService;
     private ClusterService clusterService;
@@ -70,17 +73,18 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         try {
             AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request);
             CompositeSearchProgressActionListener progressActionListener = new CompositeSearchProgressActionListener(
-                    asyncSearchContext.getResultsHolder(), (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),
+                    asyncSearchContext.getResultsHolder(), (response) -> asyncSearchService.onSearchResponse(response,
+                    asyncSearchContext.getAsyncSearchContextId()),
                     (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext));
             logger.debug("Initiated sync search request {}", asyncSearchContext.getId());
             PrioritizedListener<AsyncSearchResponse> wrappedListener = initListener(listener, (actionListener) -> {
-                        logger.info("Timeout triggered for async search");
-                        if (asyncSearchContext.isCancelled()) {
-                            listener.onFailure(new ResourceNotFoundException("Search cancelled"));
-                        }
-                        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                        progressActionListener.removeListener(actionListener);
-                    });
+                logger.info("Timeout triggered for async search");
+                if (asyncSearchContext.isCancelled()) {
+                    listener.onFailure(new ResourceNotFoundException("Search cancelled"));
+                }
+                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                progressActionListener.removeListener(actionListener);
+            });
             progressActionListener.addListener(wrappedListener);
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
@@ -88,7 +92,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                 public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
                     AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, AsyncSearchTask.NAME,
                             parentTaskId, headers, asyncSearchContext.getAsyncSearchContextId(),
-                            (contextId) -> asyncSearchService.onCancelled(contextId));
+                            asyncSearchService::onCancelled);
                     asyncSearchContext.setSearchTask(asyncSearchTask);
                     asyncSearchContext.setExpirationMillis(asyncSearchTask.getStartTime() + request.getKeepAlive().getMillis());
                     asyncSearchContext.setStage(AsyncSearchContext.Stage.RUNNING);

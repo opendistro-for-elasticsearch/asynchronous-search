@@ -3,8 +3,8 @@ package com.amazon.opendistroforelasticsearch.search.async.transport;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.TransportSearchAction;
@@ -16,8 +16,6 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
-
-import java.io.IOException;
 
 public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchAction<DeleteAsyncSearchRequest, AcknowledgedResponse> {
 
@@ -46,14 +44,12 @@ public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchA
     }
 
     @Override
-    public void handleRequest(AsyncSearchId asyncSearchId, DeleteAsyncSearchRequest request, ActionListener<AcknowledgedResponse> listener) {
+    public void handleRequest(AsyncSearchId asyncSearchId, DeleteAsyncSearchRequest request,
+                              ActionListener<AcknowledgedResponse> listener) {
         try {
-            AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId());
-            try {
-                asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());
-            } catch (IOException e) {
-                logger.error("Failed to free context {}", asyncSearchId.getAsyncSearchContextId());
-            }
+            AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(request.getId(),
+                    asyncSearchId.getAsyncSearchContextId());
+            asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());
             if (asyncSearchContext.isCancelled()) {
                 listener.onFailure(new ResourceNotFoundException(request.getId()));
             }

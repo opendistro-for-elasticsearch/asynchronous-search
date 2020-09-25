@@ -24,9 +24,14 @@ public abstract class AsyncSearchIntegTestCase extends ESIntegTestCase {
     }
 
     @Override
-    protected Collection<Class<? extends Plugin>> transportClientPlugins() {
-        return Collections.singletonList(AsyncSearchPlugin.class);
+    protected boolean ignoreExternalCluster() {
+        return true;
     }
+
+//    @Override
+//    protected Collection<Class<? extends Plugin>> transportClientPlugins() {
+//        return Collections.singletonList(AsyncSearchPlugin.class);
+//    }
 
     AsyncSearchResponse blockingSubmitAsyncSearch(SubmitAsyncSearchRequest request) {
         ActionFuture<AsyncSearchResponse> execute = submitAsyncSearch(request);

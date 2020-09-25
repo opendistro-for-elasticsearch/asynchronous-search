@@ -59,6 +59,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         ABORTED;
 
     }
+
     private static final Logger logger = LogManager.getLogger(AsyncSearchContext.class);
 
     private final AtomicBoolean isRunning;
@@ -292,7 +293,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         }
 
         public synchronized void initialiseResultHolderShardLists(
-                List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters, boolean fetchPhase) {
+                List<SearchShard> shards, List<SearchShard> skippedShards, SearchResponse.Clusters clusters) {
             this.totalShards.set(shards.size());
             this.skippedShards.set(skippedShards.size());
             this.clusters = clusters;
