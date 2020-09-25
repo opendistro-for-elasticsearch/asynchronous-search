@@ -78,14 +78,14 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext));
             logger.debug("Initiated sync search request {}", asyncSearchContext.getId());
             PrioritizedListener<AsyncSearchResponse> wrappedListener = initListener(listener, (actionListener) -> {
-                logger.info("Timeout triggered for async search");
-                if (asyncSearchContext.isCancelled()) {
-                    listener.onFailure(new ResourceNotFoundException("Search cancelled"));
-                }
-                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                progressActionListener.removeListener(actionListener);
-            });
-            progressActionListener.addListener(wrappedListener);
+                        logger.info("Timeout triggered for async search");
+                        if (asyncSearchContext.isCancelled()) {
+                            listener.onFailure(new ResourceNotFoundException("Search cancelled"));
+                        }
+                        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                        progressActionListener.removeListener(actionListener);
+                    });
+            progressActionListener.addOrExecuteListener(wrappedListener);
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
                 @Override

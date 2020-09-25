@@ -45,6 +45,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.ABORTED;
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.COMPLETED;
@@ -251,7 +252,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                             asyncSearchContext.getSearchTask().getProgressListener()).removeListener(actionListener);
                 });
         ((CompositeSearchProgressActionListener) asyncSearchContext.getSearchTask().getProgressListener())
-                .addListener(wrappedListener);
+                .addOrExecuteListener(wrappedListener);
 
     }
 
