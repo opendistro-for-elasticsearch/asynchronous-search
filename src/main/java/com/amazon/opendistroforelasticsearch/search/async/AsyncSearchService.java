@@ -27,6 +27,7 @@ import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterChangedEvent;
 import org.elasticsearch.cluster.ClusterStateListener;
@@ -43,7 +44,8 @@ import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
-import java.util.Collection;
+import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -56,9 +58,21 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
 
+/***
+ * Manages the lifetime of {@link AsyncSearchContext} for all the async searches running on the coordinator node. Once the
+ * response have been persisted or otherwise ready to be expunged, the {@link Reaper} frees up the in-memory contexts maintained
+ * on the coordinator node
+ */
 public class AsyncSearchService extends AbstractLifecycleComponent implements ClusterStateListener {
 
     private static final Logger logger = LogManager.getLogger(SearchService.class);
+
+    private volatile long defaultKeepAlive;
+
+    private volatile long maxKeepAlive;
+
+    public static final Setting<TimeValue> KEEPALIVE_INTERVAL_SETTING =
+            Setting.positiveTimeSetting("async_search.keep_alive_interval", timeValueMinutes(1), Setting.Property.NodeScope);
 
     public static final Setting<TimeValue> DEFAULT_KEEPALIVE_SETTING =
             Setting.positiveTimeSetting("async_search.default_keep_alive", timeValueMinutes(5), Setting.Property.NodeScope,
@@ -66,12 +80,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     public static final Setting<TimeValue> MAX_KEEPALIVE_SETTING =
             Setting.positiveTimeSetting("async_search.max_keep_alive", timeValueHours(24), Setting.Property.NodeScope,
                     Setting.Property.Dynamic);
-    public static final Setting<TimeValue> KEEPALIVE_INTERVAL_SETTING =
-            Setting.positiveTimeSetting("async_search.keep_alive_interval", timeValueMinutes(1), Setting.Property.NodeScope);
-
-    private volatile long defaultKeepAlive;
-
-    private volatile long maxKeepAlive;
 
     private final Scheduler.Cancellable keepAliveReaper;
 
@@ -91,16 +99,15 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                               ThreadPool threadPool) {
         this.client = client;
         Settings settings = clusterService.getSettings();
-        TimeValue keepAliveInterval = KEEPALIVE_INTERVAL_SETTING.get(settings);
         setKeepAlives(DEFAULT_KEEPALIVE_SETTING.get(settings), MAX_KEEPALIVE_SETTING.get(settings));
         clusterService.getClusterSettings().addSettingsUpdateConsumer(DEFAULT_KEEPALIVE_SETTING, MAX_KEEPALIVE_SETTING,
                 this::setKeepAlives, this::validateKeepAlives);
+        TimeValue keepAliveInterval = KEEPALIVE_INTERVAL_SETTING.get(settings);
         this.threadPool = threadPool;
-        this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new ContextReaper(), keepAliveInterval, ThreadPool.Names.SAME);
+        this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new Reaper(), keepAliveInterval, ThreadPool.Names.GENERIC);
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
     }
-
 
     private void validateKeepAlives(TimeValue defaultKeepAlive, TimeValue maxKeepAlive) {
         if (defaultKeepAlive.millis() > maxKeepAlive.millis()) {
@@ -144,6 +151,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         return asyncSearchContext;
     }
 
+    public Set<SearchTask> getOverRunningTasks() {
+        return Collections.unmodifiableSet(activeContexts.values().stream()
+                .filter(a -> a.isExpired())
+                .filter(a -> a.getTask().isCancelled() == false)
+                .map(a -> a.getTask())
+                .collect(Collectors.toSet()));
+    }
+
     protected void putContext(AsyncSearchContext asyncSearchContext) {
         activeContexts.put(asyncSearchContext.getAsyncSearchContextId().getId(), asyncSearchContext);
     }
@@ -158,7 +173,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 logger.info("Removing {} from context map", asyncSearchContextId);
                 AsyncSearchContext.Stage stage = asyncSearchContext.getStage();
                 if (RUNNING.equals(stage) || INIT.equals(stage)) {
-                    AsyncSearchUtils.cancelTask(new TaskId(clusterService.localNode().getId(), asyncSearchContext.getSearchTask().getId()),
+                    AsyncSearchUtils.cancelTask(new TaskId(clusterService.localNode().getId(), asyncSearchContext.getTask().getId()),
                             client);
                 }
                 activeContexts.remove(asyncSearchContextId.getId());
@@ -171,7 +186,16 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     + asyncSearchContextId.getId() + "] on node [" + clusterService.localNode().getId() + "]", e);
             return false;
         }
+    }
 
+    public boolean freeCachedContext(AsyncSearchContextId asyncSearchContextId) {
+        AsyncSearchContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
+        if (asyncSearchContext != null) {
+            logger.debug("Removing {} from context map", asyncSearchContextId);
+            activeContexts.remove(asyncSearchContextId.getId());
+            return true;
+        }
+        return false;
     }
 
     public AsyncSearchResponse onSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
@@ -208,8 +232,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     @Override
     protected void doStop() {
         for (final AsyncSearchContext context : activeContexts.values()) {
-            AsyncSearchContextId asyncSearchContextId = context.getAsyncSearchContextId();
-            freeContext(asyncSearchContextId);
+            freeCachedContext(context.getAsyncSearchContextId());
         }
     }
 
@@ -249,9 +272,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (actionListener) -> {
                     listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                     ((CompositeSearchProgressActionListener)
-                            asyncSearchContext.getSearchTask().getProgressListener()).removeListener(actionListener);
+                            asyncSearchContext.getTask().getProgressListener()).removeListener(actionListener);
                 });
-        ((CompositeSearchProgressActionListener) asyncSearchContext.getSearchTask().getProgressListener())
+        ((CompositeSearchProgressActionListener) asyncSearchContext.getTask().getProgressListener())
                 .addOrExecuteListener(wrappedListener);
 
     }
@@ -295,20 +318,19 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         }
         AsyncSearchContext asyncSearchContext = findContext(id, contextId);
         asyncSearchContext.setStage(ABORTED);
-        activeContexts.remove(contextId.getId());
     }
 
-
-    class ContextReaper implements Runnable {
+    /***
+     * Reaps the contexts ready to be expunged
+     */
+    class Reaper implements Runnable {
 
         @Override
         public void run() {
-            long now = System.currentTimeMillis();
-            Collection<AsyncSearchContext> asyncSearchContexts = activeContexts.values();
-            asyncSearchContexts
-                    .stream()
-                    .filter(AsyncSearchContext::isExpired)
-                    .forEach(context -> freeContext(context.getAsyncSearchContextId()));
+            Set<AsyncSearchContext> toReap = activeContexts.values().stream()
+                    .filter(a -> a.getStage().equals(ABORTED) || a.getStage().equals(PERSISTED))
+                    .collect(Collectors.toSet());
+            toReap.forEach(a -> freeCachedContext(a.getAsyncSearchContextId()));
         }
     }
 

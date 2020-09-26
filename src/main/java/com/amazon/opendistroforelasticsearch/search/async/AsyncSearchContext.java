@@ -97,7 +97,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.expirationTimeInMills = new AtomicLong();
     }
 
-    public void setSearchTask(SearchTask searchTask) {
+    public void setTask(SearchTask searchTask) {
         this.searchTask.set(searchTask);
     }
 
@@ -105,7 +105,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         return stage;
     }
 
-    public SearchTask getSearchTask() {
+    public SearchTask getTask() {
         return searchTask.get();
     }
 
@@ -140,11 +140,11 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     public boolean isRunning() {
-        return !getSearchTask().isCancelled() && isRunning.get();
+        return !getTask().isCancelled() && isRunning.get();
     }
 
     public boolean isCancelled() {
-        return getSearchTask().isCancelled();
+        return getTask().isCancelled();
     }
 
     public boolean isPartial() {
@@ -153,10 +153,6 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     public long getExpirationTimeMillis() {
         return expirationTimeInMills.get();
-    }
-
-    public void getExpirationTimeMillis(long expirationTimeMillis) {
-
     }
 
     public void setExpirationMillis(long expirationTimeInMills) {

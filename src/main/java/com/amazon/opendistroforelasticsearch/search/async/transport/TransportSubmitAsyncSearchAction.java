@@ -92,8 +92,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                 public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
                     AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, AsyncSearchTask.NAME,
                             parentTaskId, headers, asyncSearchContext.getAsyncSearchContextId(),
-                            asyncSearchService::onCancelled);
-                    asyncSearchContext.setSearchTask(asyncSearchTask);
+                            (contextId) -> asyncSearchService.onCancelled(contextId));
+                    asyncSearchContext.setTask(asyncSearchTask);
                     asyncSearchContext.setExpirationMillis(asyncSearchTask.getStartTime() + request.getKeepAlive().getMillis());
                     asyncSearchContext.setStage(AsyncSearchContext.Stage.RUNNING);
                     asyncSearchTask.setProgressListener(progressActionListener);

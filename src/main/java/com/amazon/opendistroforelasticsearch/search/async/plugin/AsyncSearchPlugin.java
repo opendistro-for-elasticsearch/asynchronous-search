@@ -21,7 +21,7 @@ import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchA
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchReaperPersistentTaskExecutor;
-import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchReaperService;
+import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
@@ -36,7 +36,6 @@ import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.component.LifecycleComponent;
-import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.IndexScopedSettings;
@@ -97,7 +96,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
 
     @Override
     public Collection<Class<? extends LifecycleComponent>> getGuiceServiceClasses() {
-        return Collections.singletonList(AsyncSearchReaperService.class);
+        return Collections.singletonList(AsyncSearchManagementService.class);
     }
 
     @Override
@@ -108,11 +107,6 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
         );
     }
 
-    @Override
-    public Collection<Module> createGuiceModules() {
-
-        return Collections.singletonList(binder -> binder.bind(AsyncSearchPersistenceService.class).toInstance(persistenceService));
-    }
 
     @Override
     public List<NamedXContentRegistry.Entry> getNamedXContent() {
