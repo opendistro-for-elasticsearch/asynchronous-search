@@ -45,6 +45,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
     @Test
     public void submitAsyncSearchWithMatchQuery() throws IOException {
         SearchRequest searchRequest = new SearchRequest();
+        searchRequest.indices("test");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("num", 10)));
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
         TimeValue keepAlive = new TimeValue(10, TimeUnit.DAYS);
@@ -63,7 +64,9 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
     @Test
     public void submitAsyncSearchUpdateKeepAliveWithGet() throws IOException {
         //create async search with default keep alive
-        AsyncSearchResponse submitResponse = submitAsyncSearchApi(null);
+        SearchRequest searchRequest = new SearchRequest();
+        searchRequest.indices("test");
+        AsyncSearchResponse submitResponse = submitAsyncSearchApi(new SubmitAsyncSearchRequest(searchRequest));
         AsyncSearchResponse getResponse;
         do {
             logger.info("Get async search {}", submitResponse.getId());
@@ -74,40 +77,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
 
         } while (getResponse.isRunning());
 
-        do {
-            logger.info("Get async search {}", submitResponse.getId());
-            GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
-            getResponse = getAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
-            assertTrue(getResponse.getExpirationTimeMillis() > submitResponse.getExpirationTimeMillis());
-
-        } while (getResponse.isRunning());
-
         assertEquals(getResponse.getSearchResponse().getHits().getHits().length, 5);
-    }
-
-    @Test
-    public void submitAsyncSearchNoQuery() throws Exception {
-        AsyncSearchResponse submitResponse = submitAsyncSearchApi(null);
-        GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
-
-        AsyncSearchResponse getResponse;
-        do {
-            logger.info("Get async search {}", submitResponse.getId());
-            getResponse = getAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
-        } while (getResponse.isRunning());
-        assertNull(getResponse.getSearchResponse().getAggregations());
-        assertEquals(5, getResponse.getSearchResponse().getHits().getTotalHits().value);
-        assertFalse(getResponse.isPartial());
-
-        DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(getResponse.getId());
-        Response response = deleteAsyncSearchApi(deleteAsyncSearchRequest);
-        assertEquals(response.getStatusLine().getStatusCode(), 200);
-
-        //test delete after deletion expect 404
-        assert404(deleteAsyncSearchRequest, this::deleteAsyncSearchApi);
-        assert404(getAsyncSearchRequest, this::getAsyncSearchApi);
-
-
     }
 
     //FIXME right now if id is not parseable or if parsed id renders a node not found its

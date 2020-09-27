@@ -1,4 +1,4 @@
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.utils;
 
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
@@ -43,7 +43,7 @@ import java.util.StringJoiner;
 public class RestTestUtils {
     private static final XContentType REQUEST_BODY_CONTENT_TYPE = XContentType.JSON;
 
-    static Request buildHttpRequest(
+    public static Request buildHttpRequest(
             SubmitAsyncSearchRequest submitAsyncSearchRequest) throws IOException {
 
         SearchRequest searchRequest = submitAsyncSearchRequest.getSearchRequest();

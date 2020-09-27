@@ -3,6 +3,7 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.utils.RestTestUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
@@ -50,7 +51,7 @@ public abstract class AsyncSearchRestTestCase extends ESRestTestCase {
     }
 
     Response deleteAsyncSearchApi(DeleteAsyncSearchRequest deleteAsyncSearchRequest) throws IOException {
-        Request request = TestUtils.buildHttpRequest(deleteAsyncSearchRequest);
+        Request request = RestTestUtils.buildHttpRequest(deleteAsyncSearchRequest);
         return client().performRequest(request);
     }
 
@@ -89,7 +90,7 @@ public abstract class AsyncSearchRestTestCase extends ESRestTestCase {
     }
 
     AsyncSearchResponse getAsyncSearchApi(GetAsyncSearchRequest getAsyncSearchRequest) throws IOException {
-        Request getRequest = TestUtils.buildHttpRequest(getAsyncSearchRequest);
+        Request getRequest = RestTestUtils.buildHttpRequest(getAsyncSearchRequest);
         Response resp = client().performRequest(getRequest);
         return parseEntity(resp.getEntity(), AsyncSearchResponse::fromXContent);
     }
@@ -99,7 +100,7 @@ public abstract class AsyncSearchRestTestCase extends ESRestTestCase {
         if (submitAsyncSearchRequest == null) { //search across all indices with default params without search source
             request = new Request("POST", "/_async_search");
         } else {
-            request = TestUtils.buildHttpRequest(submitAsyncSearchRequest);
+            request = RestTestUtils.buildHttpRequest(submitAsyncSearchRequest);
         }
         Response resp = client().performRequest(request);
         return parseEntity(resp.getEntity(), AsyncSearchResponse::fromXContent);
