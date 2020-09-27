@@ -20,6 +20,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.SearchTask;
@@ -37,7 +38,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 
@@ -46,7 +46,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchCont
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.INIT;
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.RUNNING;
 
-public class AsyncSearchContext extends AbstractRefCounted implements Releasable {
+public class AsyncSearchContext implements Releasable {
 
 
     public enum Stage {
@@ -61,7 +61,6 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchContext.class);
-
     private final AtomicBoolean isRunning;
 
     private final AtomicBoolean isPartial;
@@ -73,7 +72,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
 
     private SetOnce<SearchTask> searchTask = new SetOnce<>();
     private final String nodeId;
-    private final AtomicLong expirationTimeInMills;
+    private volatile long expirationTimeInMills;
     private final Boolean keepOnCompletion;
     private final AsyncSearchContextId asyncSearchContextId;
     private final AtomicReference<ResultsHolder> resultsHolder = new AtomicReference<>();
@@ -81,7 +80,6 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     private Stage stage;
 
     public AsyncSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion) {
-        super("async_search_context");
         this.nodeId = nodeId;
         this.asyncSearchContextId = asyncSearchContextId;
         this.keepOnCompletion = keepOnCompletion;
@@ -94,11 +92,12 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.keepAlive = keepAlive;
         this.resultsHolder.set(new ResultsHolder(this::getStartTimeMillis));
         this.stage = INIT;
-        this.expirationTimeInMills = new AtomicLong();
     }
 
     public void setTask(SearchTask searchTask) {
         this.searchTask.set(searchTask);
+        this.setExpirationMillis(searchTask.getStartTime() + keepAlive.getMillis());
+        setStage(RUNNING);
     }
 
     public Stage getStage() {
@@ -117,7 +116,10 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         return asyncSearchContextId;
     }
 
-    public AsyncSearchResponse getAsyncSearchResponse() {
+    public AsyncSearchResponse getPartialSearchResponse() {
+        if (isCancelled()) {
+            throw new ResourceNotFoundException("Search cancelled");
+        }
         return new AsyncSearchResponse(getId(), isPartial(), isRunning(), searchTask.get().getStartTime(), getExpirationTimeMillis(),
                 isRunning() ? buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
 
@@ -152,16 +154,15 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     }
 
     public long getExpirationTimeMillis() {
-        return expirationTimeInMills.get();
+        return expirationTimeInMills;
     }
 
     public void setExpirationMillis(long expirationTimeInMills) {
-        this.expirationTimeInMills.set(expirationTimeInMills);
+        this.expirationTimeInMills = expirationTimeInMills;
     }
 
     public void performPostPersistenceCleanup() {
         searchResponse.set(null);
-        resultsHolder.set(null);
     }
 
     public long getStartTimeMillis() {
@@ -176,12 +177,6 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
     public void close() {
 
     }
-
-    @Override
-    protected void closeInternal() {
-
-    }
-
 
     public synchronized void processFailure(Exception e) {
         this.isCompleted.set(true);
@@ -198,6 +193,7 @@ public class AsyncSearchContext extends AbstractRefCounted implements Releasable
         this.isRunning.set(false);
         this.isPartial.set(false);
         setStage(COMPLETED);
+        resultsHolder.set(null);
     }
 
     public synchronized AsyncSearchContext setStage(Stage stage) {

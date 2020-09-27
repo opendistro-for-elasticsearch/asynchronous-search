@@ -19,7 +19,9 @@ import org.elasticsearch.transport.TransportException;
 import org.elasticsearch.transport.TransportService;
 
 /**
- * Base class for the action to be executed to route request to the coordinator running the async search
+ * Base class for the action to be executed on the coordinator running the async search from the initial
+ * {@link TransportSubmitAsyncSearchAction}. The class forwards the request to the coordinator and executes the {@link TransportGetAsyncSearchAction}
+ * or the {@link TransportDeleteAsyncSearchAction}
  */
 public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsyncSearchRequest<Request>, Response extends ActionResponse>
         extends HandledTransportAction<Request, Response> {
