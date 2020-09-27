@@ -116,7 +116,7 @@ public class AsyncSearchContext implements Releasable {
         return asyncSearchContextId;
     }
 
-    public AsyncSearchResponse getPartialSearchResponse() {
+    public AsyncSearchResponse geLatestSearchResponse() {
         if (isCancelled()) {
             throw new ResourceNotFoundException("Search cancelled");
         }

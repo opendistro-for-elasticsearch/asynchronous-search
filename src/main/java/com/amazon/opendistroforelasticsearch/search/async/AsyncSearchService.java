@@ -15,9 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
-import com.amazon.opendistroforelasticsearch.search.async.listener.CompositeSearchProgressActionListener;
-import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedListener;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
@@ -198,7 +195,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         String id  = getAsyncSearchId(asyncSearchContextId);
         AsyncSearchContext asyncSearchContext = findContext(id, asyncSearchContextId);
         asyncSearchContext.processFinalResponse(searchResponse);
-        this.persistenceService.createResponseAsync(asyncSearchContext.getPartialSearchResponse(),
+        this.persistenceService.createResponseAsync(asyncSearchContext.geLatestSearchResponse(),
                 new ActionListener<IndexResponse>() {
                     @Override
                     public void onResponse(IndexResponse indexResponse) {
@@ -214,7 +211,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         logger.error("Failed to persist final response for {}", asyncSearchContext.getId(), e);
                     }
                 });
-        return asyncSearchContext.getPartialSearchResponse();
+        return asyncSearchContext.geLatestSearchResponse();
     }
 
     public void onSearchFailure(Exception e, AsyncSearchContext asyncSearchContext) {
@@ -238,8 +235,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         keepAliveReaper.cancel();
     }
 
-    public void updateExpiryTimeIfRequired(GetAsyncSearchRequest request,
-                                           AsyncSearchContext asyncSearchContext, ActionListener<AsyncSearchResponse> listener) {
+    public void updateKeepAlive(GetAsyncSearchRequest request,
+                                AsyncSearchContext asyncSearchContext, ActionListener<AsyncSearchResponse> listener) {
         AsyncSearchContext.Stage stage = asyncSearchContext.getStage();
         if (PERSISTED.equals(stage)) {
             updatePersistedResponseIfRequired(request, listener);
@@ -250,7 +247,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     asyncSearchContext.setExpirationMillis(requestedExpirationTime);
                 }
             }
-            listener.onResponse(asyncSearchContext.getPartialSearchResponse());
+            listener.onResponse(asyncSearchContext.geLatestSearchResponse());
         } else {
             updateInMemoryResponseIfRequired(request, asyncSearchContext, listener);
         }
@@ -264,15 +261,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 asyncSearchContext.setExpirationMillis(requestedExpirationTime);
             }
         }
-        PrioritizedListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener, (actionListener) -> {
-                    listener.onResponse(asyncSearchContext.getPartialSearchResponse());
-                    ((CompositeSearchProgressActionListener)
-                            asyncSearchContext.getTask().getProgressListener()).removeListener(actionListener);
-                });
-        ((CompositeSearchProgressActionListener) asyncSearchContext.getTask().getProgressListener())
-                .addOrExecuteListener(wrappedListener);
-
     }
 
     private void updatePersistedResponseIfRequired(GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {

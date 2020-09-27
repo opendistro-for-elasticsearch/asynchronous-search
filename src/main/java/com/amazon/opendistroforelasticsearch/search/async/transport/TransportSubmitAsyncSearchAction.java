@@ -83,7 +83,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             logger.debug("Initiated sync search request {}", asyncSearchContext.getId());
             PrioritizedListener<AsyncSearchResponse> wrappedListener = initListener(listener, (actionListener) -> {
                 logger.debug("Timeout triggered for async search");
-                listener.onResponse(asyncSearchContext.getPartialSearchResponse());
+                listener.onResponse(asyncSearchContext.geLatestSearchResponse());
                 progressActionListener.removeListener(actionListener);
             });
             progressActionListener.addOrExecuteListener(wrappedListener);
