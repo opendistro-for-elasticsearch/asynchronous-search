@@ -40,7 +40,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.StringJoiner;
 
-public class TestUtils {
+public class RestTestUtils {
     private static final XContentType REQUEST_BODY_CONTENT_TYPE = XContentType.JSON;
 
     static Request buildHttpRequest(
