@@ -9,6 +9,8 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTi
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
@@ -19,7 +21,9 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.*;
+import java.util.Objects;
+
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.INIT;
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.RUNNING;
 
 /**
@@ -36,6 +40,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
     private IndexNameExpressionResolver indexNameExpressionResolver;
     private final TransportSearchAction transportSearchAction;
     private final AsyncSearchService asyncSearchService;
+    private static final Logger logger = LogManager.getLogger(TransportGetAsyncSearchAction.class);
 
     @Inject
     public TransportGetAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
@@ -54,36 +59,55 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
     @Override
     public void handleRequest(AsyncSearchId asyncSearchId, GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
-            AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(request.getId(), asyncSearchId.getAsyncSearchContextId());
-            AsyncSearchContext.Stage stage = asyncSearchContext.getStage();
-            boolean updateNeeded = request.getKeepAlive() != null;
-            assert stage.equals(INIT) == false : "Should be moved to "+ RUNNING + "found" + stage;
-            if (updateNeeded && stage == RUNNING) {
-                ActionListener<AsyncSearchResponse> groupedListener = new GroupedActionListener<>(ActionListener.wrap(
-                        (response) -> listener.onResponse(response.stream().findFirst().get()), (e) -> listener.onFailure(e)), 2);
-                PrioritizedListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                        request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, groupedListener, (actionListener) -> {
-                            groupedListener.onResponse(asyncSearchContext.geLatestSearchResponse());
-                            ((AsyncSearchProgressActionListener) asyncSearchContext.getTask().getProgressListener()).removeListener(actionListener);
-                        });
-                ((AsyncSearchProgressActionListener) asyncSearchContext.getTask().getProgressListener())
-                        .addOrExecuteListener(wrappedListener);
-                asyncSearchService.updateKeepAlive(request, asyncSearchContext, groupedListener);
-            }
-            else if (updateNeeded) {
-                asyncSearchService.updateKeepAlive(request, asyncSearchContext, new ActionListener<AsyncSearchResponse>() {
-                    @Override
-                    public void onResponse(AsyncSearchResponse asyncSearchResponse) {
-                        listener.onResponse(asyncSearchResponse);
-                    }
-                    @Override
-                    public void onFailure(Exception e) {
-                        listener.onFailure(e);
-                    }
-                });
-            } else {
-                listener.onResponse(asyncSearchContext.geLatestSearchResponse());
-            }
+            asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId(), ActionListener.wrap(
+                    (asyncSearchContext) -> {
+                        AsyncSearchContext.Stage stage = asyncSearchContext.getStage();
+                        boolean updateNeeded = request.getKeepAlive() != null;
+                        assert stage.equals(INIT) == false : "Should be moved to " + RUNNING + "found" + stage;
+                        if (stage == RUNNING) {
+                            if (updateNeeded) {
+                                ActionListener<AsyncSearchResponse> groupedListener = new GroupedActionListener<>(
+                                        ActionListener.wrap(
+                                                //TODO replace findFirst with the latest response received. Add TS to AsyncSearchResponse and compare
+                                                (responses) -> {
+                                                    listener.onResponse(responses.stream()
+                                                            .filter(Objects::nonNull)
+                                                            .findFirst().get());
+                                                },
+                                                listener::onFailure), 2);
+                                PrioritizedListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+                                        request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, groupedListener,
+                                        (actionListener) -> {
+                                            ((AsyncSearchProgressActionListener) asyncSearchContext.getTask().getProgressListener()).removeListener(actionListener);
+                                            groupedListener.onResponse(asyncSearchContext.geLatestSearchResponse());
+                                        });
+                                ((AsyncSearchProgressActionListener) asyncSearchContext.getTask().getProgressListener())
+                                        .addOrExecuteListener(wrappedListener);
+                                asyncSearchService.updateKeepAlive(request, asyncSearchContext, ActionListener.wrap(
+                                        (response) -> listener.onResponse(asyncSearchContext.geLatestSearchResponse()),
+                                        listener::onFailure));
+                            } else {
+                                PrioritizedListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+                                        request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener,
+                                        (actionListener) -> {
+                                            ((AsyncSearchProgressActionListener) asyncSearchContext.getTask().getProgressListener()).removeListener(actionListener);
+                                            listener.onResponse(asyncSearchContext.geLatestSearchResponse());
+                                        });
+                                ((AsyncSearchProgressActionListener) asyncSearchContext.getTask().getProgressListener())
+                                        .addOrExecuteListener(wrappedListener);
+                            }
+                        } else {
+                            if (updateNeeded) {
+                                asyncSearchService.updateKeepAlive(request, asyncSearchContext, ActionListener.wrap(
+                                        (response) -> listener.onResponse(asyncSearchContext.geLatestSearchResponse()),
+                                        listener::onFailure));
+                            } else {
+                                listener.onResponse(asyncSearchContext.geLatestSearchResponse());
+                            }
+                        }
+                    },
+                    listener::onFailure)
+            );
         } catch (Exception e) {
             listener.onFailure(e);
         }

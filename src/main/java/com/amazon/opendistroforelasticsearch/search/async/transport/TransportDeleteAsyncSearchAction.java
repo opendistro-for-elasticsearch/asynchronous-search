@@ -1,15 +1,13 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
-import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -47,13 +45,13 @@ public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchA
     public void handleRequest(AsyncSearchId asyncSearchId, DeleteAsyncSearchRequest request,
                               ActionListener<AcknowledgedResponse> listener) {
         try {
-            AsyncSearchContext asyncSearchContext = asyncSearchService.findContext(request.getId(),
-                    asyncSearchId.getAsyncSearchContextId());
-            asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId());
-            if (asyncSearchContext.isCancelled()) {
-                listener.onFailure(new ResourceNotFoundException(request.getId()));
-            }
-            listener.onResponse(new AcknowledgedResponse(true));
+            asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId(), ActionListener.wrap(
+                    (context) -> {
+                        asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId(), ActionListener
+                                .wrap((complete) -> listener.onResponse(new AcknowledgedResponse(complete)), listener::onFailure));
+                    },
+                    listener::onFailure
+            ));
         } catch (Exception e) {
             listener.onFailure(e);
         }

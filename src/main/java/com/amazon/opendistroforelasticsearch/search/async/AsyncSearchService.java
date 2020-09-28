@@ -22,6 +22,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
@@ -136,10 +137,17 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         return null;
     }
 
-    public AsyncSearchContext findContext(String id, AsyncSearchContextId asyncSearchContextId) {
+    /**
+     * The method tries to find a context in-memory and if it's not found, it tries to look up data on the disk. It no data
+     * on the disk exists, it's likely that the context has expired in which case {@link AsyncSearchContextMissingException}
+     * is thrown
+     * @param asyncSearchContextId
+     * @return
+     */
+    public AsyncSearchContext findContext(AsyncSearchContextId asyncSearchContextId,  ActionListener<AsyncSearchContext> listener) {
         final AsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         if (asyncSearchContext == null) {
-            throw new ResourceNotFoundException(id);
+            throw new AsyncSearchContextMissingException(asyncSearchContextId);
         }
         return asyncSearchContext;
     }
@@ -156,8 +164,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         activeContexts.put(asyncSearchContext.getAsyncSearchContextId().getId(), asyncSearchContext);
     }
 
-    public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
-
+    public boolean freeContext(AsyncSearchContextId asyncSearchContextId, ActionListener<Boolean> actionListener) {
         try {
             persistenceService.deleteResponseAsync(AsyncSearchId.buildAsyncId(
                     new AsyncSearchId(clusterService.localNode().getId(), asyncSearchContextId)));
@@ -192,8 +199,17 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
     public AsyncSearchResponse onSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
-        String id  = getAsyncSearchId(asyncSearchContextId);
-        AsyncSearchContext asyncSearchContext = findContext(id, asyncSearchContextId);
+        AsyncSearchContext asyncSearchContext = findContext(asyncSearchContextId, new ActionListener<AsyncSearchContext>() {
+            @Override
+            public void onResponse(AsyncSearchContext asyncSearchContext) {
+
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+
+            }
+        });
         asyncSearchContext.processFinalResponse(searchResponse);
         this.persistenceService.createResponseAsync(asyncSearchContext.geLatestSearchResponse(),
                 new ActionListener<IndexResponse>() {
@@ -235,55 +251,37 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         keepAliveReaper.cancel();
     }
 
-    public void updateKeepAlive(GetAsyncSearchRequest request,
-                                AsyncSearchContext asyncSearchContext, ActionListener<AsyncSearchResponse> listener) {
+    /***
+     *
+     * @param request
+     * @param asyncSearchContext
+     * @param listener
+     */
+    public void updateKeepAlive(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext, ActionListener<ActionResponse> listener) {
+        assert request.getKeepAlive() != null : "Keep Alive requested is null";
         AsyncSearchContext.Stage stage = asyncSearchContext.getStage();
-        if (PERSISTED.equals(stage)) {
-            updatePersistedResponseIfRequired(request, listener);
-        } else if (COMPLETED.equals(stage)) {
-            if (request.getKeepAlive() != null) {
-                long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
-                if (requestedExpirationTime > asyncSearchContext.getExpirationTimeMillis()) {
-                    asyncSearchContext.setExpirationMillis(requestedExpirationTime);
+        long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
+        if (stage.equals(PERSISTED)) {
+            persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime, new ActionListener<ActionResponse>() {
+                @Override
+                public void onResponse(ActionResponse actionResponse) {
+
                 }
-            }
-            listener.onResponse(asyncSearchContext.geLatestSearchResponse());
+
+                @Override
+                public void onFailure(Exception e) {
+
+                }
+            });
         } else {
-            updateInMemoryResponseIfRequired(request, asyncSearchContext, listener);
+            //TODO acquire lock so that if the context is about to be persisted, we don't lose out on the updated state
+            asyncSearchContext.setExpirationMillis(requestedExpirationTime);
         }
     }
 
-    private void updateInMemoryResponseIfRequired(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext,
-                                                 ActionListener<AsyncSearchResponse> listener) {
-        if (request.getKeepAlive() != null) {
-            long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
-            if (requestedExpirationTime > asyncSearchContext.getExpirationTimeMillis()) {
-                asyncSearchContext.setExpirationMillis(requestedExpirationTime);
-            }
-        }
-    }
+    public void fetchAsyncSearchResponse(String asyncId, ActionListener<AsyncSearchResponse> listener) {
 
-    private void updatePersistedResponseIfRequired(GetAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
-        persistenceService.getResponse(request.getId(), new ActionListener<AsyncSearchResponse>() {
-            @Override
-            public void onResponse(AsyncSearchResponse asyncSearchResponse) {
-                if (request.getKeepAlive() != null) {
-                    long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
-                    if (requestedExpirationTime > asyncSearchResponse.getExpirationTimeMillis()) {
-                        persistenceService.updateExpirationTimeAsync(request.getId(), requestedExpirationTime);
-                    }
-                    listener.onResponse(new AsyncSearchResponse(asyncSearchResponse, requestedExpirationTime));
-                } else {
-                    listener.onResponse(asyncSearchResponse);
-                }
-            }
 
-            @Override
-            public void onFailure(Exception e) {
-                logger.error("Failed to get async search response {} from index", request.getId());
-                listener.onFailure(e);
-            }
-        });
     }
 
     @Override
@@ -291,17 +289,23 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
     }
 
+    /***
+     * Listens to the cancellation for {@link com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask} and
+     * updates the corresponding state on disk.
+     * @param contextId
+     */
     public void onCancelled(AsyncSearchContextId contextId) {
-        String id = null;
-        try {
-            id = AsyncSearchId.buildAsyncId(new AsyncSearchId(clusterService.localNode().getId(),
-                    contextId));
-        } catch (IOException e) {
-            logger.error(e);
+        findContext(contextId, new ActionListener<AsyncSearchContext>() {
+            @Override
+            public void onResponse(AsyncSearchContext asyncSearchContext) {
+                asyncSearchContext.setStage(ABORTED);
+            }
 
-        }
-        AsyncSearchContext asyncSearchContext = findContext(id, contextId);
-        asyncSearchContext.setStage(ABORTED);
+            @Override
+            public void onFailure(Exception e) {
+                logger.error("Failed to set stage as +" + ABORTED);
+            }
+        });
     }
 
     /***
@@ -311,10 +315,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
         @Override
         public void run() {
-            Set<AsyncSearchContext> toReap = activeContexts.values().stream()
-                    .filter(a -> a.getStage().equals(ABORTED) || a.getStage().equals(PERSISTED))
-                    .collect(Collectors.toSet());
-            toReap.forEach(a -> freeCachedContext(a.getAsyncSearchContextId()));
+            try {
+                Set<AsyncSearchContext> toReap = activeContexts.values().stream()
+                        .filter(a -> a.getStage().equals(ABORTED) || a.getStage().equals(PERSISTED))
+                        .collect(Collectors.toSet());
+                toReap.forEach(a -> freeCachedContext(a.getAsyncSearchContextId()));
+            } catch (Exception e) {
+                logger.error("Exception while reaping contexts");
+            }
         }
     }
 

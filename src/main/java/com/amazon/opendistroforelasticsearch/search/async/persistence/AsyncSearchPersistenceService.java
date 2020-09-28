@@ -7,6 +7,7 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
@@ -191,22 +192,21 @@ public class AsyncSearchPersistenceService {
             }
         });
     }
-    public void updateExpirationTimeAsync(String id, long expirationTimeMillis) {
-        threadPool.generic().execute(() -> updateExpirationTime(id, expirationTimeMillis));
-    }
-    public void updateExpirationTime(String id, long expirationTimeMillis) {
-        Map<String, Object> source = new HashMap<>();
-        source.put(EXPIRATION_TIME_PROPERTY_NAME, expirationTimeMillis);
-        UpdateRequest updateRequest = new UpdateRequest(INDEX, id);
-        updateRequest.doc(source, XContentType.JSON);
-        client.update(updateRequest, new ActionListener<UpdateResponse>() {
-            @Override
-            public void onResponse(UpdateResponse updateResponse) {
-            }
+    public void updateExpirationTime(String id, long expirationTimeMillis, ActionListener<ActionResponse> actionListener) {
+        threadPool.generic().execute(() -> {
+            Map<String, Object> source = new HashMap<>();
+            source.put(EXPIRATION_TIME_PROPERTY_NAME, expirationTimeMillis);
+            UpdateRequest updateRequest = new UpdateRequest(INDEX, id);
+            updateRequest.doc(source, XContentType.JSON);
+            client.update(updateRequest, new ActionListener<UpdateResponse>() {
+                @Override
+                public void onResponse(UpdateResponse updateResponse) {
+                }
 
-            @Override
-            public void onFailure(Exception e) {
-            }
+                @Override
+                public void onFailure(Exception e) {
+                }
+            });
         });
     }
 

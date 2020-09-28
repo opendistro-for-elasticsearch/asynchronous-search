@@ -27,7 +27,6 @@ import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.AbstractRefCounted;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.internal.InternalSearchResponse;
@@ -76,8 +75,8 @@ public class AsyncSearchContext implements Releasable {
     private final Boolean keepOnCompletion;
     private final AsyncSearchContextId asyncSearchContextId;
     private final AtomicReference<ResultsHolder> resultsHolder = new AtomicReference<>();
-    private TimeValue keepAlive;
-    private Stage stage;
+    private volatile TimeValue keepAlive;
+    private volatile Stage stage;
 
     public AsyncSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion) {
         this.nodeId = nodeId;
