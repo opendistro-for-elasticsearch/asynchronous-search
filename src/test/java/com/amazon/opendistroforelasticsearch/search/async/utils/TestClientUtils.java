@@ -8,12 +8,25 @@ import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import org.elasticsearch.action.ActionFuture;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.bulk.BackoffPolicy;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.common.unit.TimeValue;
+import org.junit.Assert;
 
+import java.util.Iterator;
+import java.util.concurrent.CountDownLatch;
+
+import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 import static org.junit.Assert.assertEquals;
 
 public class TestClientUtils {
+    static final String INDEX = ".async_search_response";
+    static final BackoffPolicy STORE_BACKOFF_POLICY =
+            BackoffPolicy.exponentialBackoff(timeValueMillis(250), 5);
 
     public static AsyncSearchResponse blockingSubmitAsyncSearch(Client client, SubmitAsyncSearchRequest request) {
         ActionFuture<AsyncSearchResponse> execute = submitAsyncSearch(client, request);
@@ -62,5 +75,38 @@ public class TestClientUtils {
             assertEquals(submitResponse.getExpirationTimeMillis(), getResponse.getExpirationTimeMillis());
         } while (getResponse.isRunning());
         return getResponse;
+    }
+
+    public static void assertResponsePersistence(Client client, String id) throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        Iterator<TimeValue> backoff = STORE_BACKOFF_POLICY.iterator();
+        getResponseFromIndex(client, id, latch, backoff);
+        latch.await();
+    }
+
+    public static void getResponseFromIndex(Client client, String id, CountDownLatch latch, Iterator<TimeValue> backoff) {
+        client.get(new GetRequest(INDEX).id(id), new ActionListener<GetResponse>() {
+            @Override
+            public void onResponse(GetResponse getResponse) {
+                latch.countDown();
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                try {
+                    if (!backoff.hasNext()) {
+                        latch.countDown();
+                        Assert.fail("Failed to persist async search response");
+                    } else {
+                        TimeValue wait = backoff.next();
+                        Thread.sleep(wait.getMillis());
+                        getResponseFromIndex(client,id, latch,backoff);
+                    }
+                } catch (InterruptedException ex) {
+                    Assert.fail();
+                    latch.countDown();
+                }
+            }
+        });
     }
 }

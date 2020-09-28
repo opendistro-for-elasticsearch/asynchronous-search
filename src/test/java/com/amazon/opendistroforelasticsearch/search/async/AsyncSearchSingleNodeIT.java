@@ -26,12 +26,13 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
     }
 
     @Test
-    public void submitAsyncSearchAndGetAndDelete() {
+    public void submitAsyncSearchAndGetAndDelete() throws InterruptedException {
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.source(new SearchSourceBuilder());
         searchRequest.indices("index");
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
         AsyncSearchResponse submitResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), submitAsyncSearchRequest);
+        TestClientUtils.assertResponsePersistence(client(), submitResponse.getId());
         GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
 
         AsyncSearchResponse getResponse = TestClientUtils.getFinalAsyncSearchResponse(client(), submitResponse,
@@ -40,7 +41,6 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         assertNull(getResponse.getSearchResponse().getAggregations());
         assertEquals(10, getResponse.getSearchResponse().getHits().getTotalHits().value);
         assertFalse(getResponse.isPartial());
-
         DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(getResponse.getId());
         AcknowledgedResponse acknowledgedResponse = TestClientUtils.blockingDeleteAsyncSearchRequest(client(),
                 deleteAsyncSearchRequest);
@@ -50,13 +50,14 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
     }
 
     @Test
-    public void submitAsyncSearchMatchQuery() {
+    public void submitAsyncSearchMatchQuery() throws InterruptedException {
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("index");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
 
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
         AsyncSearchResponse submitResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), submitAsyncSearchRequest);
+        TestClientUtils.assertResponsePersistence(client(), submitResponse.getId());
         GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
 
         AsyncSearchResponse getResponse = TestClientUtils.getFinalAsyncSearchResponse(client(), submitResponse,
