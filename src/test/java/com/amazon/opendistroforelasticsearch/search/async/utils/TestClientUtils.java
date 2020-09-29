@@ -1,5 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.utils;
 
+import com.amazon.opendistroforelasticsearch.search.async.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
@@ -12,7 +13,6 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.unit.TimeValue;
 import org.junit.Assert;
@@ -30,7 +30,7 @@ public class TestClientUtils {
 
     public static AsyncSearchResponse blockingSubmitAsyncSearch(Client client, SubmitAsyncSearchRequest request) {
         ActionFuture<AsyncSearchResponse> execute = submitAsyncSearch(client, request);
-        return execute.actionGet(request.getWaitForCompletionTimeout().getMillis());
+        return execute.actionGet();
     }
 
     static ActionFuture<AsyncSearchResponse> submitAsyncSearch(Client client, SubmitAsyncSearchRequest request) {
@@ -39,7 +39,7 @@ public class TestClientUtils {
 
     public static AsyncSearchResponse blockingGetAsyncSearchResponse(Client client, GetAsyncSearchRequest request) {
         ActionFuture<AsyncSearchResponse> execute = getAsyncSearch(client, request);
-        return execute.actionGet(request.getWaitForCompletionTimeout().getMillis());
+        return execute.actionGet();
     }
 
     static ActionFuture<AsyncSearchResponse> getAsyncSearch(Client client, GetAsyncSearchRequest request) {
@@ -47,12 +47,12 @@ public class TestClientUtils {
     }
 
     public static AcknowledgedResponse blockingDeleteAsyncSearchRequest(Client client, DeleteAsyncSearchRequest request) {
-        ActionFuture<org.elasticsearch.action.support.master.AcknowledgedResponse> execute = deleteAsyncSearch(client, request);
+        ActionFuture<AcknowledgedResponse> execute = deleteAsyncSearch(client, request);
         return execute.actionGet(100);
     }
 
-    static ActionFuture<org.elasticsearch.action.support.master.AcknowledgedResponse> deleteAsyncSearch(Client client,
-                                                                                                        DeleteAsyncSearchRequest request) {
+    static ActionFuture<AcknowledgedResponse>
+    deleteAsyncSearch(Client client, DeleteAsyncSearchRequest request) {
         return client.execute(DeleteAsyncSearchAction.INSTANCE, request);
     }
 

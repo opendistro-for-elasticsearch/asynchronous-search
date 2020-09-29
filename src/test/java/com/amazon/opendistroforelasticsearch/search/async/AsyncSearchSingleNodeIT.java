@@ -5,25 +5,11 @@ import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearch
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.junit.Before;
 import org.junit.Test;
 
-import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
-
 public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
-
-    @Before
-    public void indexDocuments() {
-
-        createIndex("index", Settings.builder().put("index.refresh_interval", -1).build());
-        for (int i = 0; i < 10; i++)
-            client().prepareIndex("index", "type", String.valueOf(i)).setSource("field", "value" + i)
-                    .setRefreshPolicy(IMMEDIATE).get();
-    }
 
     @Test
     public void submitAsyncSearchAndGetAndDelete() throws InterruptedException {

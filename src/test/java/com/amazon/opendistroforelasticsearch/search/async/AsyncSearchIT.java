@@ -5,7 +5,6 @@ import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearch
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Before;
 import org.junit.Test;
