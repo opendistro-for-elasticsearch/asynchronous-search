@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.ActiveSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
@@ -75,17 +75,17 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
-            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request);
+            ActiveSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request);
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(
                     asyncSearchContext.getResultsHolder(),
                     (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),
                     (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext));
-            logger.debug("Initiated sync search request {}", asyncSearchContext.getId());
+            logger.debug("Initiated sync search request {}", asyncSearchContext.getAsyncSearchId());
             PrioritizedListener<AsyncSearchResponse> wrappedListener = initListener(listener,
                     (actionListener) -> {
                 logger.debug("Timeout triggered for async search");
                 progressActionListener.removeListener(actionListener);
-                listener.onResponse(asyncSearchContext.geLatestSearchResponse());
+                listener.onResponse(asyncSearchContext.getSearchResponse());
             });
             progressActionListener.addOrExecuteListener(wrappedListener);
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());

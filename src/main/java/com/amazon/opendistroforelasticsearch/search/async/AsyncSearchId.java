@@ -41,7 +41,7 @@ public class AsyncSearchId {
         return node;
     }
 
-    public static String buildAsyncId(AsyncSearchId asyncSearchId) throws IOException {
+    public static String buildAsyncId(AsyncSearchId asyncSearchId) {
         try (RAMOutputStream out = new RAMOutputStream()) {
             out.writeString(asyncSearchId.getNode());
             out.writeString(asyncSearchId.getAsyncSearchContextId().getContextId());
@@ -49,6 +49,8 @@ public class AsyncSearchId {
             byte[] bytes = new byte[(int) out.getFilePointer()];
             out.writeTo(bytes, 0);
             return Base64.getUrlEncoder().encodeToString(bytes);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Cannot parse async search id", e);
         }
     }
 

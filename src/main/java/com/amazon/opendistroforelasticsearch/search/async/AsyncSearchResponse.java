@@ -84,7 +84,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     }
 
     public AsyncSearchResponse(AsyncSearchResponse response, long expirationTimeMillis) {
-        this.id=response.getId();
+        this.id = response.getId();
         this.isPartial = response.isPartial();
         this.isRunning = response.isRunning();
         this.startTimeMillis = response.getStartTimeMillis();
@@ -92,6 +92,11 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         this.searchResponse = response.getSearchResponse();
         this.error = response.getError();
 
+    }
+
+    public AsyncSearchResponse(SearchResponse response, long expirationTimeMillis) {
+        this.expirationTimeMillis = expirationTimeMillis;
+        this.searchResponse = response;
     }
 
     @Override
