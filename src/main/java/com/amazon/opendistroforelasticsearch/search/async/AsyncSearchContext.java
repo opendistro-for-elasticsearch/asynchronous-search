@@ -20,7 +20,7 @@ public abstract class AsyncSearchContext {
 
     public enum Lifetime {
         IN_MEMORY,
-        PERSISTED
+        STORE
     }
 
     private final String asyncId;

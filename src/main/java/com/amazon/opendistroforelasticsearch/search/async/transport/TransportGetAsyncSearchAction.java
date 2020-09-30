@@ -111,7 +111,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                 }
                             }
                             break;
-                        case PERSISTED:
+                        case STORE:
                             if (updateNeeded) {
                                 asyncSearchService.updateKeepAlive(request, asyncSearchContext, ActionListener.wrap(
                                         (response) -> listener.onResponse(asyncSearchContext.getSearchResponse()),

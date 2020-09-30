@@ -257,7 +257,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         assert request.getKeepAlive() != null : "Keep Alive requested is null";
         AsyncSearchContext.Lifetime lifetime = asyncSearchContext.getLifetime();
         long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
-        if (lifetime.equals(AsyncSearchContext.Lifetime.PERSISTED)) {
+        if (lifetime.equals(AsyncSearchContext.Lifetime.STORE)) {
             persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime, new ActionListener<ActionResponse>() {
                 @Override
                 public void onResponse(ActionResponse actionResponse) {

@@ -42,6 +42,6 @@ public class AsyncSearchPersistenceModel extends AsyncSearchContext implements T
 
     @Override
     public Lifetime getLifetime() {
-        return Lifetime.PERSISTED;
+        return Lifetime.STORE;
     }
 }
