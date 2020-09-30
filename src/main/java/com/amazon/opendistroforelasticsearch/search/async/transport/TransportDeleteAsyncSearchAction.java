@@ -45,8 +45,8 @@ public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchA
     public void handleRequest(AsyncSearchId asyncSearchId, DeleteAsyncSearchRequest request,
                               ActionListener<AcknowledgedResponse> listener) {
         try {
-            asyncSearchService.freeContext(asyncSearchId.getAsyncSearchContextId(), ActionListener
-                    .wrap((complete) -> listener.onResponse(new AcknowledgedResponse(complete)), listener::onFailure));
+            asyncSearchService.freeContext(request.getId(), asyncSearchId.getAsyncSearchContextId(), ActionListener
+                    .wrap((Boolean complete) -> listener.onResponse(new AcknowledgedResponse(complete)), listener::onFailure));
         } catch (Exception e) {
             listener.onFailure(e);
         }

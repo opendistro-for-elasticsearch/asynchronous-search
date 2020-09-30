@@ -85,7 +85,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     (actionListener) -> {
                 logger.debug("Timeout triggered for async search");
                 progressActionListener.removeListener(actionListener);
-                listener.onResponse(asyncSearchContext.getSearchResponse());
+                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
             });
             progressActionListener.addOrExecuteListener(wrappedListener);
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());

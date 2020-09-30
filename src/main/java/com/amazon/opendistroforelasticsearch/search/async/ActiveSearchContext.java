@@ -89,7 +89,7 @@ public class ActiveSearchContext extends AsyncSearchContext {
     }
 
     @Override
-    public AsyncSearchResponse getSearchResponse() {
+    public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(getAsyncSearchId(), isPartial(), isRunning(), searchTask.get().getStartTime(), getExpirationTimeInMills(),
                 isRunning() ? buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
     }
@@ -142,11 +142,11 @@ public class ActiveSearchContext extends AsyncSearchContext {
 
 
     public synchronized void processFinalResponse(SearchResponse response) {
+        setStage(Stage.COMPLETED);
         this.searchResponse.compareAndSet(null, response);
         this.isCompleted.set(true);
         this.isRunning.set(false);
         this.isPartial.set(false);
-        setStage(Stage.COMPLETED);
         resultsHolder.set(null);
     }
 

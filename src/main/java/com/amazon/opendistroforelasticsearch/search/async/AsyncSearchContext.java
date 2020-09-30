@@ -41,7 +41,7 @@ public abstract class AsyncSearchContext {
         return asyncId;
     }
 
-    public abstract AsyncSearchResponse getSearchResponse();
+    public abstract AsyncSearchResponse getAsyncSearchResponse();
 
     public abstract long getExpirationTimeInMills();
 

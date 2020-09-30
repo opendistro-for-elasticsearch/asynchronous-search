@@ -84,19 +84,19 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                             request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, groupedListener,
                                             (actionListener) -> {
                                                 ((AsyncSearchProgressActionListener) asyncSearchTask.getProgressListener()).removeListener(actionListener);
-                                                groupedListener.onResponse(asyncSearchContext.getSearchResponse());
+                                                groupedListener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                                             });
                                     ((AsyncSearchProgressActionListener) asyncSearchTask.getProgressListener())
                                             .addOrExecuteListener(wrappedListener);
                                     asyncSearchService.updateKeepAlive(request, asyncSearchContext, ActionListener.wrap(
-                                            (response) -> listener.onResponse(asyncSearchContext.getSearchResponse()),
+                                            (response) -> listener.onResponse(asyncSearchContext.getAsyncSearchResponse()),
                                             listener::onFailure));
                                 } else {
                                     PrioritizedListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                                             request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener,
                                             (actionListener) -> {
                                                 ((AsyncSearchProgressActionListener) asyncSearchTask.getProgressListener()).removeListener(actionListener);
-                                                listener.onResponse(asyncSearchContext.getSearchResponse());
+                                                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                                             });
                                     ((AsyncSearchProgressActionListener) asyncSearchTask.getProgressListener())
                                             .addOrExecuteListener(wrappedListener);
@@ -104,20 +104,20 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                             } else {
                                 if (updateNeeded) {
                                     asyncSearchService.updateKeepAlive(request, asyncSearchContext, ActionListener.wrap(
-                                            (response) -> listener.onResponse(asyncSearchContext.getSearchResponse()),
+                                            (response) -> listener.onResponse(asyncSearchContext.getAsyncSearchResponse()),
                                             listener::onFailure));
                                 } else {
-                                    listener.onResponse(asyncSearchContext.getSearchResponse());
+                                    listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                                 }
                             }
                             break;
                         case STORE:
                             if (updateNeeded) {
                                 asyncSearchService.updateKeepAlive(request, asyncSearchContext, ActionListener.wrap(
-                                        (response) -> listener.onResponse(asyncSearchContext.getSearchResponse()),
+                                        (response) -> listener.onResponse(asyncSearchContext.getAsyncSearchResponse()),
                                         listener::onFailure));
                             } else {
-                                listener.onResponse(asyncSearchContext.getSearchResponse());
+                                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                             }
                             break;
                     }

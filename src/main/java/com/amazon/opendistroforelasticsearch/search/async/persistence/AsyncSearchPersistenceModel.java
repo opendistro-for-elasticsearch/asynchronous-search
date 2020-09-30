@@ -3,10 +3,15 @@ package com.amazon.opendistroforelasticsearch.search.async.persistence;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.elasticsearch.common.bytes.BytesReference;
+import org.elasticsearch.common.io.stream.BytesStreamOutput;
+import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
+import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Base64;
 
 public class AsyncSearchPersistenceModel extends AsyncSearchContext implements ToXContentObject {
 
@@ -16,12 +21,34 @@ public class AsyncSearchPersistenceModel extends AsyncSearchContext implements T
 
     private final String asyncSearchId;
     private final long expirationTime;
-    private final BytesReference response;
+    private final NamedWriteableRegistry namedWriteableRegistry;
 
-    public AsyncSearchPersistenceModel(String asyncSearchId, long expirationTime, BytesReference response) {
+    public String getResponse() {
+        return response;
+    }
+
+    private final String response;
+
+    public AsyncSearchPersistenceModel(
+            NamedWriteableRegistry namedWriteableRegistry,
+            AsyncSearchResponse asyncSearchResponse) throws IOException {
+        super(asyncSearchResponse.getId());
+        this.asyncSearchId = asyncSearchResponse.getId();
+        this.expirationTime = asyncSearchResponse.getExpirationTimeMillis();
+        this.namedWriteableRegistry = namedWriteableRegistry;
+        this.response = encodeResponse(asyncSearchResponse);
+    }
+
+
+    public AsyncSearchPersistenceModel(
+            NamedWriteableRegistry namedWriteableRegistry,
+            String asyncSearchId,
+            long expirationTime,
+            String response) {
         super(asyncSearchId);
         this.asyncSearchId = asyncSearchId;
         this.expirationTime = expirationTime;
+        this.namedWriteableRegistry = namedWriteableRegistry;
         this.response = response;
     }
 
@@ -31,8 +58,8 @@ public class AsyncSearchPersistenceModel extends AsyncSearchContext implements T
     }
 
     @Override
-    public AsyncSearchResponse getSearchResponse() {
-        return null;
+    public AsyncSearchResponse getAsyncSearchResponse() {
+        return new AsyncSearchResponse(decodeResponse(response), expirationTime);
     }
 
     @Override
@@ -44,4 +71,24 @@ public class AsyncSearchPersistenceModel extends AsyncSearchContext implements T
     public Lifetime getLifetime() {
         return Lifetime.STORE;
     }
+
+    private String encodeResponse(AsyncSearchResponse asyncSearchResponse) throws IOException {
+
+        try (BytesStreamOutput out = new BytesStreamOutput()) {
+            asyncSearchResponse.writeTo(out);
+            byte[] bytes = BytesReference.toBytes(out.bytes());
+            return Base64.getUrlEncoder().encodeToString(bytes);
+        }
+    }
+
+    private AsyncSearchResponse decodeResponse(String response) {
+        BytesReference bytesReference = BytesReference.fromByteBuffer(ByteBuffer.wrap(Base64.getUrlDecoder().decode(response)));
+        try (NamedWriteableAwareStreamInput wrapperStreamInput = new NamedWriteableAwareStreamInput(bytesReference.streamInput(),
+                namedWriteableRegistry)) {
+            return new AsyncSearchResponse(wrapperStreamInput);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Cannot parse async search id", e);
+        }
+    }
+
 }

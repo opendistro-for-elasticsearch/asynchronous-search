@@ -90,7 +90,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
 
         this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool, namedWriteableRegistry);
-        return Arrays.asList(new AsyncSearchService(persistenceService, client, clusterService, threadPool));
+        return Arrays.asList(new AsyncSearchService(persistenceService, client, clusterService, threadPool, namedWriteableRegistry));
     }
 
 
