@@ -50,6 +50,7 @@ public class ActiveSearchContext extends AsyncSearchContext {
     private final AtomicReference<ActiveSearchContext.ResultsHolder> resultsHolder = new AtomicReference<>();
     private volatile TimeValue keepAlive;
     private volatile ActiveSearchContext.Stage stage;
+    //private SearchContextPersistedTimeoutListener compositeContextPersistedListener;
 
     public ActiveSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion) {
         super(asyncSearchContextId.getContextId());
@@ -64,7 +65,12 @@ public class ActiveSearchContext extends AsyncSearchContext {
         this.keepAlive = keepAlive;
         this.resultsHolder.set(new ActiveSearchContext.ResultsHolder(this::getStartTimeMillis));
         this.stage = Stage.INIT;
+        //this.compositeContextPersistedListener = new SearchContextPersistedTimeoutListener(logger);
     }
+
+   /* public SearchContextPersistedTimeoutListener getCompositeContextPersistedListener() {
+        return compositeContextPersistedListener;
+    }*/
 
     public void setTask(SearchTask searchTask) {
         this.searchTask.set(searchTask);
@@ -120,8 +126,8 @@ public class ActiveSearchContext extends AsyncSearchContext {
     }
 
     @Override
-    public Lifetime getLifetime() {
-        return Lifetime.IN_MEMORY;
+    public Source getSource() {
+        return Source.IN_MEMORY;
     }
 
     public Stage getStage() {
@@ -163,6 +169,7 @@ public class ActiveSearchContext extends AsyncSearchContext {
                 break;
             case PERSISTED:
                 validateAndSetStage(Stage.COMPLETED, stage);
+               //compositeContextPersistedListener.onContextPersisted(null);
                 break;
             default:
                 throw new IllegalArgumentException("unknown AsyncSearchContext.Stage [" + stage + "]");

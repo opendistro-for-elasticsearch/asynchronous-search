@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
@@ -266,12 +267,11 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      * @param asyncSearchContext
      * @param listener
      */
-    public void updateKeepAlive(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext,
-                                ActionListener<ActionResponse> listener) {
+    public void updateKeepAlive(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext, ActionListener<Boolean> listener) {
         assert request.getKeepAlive() != null : "Keep Alive requested is null";
-        AsyncSearchContext.Lifetime lifetime = asyncSearchContext.getLifetime();
+        AsyncSearchContext.Source source = asyncSearchContext.getSource();
         long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
-        if (lifetime.equals(AsyncSearchContext.Lifetime.STORE)) {
+        if (source.equals(AsyncSearchContext.Source.STORE)) {
             persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime, new ActionListener<ActionResponse>() {
                 @Override
                 public void onResponse(ActionResponse actionResponse) {
@@ -285,14 +285,13 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             });
         } else {
             //TODO acquire lock so that if the context is about to be persisted, we don't lose out on the updated state
-            //asyncSearchContext.setExpirationM(requestedExpirationTime);
+            ActiveSearchContext activeSearchContext = (ActiveSearchContext)asyncSearchContext;
+            /*activeSearchContext.getCompositeContextPersistedListener().addListener(AsyncSearchTimeoutWrapper
+                    .wrapScheduledTimeout(threadPool, TimeValue.timeValueSeconds(5), ThreadPool.Names.GENERIC, new ActionListener<Object>() {
+            }));*/
         }
     }
 
-    public void fetchAsyncSearchResponse(String asyncId, ActionListener<AsyncSearchResponse> listener) {
-
-
-    }
 
     @Override
     public void clusterChanged(ClusterChangedEvent event) {

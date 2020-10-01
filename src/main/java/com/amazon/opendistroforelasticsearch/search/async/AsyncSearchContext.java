@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.search.async;
 
 public abstract class AsyncSearchContext {
 
-    public enum Lifetime {
+    public enum Source {
         IN_MEMORY,
         STORE
     }
@@ -45,7 +45,7 @@ public abstract class AsyncSearchContext {
 
     public abstract long getExpirationTimeInMills();
 
-    public abstract Lifetime getLifetime();
+    public abstract Source getSource();
 
     public boolean isExpired() {
         return System.currentTimeMillis() > getExpirationTimeInMills();

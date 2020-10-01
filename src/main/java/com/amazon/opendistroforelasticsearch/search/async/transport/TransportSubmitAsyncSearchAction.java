@@ -21,7 +21,7 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
-import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
@@ -79,9 +79,9 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(
                     asyncSearchContext.getResultsHolder(),
                     (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),
-                    (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext));
+                    (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext), threadPool.executor(ThreadPool.Names.GENERIC));
             logger.debug("Initiated sync search request {}", asyncSearchContext.getAsyncSearchId());
-            PrioritizedListener<AsyncSearchResponse> wrappedListener = initListener(listener,
+            PrioritizedActionListener<AsyncSearchResponse> wrappedListener = initListener(listener,
                     (actionListener) -> {
                 logger.debug("Timeout triggered for async search");
                 progressActionListener.removeListener(actionListener);

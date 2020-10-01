@@ -68,8 +68,8 @@ public class AsyncSearchPersistenceModel extends AsyncSearchContext implements T
     }
 
     @Override
-    public Lifetime getLifetime() {
-        return Lifetime.STORE;
+    public Source getSource() {
+        return Source.STORE;
     }
 
     private String encodeResponse(AsyncSearchResponse asyncSearchResponse) throws IOException {
