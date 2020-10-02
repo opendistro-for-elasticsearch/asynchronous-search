@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
-import com.amazon.opendistroforelasticsearch.search.async.ActiveSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -44,9 +44,9 @@ public class AsyncSearchProgressActionListener extends CompositeSearchProgressAc
     private volatile boolean hasFetchPhase;
     private AtomicInteger numReducePhases = new AtomicInteger();
 
-    private ActiveSearchContext.ResultsHolder resultsHolder;
+    private ActiveAsyncSearchContext.ResultsHolder resultsHolder;
 
-    public AsyncSearchProgressActionListener(ActiveSearchContext.ResultsHolder resultsHolder,
+    public AsyncSearchProgressActionListener(ActiveAsyncSearchContext.ResultsHolder resultsHolder,
                                              CheckedFunction<SearchResponse, AsyncSearchResponse, Exception> command,
                                              Consumer<Exception> onFailure, Executor executor) {
         super(command, onFailure, executor);

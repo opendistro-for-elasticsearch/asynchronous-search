@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
 
-public abstract class AsyncSearchContext {
+public abstract class AbstractAsyncSearchContext {
 
     public enum Source {
         IN_MEMORY,
@@ -25,7 +25,7 @@ public abstract class AsyncSearchContext {
 
     private final String asyncId;
 
-    public AsyncSearchContext(String asyncId) {
+    public AbstractAsyncSearchContext(String asyncId) {
         this.asyncId = asyncId;
     }
 

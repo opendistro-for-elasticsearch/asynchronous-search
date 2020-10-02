@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.ActiveSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
@@ -75,7 +75,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
-            ActiveSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request);
+            ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request);
             AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(
                     asyncSearchContext.getResultsHolder(),
                     (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),

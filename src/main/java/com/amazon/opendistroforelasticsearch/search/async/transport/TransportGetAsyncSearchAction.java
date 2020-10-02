@@ -1,7 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.ActiveSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
@@ -25,7 +25,7 @@ import org.elasticsearch.transport.TransportService;
 
 import java.util.Objects;
 
-import static com.amazon.opendistroforelasticsearch.search.async.ActiveSearchContext.Stage.RUNNING;
+import static com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext.Stage.RUNNING;
 
 /**
  * Responsible for returning partial response from {@link AsyncSearchService}. The listener needs to wait for completion if
@@ -62,14 +62,14 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
         try {
             asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId(), ActionListener.wrap(
                 (asyncSearchContext) -> {
-                    AsyncSearchContext.Source source = asyncSearchContext.getSource();
+                    AbstractAsyncSearchContext.Source source = asyncSearchContext.getSource();
                     boolean updateNeeded = request.getKeepAlive() != null;
                     switch (source) {
                         case IN_MEMORY:
-                            assert asyncSearchContext instanceof ActiveSearchContext : "expected instance to be of type" + ActiveSearchContext.class;
-                            ActiveSearchContext activeSearchContext = (ActiveSearchContext) asyncSearchContext;
-                            if (activeSearchContext.getStage() == RUNNING) {
-                                SearchTask asyncSearchTask = activeSearchContext.getTask();
+                            assert asyncSearchContext instanceof ActiveAsyncSearchContext : "expected instance to be of type" + ActiveAsyncSearchContext.class;
+                            ActiveAsyncSearchContext activeAsyncSearchContext = (ActiveAsyncSearchContext) asyncSearchContext;
+                            if (activeAsyncSearchContext.getStage() == RUNNING) {
+                                SearchTask asyncSearchTask = activeAsyncSearchContext.getTask();
                                 if (updateNeeded) {
                                     ActionListener<AsyncSearchResponse> groupedListener = new GroupedActionListener<>(
                                         ActionListener.wrap(

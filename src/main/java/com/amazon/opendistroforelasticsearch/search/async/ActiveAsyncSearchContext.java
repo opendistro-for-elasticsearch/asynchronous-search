@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 
-public class ActiveSearchContext extends AsyncSearchContext {
+public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
     public enum Stage {
         INIT,
@@ -36,7 +36,7 @@ public class ActiveSearchContext extends AsyncSearchContext {
         FAILED
     }
 
-    private static final Logger logger = LogManager.getLogger(AsyncSearchContext.class);
+    private static final Logger logger = LogManager.getLogger(AbstractAsyncSearchContext.class);
 
     private final AtomicBoolean isRunning;
     private final AtomicBoolean isCompleted;
@@ -50,13 +50,13 @@ public class ActiveSearchContext extends AsyncSearchContext {
     private volatile long expirationTimeInMills;
     private final Boolean keepOnCompletion;
     private final AsyncSearchContextId asyncSearchContextId;
-    private final AtomicReference<ActiveSearchContext.ResultsHolder> resultsHolder = new AtomicReference<>();
+    private final AtomicReference<ActiveAsyncSearchContext.ResultsHolder> resultsHolder = new AtomicReference<>();
     private volatile TimeValue keepAlive;
-    private volatile ActiveSearchContext.Stage stage;
+    private volatile ActiveAsyncSearchContext.Stage stage;
     private final AsyncSearchContextPermit asyncSearchContextPermit;
     private final ThreadPool threadPool;
 
-    public ActiveSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, ThreadPool threadPool) {
+    public ActiveAsyncSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, ThreadPool threadPool) {
         super(asyncSearchContextId.getContextId());
         this.nodeId = nodeId;
         this.asyncSearchContextId = asyncSearchContextId;
@@ -68,7 +68,7 @@ public class ActiveSearchContext extends AsyncSearchContext {
         this.searchResponse = new AtomicReference<>();
         this.keepAlive = keepAlive;
         this.threadPool = threadPool;
-        this.resultsHolder.set(new ActiveSearchContext.ResultsHolder(this::getStartTimeMillis));
+        this.resultsHolder.set(new ActiveAsyncSearchContext.ResultsHolder(this::getStartTimeMillis));
         this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId, threadPool);
         this.stage = Stage.INIT;
     }
@@ -143,7 +143,7 @@ public class ActiveSearchContext extends AsyncSearchContext {
         return stage;
     }
 
-    public ActiveSearchContext.ResultsHolder getResultsHolder() {
+    public ActiveAsyncSearchContext.ResultsHolder getResultsHolder() {
         return resultsHolder.get();
     }
 
@@ -166,7 +166,7 @@ public class ActiveSearchContext extends AsyncSearchContext {
     }
 
 
-    public synchronized AsyncSearchContext setStage(Stage stage) {
+    public synchronized AbstractAsyncSearchContext setStage(Stage stage) {
         switch (stage) {
             case RUNNING:
                 validateAndSetStage(Stage.INIT, stage);
