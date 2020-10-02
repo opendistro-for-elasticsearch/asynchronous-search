@@ -47,9 +47,7 @@ public class AsyncSearchTimeoutWrapper {
     public static <Response> PrioritizedActionListener<Response> wrapScheduledTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
                                                                                       ActionListener<Response> actionListener,
                                                                                       Consumer<ActionListener<Response>> timeoutConsumer) {
-        CompletionPrioritizedActionListener<Response> completionTimeoutListener = new CompletionPrioritizedActionListener<>(actionListener, timeoutConsumer);
-        scheduleTimeout(threadPool, timeout, executor, completionTimeoutListener);
-        return completionTimeoutListener;
+        return scheduleTimeout(threadPool, timeout, executor, initListener(actionListener, timeoutConsumer));
     }
 
     /**

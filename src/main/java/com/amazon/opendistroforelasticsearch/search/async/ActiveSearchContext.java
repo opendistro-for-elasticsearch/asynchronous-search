@@ -5,14 +5,17 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.internal.InternalSearchResponse;
+import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,9 +53,10 @@ public class ActiveSearchContext extends AsyncSearchContext {
     private final AtomicReference<ActiveSearchContext.ResultsHolder> resultsHolder = new AtomicReference<>();
     private volatile TimeValue keepAlive;
     private volatile ActiveSearchContext.Stage stage;
-    //private SearchContextPersistedTimeoutListener compositeContextPersistedListener;
+    private final AsyncSearchContextPermit asyncSearchContextPermit;
+    private final ThreadPool threadPool;
 
-    public ActiveSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion) {
+    public ActiveSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, ThreadPool threadPool) {
         super(asyncSearchContextId.getContextId());
         this.nodeId = nodeId;
         this.asyncSearchContextId = asyncSearchContextId;
@@ -63,19 +67,24 @@ public class ActiveSearchContext extends AsyncSearchContext {
         this.error = new AtomicReference<>();
         this.searchResponse = new AtomicReference<>();
         this.keepAlive = keepAlive;
+        this.threadPool = threadPool;
         this.resultsHolder.set(new ActiveSearchContext.ResultsHolder(this::getStartTimeMillis));
+        this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId, threadPool);
         this.stage = Stage.INIT;
-        //this.compositeContextPersistedListener = new SearchContextPersistedTimeoutListener(logger);
     }
-
-   /* public SearchContextPersistedTimeoutListener getCompositeContextPersistedListener() {
-        return compositeContextPersistedListener;
-    }*/
 
     public void setTask(SearchTask searchTask) {
         this.searchTask.set(searchTask);
         this.setExpirationMillis(searchTask.getStartTime() + keepAlive.getMillis());
         setStage(Stage.RUNNING);
+    }
+
+    public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
+        try {
+            asyncSearchContextPermit.asyncAcquirePermit(onPermitAcquired, timeout, reason);
+        } catch (Exception e) {
+            throw e;
+        }
     }
 
     public SearchTask getTask() {
@@ -109,11 +118,11 @@ public class ActiveSearchContext extends AsyncSearchContext {
     }
 
     public boolean isRunning() {
-        return !getTask().isCancelled() && isRunning.get();
+        return isCancelled() == false && isRunning.get();
     }
 
     public boolean isCancelled() {
-        return getTask().isCancelled();
+        return searchTask.get().isCancelled();
     }
 
     public boolean isPartial() {

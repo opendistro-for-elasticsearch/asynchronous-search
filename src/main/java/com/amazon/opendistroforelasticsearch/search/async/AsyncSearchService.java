@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
@@ -24,7 +23,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
@@ -35,6 +33,7 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
+import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -126,7 +125,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         ActiveSearchContext asyncSearchContext = new ActiveSearchContext(clusterService.localNode().getId(), asyncSearchContextId,
                 submitAsyncSearchRequest.getKeepAlive(),
-                submitAsyncSearchRequest.keepOnCompletion());
+                submitAsyncSearchRequest.keepOnCompletion(), threadPool);
         putContext(asyncSearchContext);
         return asyncSearchContext;
     }
@@ -261,37 +260,31 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         keepAliveReaper.cancel();
     }
 
-    /***
-     *
-     * @param request
-     * @param asyncSearchContext
-     * @param listener
-     */
+
     public void updateKeepAlive(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext, ActionListener<Boolean> listener) {
         assert request.getKeepAlive() != null : "Keep Alive requested is null";
         AsyncSearchContext.Source source = asyncSearchContext.getSource();
         long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
         if (source.equals(AsyncSearchContext.Source.STORE)) {
-            persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime, new ActionListener<ActionResponse>() {
-                @Override
-                public void onResponse(ActionResponse actionResponse) {
-
-                }
-
-                @Override
-                public void onFailure(Exception e) {
-
-                }
-            });
+            persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime,
+                    ActionListener.wrap((actionResponse) -> listener.onResponse(true), listener::onFailure));
         } else {
-            //TODO acquire lock so that if the context is about to be persisted, we don't lose out on the updated state
             ActiveSearchContext activeSearchContext = (ActiveSearchContext)asyncSearchContext;
-            /*activeSearchContext.getCompositeContextPersistedListener().addListener(AsyncSearchTimeoutWrapper
-                    .wrapScheduledTimeout(threadPool, TimeValue.timeValueSeconds(5), ThreadPool.Names.GENERIC, new ActionListener<Object>() {
-            }));*/
+            acquireSearchContextPermit(activeSearchContext, ActionListener.wrap(
+                releasable -> {
+
+                    listener.onResponse(true);
+                },
+                e -> {
+                    listener.onFailure(e);
+                }), TimeValue.timeValueSeconds(5));
         }
     }
 
+
+    private void acquireSearchContextPermit(final ActiveSearchContext searchContext, final ActionListener<Releasable> onAcquired, TimeValue timeout) {
+        searchContext.acquireContextPermit(onAcquired, timeout, "update-keep-alive");
+    }
 
     @Override
     public void clusterChanged(ClusterChangedEvent event) {

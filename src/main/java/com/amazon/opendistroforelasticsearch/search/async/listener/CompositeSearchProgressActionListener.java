@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 public class CompositeSearchProgressActionListener<T> extends SearchProgressActionListener {
 
     private final List<ActionListener<T>> actionListeners;
-    private final CheckedFunction<SearchResponse, T,  Exception> function;
+    private final CheckedFunction<SearchResponse, T, Exception> function;
     private final Consumer<Exception> onFailure;
     private final Executor executor;
     private boolean complete;
