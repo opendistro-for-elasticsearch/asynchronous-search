@@ -23,7 +23,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
@@ -34,6 +33,7 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
+import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -54,7 +54,7 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
 
 /***
- * Manages the lifetime of {@link AsyncSearchContext} for all the async searches running on the coordinator node. Once the
+ * Manages the lifetime of {@link AbstractAsyncSearchContext} for all the async searches running on the coordinator node. Once the
  * response have been persisted or otherwise ready to be expunged, the {@link Reaper} frees up the in-memory contexts maintained
  * on the coordinator node
  */
@@ -90,7 +90,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
     private final NamedWriteableRegistry namedWriteableRegistry;
 
-    private final ConcurrentMapLong<ActiveSearchContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
+    private final ConcurrentMapLong<ActiveAsyncSearchContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
 
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService, Client client, ClusterService clusterService,
                               ThreadPool threadPool, NamedWriteableRegistry namedWriteableRegistry) {
@@ -121,17 +121,17 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.maxKeepAlive = maxKeepAlive.millis();
     }
 
-    public final ActiveSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest) {
+    public final ActiveAsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest) {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
-        ActiveSearchContext asyncSearchContext = new ActiveSearchContext(clusterService.localNode().getId(), asyncSearchContextId,
+        ActiveAsyncSearchContext asyncSearchContext = new ActiveAsyncSearchContext(clusterService.localNode().getId(), asyncSearchContextId,
                 submitAsyncSearchRequest.getKeepAlive(),
-                submitAsyncSearchRequest.keepOnCompletion());
+                submitAsyncSearchRequest.keepOnCompletion(), threadPool);
         putContext(asyncSearchContext);
         return asyncSearchContext;
     }
 
-    private ActiveSearchContext getContext(AsyncSearchContextId contextId) {
-        final ActiveSearchContext context = activeContexts.get(contextId.getId());
+    private ActiveAsyncSearchContext getContext(AsyncSearchContextId contextId) {
+        final ActiveAsyncSearchContext context = activeContexts.get(contextId.getId());
         if (context == null) {
             return null;
         }
@@ -146,16 +146,16 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      * on the disk exists, it's likely that the context has expired in which case {@link AsyncSearchContextMissingException}
      * is thrown
      */
-    public void findContext(AsyncSearchContextId asyncSearchContextId, ActionListener<AsyncSearchContext> listener) {
-        final AsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
-        if (asyncSearchContext == null) {
+    public void findContext(AsyncSearchContextId asyncSearchContextId, ActionListener<AbstractAsyncSearchContext> listener) {
+        final AbstractAsyncSearchContext abstractAsyncSearchContext = getContext(asyncSearchContextId);
+        if (abstractAsyncSearchContext == null) {
             listener.onFailure(new AsyncSearchContextMissingException(asyncSearchContextId));
         }
-        listener.onResponse(asyncSearchContext);
+        listener.onResponse(abstractAsyncSearchContext);
     }
 
-    private Optional<ActiveSearchContext> findActiveContext(AsyncSearchContextId asyncSearchContextId) {
-        final ActiveSearchContext asyncSearchContext = getContext(asyncSearchContextId);
+    private Optional<ActiveAsyncSearchContext> findActiveContext(AsyncSearchContextId asyncSearchContextId) {
+        final ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         return Optional.ofNullable(asyncSearchContext);
     }
 
@@ -167,15 +167,15 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 .collect(Collectors.toSet()));
     }
 
-    private void putContext(ActiveSearchContext asyncSearchContext) {
+    private void putContext(ActiveAsyncSearchContext asyncSearchContext) {
         activeContexts.put(asyncSearchContext.getAsyncSearchContextId().getId(), asyncSearchContext);
     }
 
     public boolean freeContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<Boolean> listener) {
         try {
             persistenceService.deleteResponse(id, listener);
-            AsyncSearchContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
-            if (asyncSearchContext != null) {
+            AbstractAsyncSearchContext abstractAsyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
+            if (abstractAsyncSearchContext != null) {
                 logger.info("Removing {} from context map", asyncSearchContextId);
                 /*ActiveAsyncSearchContext.Stage stage = asyncSearchContext.getStage();
                 if (RUNNING.equals(stage) || INIT.equals(stage)) {
@@ -195,8 +195,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
     public boolean freeCachedContext(AsyncSearchContextId asyncSearchContextId) {
-        AsyncSearchContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
-        if (asyncSearchContext != null) {
+        AbstractAsyncSearchContext abstractAsyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
+        if (abstractAsyncSearchContext != null) {
             logger.debug("Removing {} from context map", asyncSearchContextId);
             activeContexts.remove(asyncSearchContextId.getId());
             return true;
@@ -205,9 +205,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
     public AsyncSearchResponse onSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
-        Optional<ActiveSearchContext> asyncSearchContextOptional = findActiveContext(asyncSearchContextId);
+        Optional<ActiveAsyncSearchContext> asyncSearchContextOptional = findActiveContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
-            ActiveSearchContext asyncSearchContext = asyncSearchContextOptional.get();
+            ActiveAsyncSearchContext asyncSearchContext = asyncSearchContextOptional.get();
             asyncSearchContext.processFinalResponse(searchResponse);
             AsyncSearchResponse asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
             AsyncSearchPersistenceModel model = null;
@@ -218,7 +218,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                             @Override
                             public void onResponse(IndexResponse indexResponse) {
                                 asyncSearchContext.performPostPersistenceCleanup();
-                                asyncSearchContext.setStage(ActiveSearchContext.Stage.PERSISTED);
+                                asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
                             }
 
                             @Override
@@ -237,7 +237,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         return null;
     }
 
-    public void onSearchFailure(Exception e, ActiveSearchContext asyncSearchContext) {
+    public void onSearchFailure(Exception e, ActiveAsyncSearchContext asyncSearchContext) {
         asyncSearchContext.processFailure(e);
     }
 
@@ -247,7 +247,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
     @Override
     protected void doStop() {
-        for (final AsyncSearchContext context : activeContexts.values()) {
+        for (final AbstractAsyncSearchContext context : activeContexts.values()) {
             freeCachedContext(context.getAsyncSearchContextId());
         }
     }
@@ -258,22 +258,31 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         keepAliveReaper.cancel();
     }
 
-    public void updateKeepAlive(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext,
-                                ActionListener<ActionResponse> listener) {
-        assert request.getKeepAlive() != null : "Keep Alive requested is null";
-        AsyncSearchContext.Lifetime lifetime = asyncSearchContext.getLifetime();
+
+    public void updateKeepAlive(GetAsyncSearchRequest request, AbstractAsyncSearchContext abstractAsyncSearchContext, ActionListener<Boolean> listener) {
+        AbstractAsyncSearchContext.Source source = abstractAsyncSearchContext.getSource();
         long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
-        if (lifetime.equals(AsyncSearchContext.Lifetime.STORE)) {
-            persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime, listener);
+        if (source.equals(AbstractAsyncSearchContext.Source.STORE)) {
+            persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime,
+                    ActionListener.wrap((actionResponse) -> listener.onResponse(true), listener::onFailure));
         } else {
-            //TODO acquire lock so that if the context is about to be persisted, we don't lose out on the updated state
-            //asyncSearchContext.setExpirationM(requestedExpirationTime);
+            ActiveAsyncSearchContext activeAsyncSearchContext = (ActiveAsyncSearchContext) abstractAsyncSearchContext;
+            acquireSearchContextPermit(activeAsyncSearchContext, ActionListener.wrap(
+                releasable -> {
+                    Optional<ActiveAsyncSearchContext> activeContext = findActiveContext(activeAsyncSearchContext.getAsyncSearchContextId());
+                    if (activeContext.isPresent()) {
+                        activeContext.get().setExpirationMillis(requestedExpirationTime);
+                    }
+                    listener.onResponse(true);
+                    releasable.close();
+                },
+                listener::onFailure), TimeValue.timeValueSeconds(5));
         }
     }
 
-    public void fetchAsyncSearchResponse(String asyncId, ActionListener<AsyncSearchResponse> listener) {
 
-
+    private void acquireSearchContextPermit(final ActiveAsyncSearchContext searchContext, final ActionListener<Releasable> onAcquired, TimeValue timeout) {
+        searchContext.acquireContextPermit(onAcquired, timeout, "update-keep-alive");
     }
 
     @Override
@@ -286,9 +295,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      * updates the corresponding state on disk.
      */
     public void onCancelled(AsyncSearchContextId contextId) {
-        Optional<ActiveSearchContext> activeContext = findActiveContext(contextId);
+        Optional<ActiveAsyncSearchContext> activeContext = findActiveContext(contextId);
         if (activeContext.isPresent()) {
-            activeContext.get().setStage(ActiveSearchContext.Stage.ABORTED);
+            activeContext.get().setStage(ActiveAsyncSearchContext.Stage.ABORTED);
         }
     }
 
@@ -300,8 +309,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         @Override
         public void run() {
             try {
-                Set<ActiveSearchContext> toReap = activeContexts.values().stream()
-                        .filter(a -> a.getStage().equals(ActiveSearchContext.Stage.ABORTED) || a.getStage().equals(ActiveSearchContext.Stage.PERSISTED))
+                Set<ActiveAsyncSearchContext> toReap = activeContexts.values().stream()
+                        .filter(a -> a.getStage().equals(ActiveAsyncSearchContext.Stage.ABORTED) || a.getStage().equals(ActiveAsyncSearchContext.Stage.PERSISTED))
                         .collect(Collectors.toSet());
                 toReap.forEach(a -> freeCachedContext(a.getAsyncSearchContextId()));
             } catch (Exception e) {

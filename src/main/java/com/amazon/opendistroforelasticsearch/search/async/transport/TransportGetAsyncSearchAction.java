@@ -1,14 +1,14 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.ActiveSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
-import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,7 +25,7 @@ import org.elasticsearch.transport.TransportService;
 
 import java.util.Objects;
 
-import static com.amazon.opendistroforelasticsearch.search.async.ActiveSearchContext.Stage.RUNNING;
+import static com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext.Stage.RUNNING;
 
 /**
  * Responsible for returning partial response from {@link AsyncSearchService}. The listener needs to wait for completion if
@@ -62,14 +62,14 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
         try {
             asyncSearchService.findContext(asyncSearchId.getAsyncSearchContextId(), ActionListener.wrap(
                 (asyncSearchContext) -> {
-                    AsyncSearchContext.Lifetime lifeTime = asyncSearchContext.getLifetime();
+                    AbstractAsyncSearchContext.Source source = asyncSearchContext.getSource();
                     boolean updateNeeded = request.getKeepAlive() != null;
-                    switch (lifeTime) {
+                    switch (source) {
                         case IN_MEMORY:
-                            assert asyncSearchContext instanceof ActiveSearchContext : "expected instance to be of type" + ActiveSearchContext.class;
-                            ActiveSearchContext activeSearchContext = (ActiveSearchContext) asyncSearchContext;
-                            if (activeSearchContext.getStage() == RUNNING) {
-                                SearchTask asyncSearchTask = activeSearchContext.getTask();
+                            assert asyncSearchContext instanceof ActiveAsyncSearchContext : "expected instance to be of type" + ActiveAsyncSearchContext.class;
+                            ActiveAsyncSearchContext activeAsyncSearchContext = (ActiveAsyncSearchContext) asyncSearchContext;
+                            if (activeAsyncSearchContext.getStage() == RUNNING) {
+                                SearchTask asyncSearchTask = activeAsyncSearchContext.getTask();
                                 if (updateNeeded) {
                                     ActionListener<AsyncSearchResponse> groupedListener = new GroupedActionListener<>(
                                         ActionListener.wrap(
@@ -80,7 +80,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                                             .findFirst().get());
                                                 },
                                                 listener::onFailure), 2);
-                                    PrioritizedListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+                                    PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                                             request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, groupedListener,
                                             (actionListener) -> {
                                                 ((AsyncSearchProgressActionListener) asyncSearchTask.getProgressListener()).removeListener(actionListener);
@@ -92,7 +92,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                             (response) -> listener.onResponse(asyncSearchContext.getAsyncSearchResponse()),
                                             listener::onFailure));
                                 } else {
-                                    PrioritizedListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+                                    PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                                             request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener,
                                             (actionListener) -> {
                                                 ((AsyncSearchProgressActionListener) asyncSearchTask.getProgressListener()).removeListener(actionListener);

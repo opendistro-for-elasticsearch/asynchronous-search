@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.persistence;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
@@ -13,12 +13,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Base64;
 
-public class AsyncSearchPersistenceModel extends AsyncSearchContext implements ToXContentObject {
+public class AsyncSearchPersistenceModel extends AbstractAsyncSearchContext implements ToXContentObject {
 
     public static final String ASYNC_ID = "async_id";
     public static final String EXPIRATION_TIME = "expiration_time";
     public static final String RESPONSE = "response";
-
     private final String asyncSearchId;
     private final long expirationTime;
     private final String response;
@@ -68,8 +67,8 @@ public class AsyncSearchPersistenceModel extends AsyncSearchContext implements T
     }
 
     @Override
-    public Lifetime getLifetime() {
-        return Lifetime.STORE;
+    public Source getSource() {
+        return Source.STORE;
     }
 
     private String encodeResponse(AsyncSearchResponse asyncSearchResponse) throws IOException {

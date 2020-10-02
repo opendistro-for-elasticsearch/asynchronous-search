@@ -44,12 +44,10 @@ public class AsyncSearchTimeoutWrapper {
      * @param <Response> the response
      * @return PrioritizedListener
      */
-    public static <Response> PrioritizedListener<Response> wrapScheduledTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
-                                                                                ActionListener<Response> actionListener,
-                                                                                Consumer<ActionListener<Response>> timeoutConsumer) {
-        CompletionPrioritizedListener<Response> completionTimeoutListener = new CompletionPrioritizedListener<>(actionListener, timeoutConsumer);
-        scheduleTimeout(threadPool, timeout, executor, completionTimeoutListener);
-        return completionTimeoutListener;
+    public static <Response> PrioritizedActionListener<Response> wrapScheduledTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
+                                                                                      ActionListener<Response> actionListener,
+                                                                                      Consumer<ActionListener<Response>> timeoutConsumer) {
+        return scheduleTimeout(threadPool, timeout, executor, initListener(actionListener, timeoutConsumer));
     }
 
     /**
@@ -59,8 +57,8 @@ public class AsyncSearchTimeoutWrapper {
      * @param <Response> Response
      * @return PrioritizedListener
      */
-    public static <Response> PrioritizedListener<Response> initListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
-        CompletionPrioritizedListener<Response> completionTimeoutListener = new CompletionPrioritizedListener<>(actionListener, timeoutConsumer);
+    public static <Response> PrioritizedActionListener<Response> initListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
+        CompletionPrioritizedActionListener<Response> completionTimeoutListener = new CompletionPrioritizedActionListener<>(actionListener, timeoutConsumer);
         return completionTimeoutListener;
     }
 
@@ -73,19 +71,19 @@ public class AsyncSearchTimeoutWrapper {
      * @param <Response> Response
      * @return PrioritizedListener
      */
-    public static <Response> PrioritizedListener<Response> scheduleTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
-                                                                           PrioritizedListener<Response> completionTimeoutListener) {
-        ((CompletionPrioritizedListener)completionTimeoutListener).cancellable = threadPool.schedule(completionTimeoutListener, timeout, executor);
+    public static <Response> PrioritizedActionListener<Response> scheduleTimeout(ThreadPool threadPool, TimeValue timeout, String executor,
+                                                                                 PrioritizedActionListener<Response> completionTimeoutListener) {
+        ((CompletionPrioritizedActionListener)completionTimeoutListener).cancellable = threadPool.schedule((Runnable) completionTimeoutListener, timeout, executor);
         return completionTimeoutListener;
     }
 
-    static class CompletionPrioritizedListener<Response> implements PrioritizedListener<Response> {
+    static class CompletionPrioritizedActionListener<Response> implements PrioritizedActionListener<Response>, Runnable {
         private final ActionListener<Response> actionListener;
         private volatile Scheduler.ScheduledCancellable cancellable;
         private final AtomicBoolean complete = new AtomicBoolean(false);
         private final Consumer<ActionListener<Response>> timeoutConsumer;
 
-        CompletionPrioritizedListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
+        CompletionPrioritizedActionListener(ActionListener<Response> actionListener, Consumer<ActionListener<Response>> timeoutConsumer) {
             this.actionListener = actionListener;
             this.timeoutConsumer = timeoutConsumer;
         }

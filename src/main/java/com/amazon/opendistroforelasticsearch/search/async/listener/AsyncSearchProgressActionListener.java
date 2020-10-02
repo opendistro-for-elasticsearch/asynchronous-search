@@ -15,45 +15,42 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
-import com.amazon.opendistroforelasticsearch.search.async.ActiveSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 /***
  * The implementation of {@link CompositeSearchProgressActionListener} responsible for updating the partial results of a single async
  * search request. All partial results are updated atomically.
  */
-public class AsyncSearchProgressActionListener extends CompositeSearchProgressActionListener {
+public class AsyncSearchProgressActionListener extends CompositeSearchProgressActionListener<AsyncSearchResponse> {
 
     private final Logger logger = LogManager.getLogger(getClass());
 
     private volatile boolean hasFetchPhase;
     private AtomicInteger numReducePhases = new AtomicInteger();
 
-    private final List<ActionListener<AsyncSearchResponse>> actionListeners;
-    private ActiveSearchContext.ResultsHolder resultsHolder;
+    private ActiveAsyncSearchContext.ResultsHolder resultsHolder;
 
-    public AsyncSearchProgressActionListener(ActiveSearchContext.ResultsHolder resultsHolder,
-                                             Function<SearchResponse, AsyncSearchResponse> asyncSearchFunction,
-                                             Consumer<Exception> exceptionConsumer) {
-        super(asyncSearchFunction, exceptionConsumer);
+    public AsyncSearchProgressActionListener(ActiveAsyncSearchContext.ResultsHolder resultsHolder,
+                                             CheckedFunction<SearchResponse, AsyncSearchResponse, Exception> command,
+                                             Consumer<Exception> onFailure, Executor executor) {
+        super(command, onFailure, executor);
         this.resultsHolder = resultsHolder;
-        this.actionListeners = new ArrayList<>(1);
     }
 
     @Override
