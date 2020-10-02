@@ -52,7 +52,7 @@ public class ActiveSearchContext extends AsyncSearchContext {
     private volatile ActiveSearchContext.Stage stage;
 
     public ActiveSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion) {
-        super(asyncSearchContextId.getContextId());
+        super(AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId,asyncSearchContextId)));
         this.nodeId = nodeId;
         this.asyncSearchContextId = asyncSearchContextId;
         this.keepOnCompletion = keepOnCompletion;

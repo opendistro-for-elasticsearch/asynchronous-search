@@ -21,13 +21,13 @@ public class AsyncSearchPersistenceModel extends AsyncSearchContext implements T
 
     private final String asyncSearchId;
     private final long expirationTime;
+    private final String response;
+
     private final NamedWriteableRegistry namedWriteableRegistry;
 
     public String getResponse() {
         return response;
     }
-
-    private final String response;
 
     public AsyncSearchPersistenceModel(
             NamedWriteableRegistry namedWriteableRegistry,

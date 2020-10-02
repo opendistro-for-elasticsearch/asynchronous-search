@@ -24,8 +24,8 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
     }
 
     @Before
-    public void indexDocuments() {
-
+    public void setUp() throws Exception {
+        super.setUp();
         createIndex("index", Settings.builder().put("index.refresh_interval", -1).build());
         for (int i = 0; i < 10; i++)
             client().prepareIndex("index", "type", String.valueOf(i)).setSource("field", "value" + i)

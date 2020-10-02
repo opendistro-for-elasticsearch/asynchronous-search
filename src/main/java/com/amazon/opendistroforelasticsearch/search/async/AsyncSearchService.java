@@ -145,8 +145,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      * The method tries to find a context in-memory and if it's not found, it tries to look up data on the disk. It no data
      * on the disk exists, it's likely that the context has expired in which case {@link AsyncSearchContextMissingException}
      * is thrown
-     * @param asyncSearchContextId
-     * @return
      */
     public void findContext(AsyncSearchContextId asyncSearchContextId, ActionListener<AsyncSearchContext> listener) {
         final AsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
@@ -234,7 +232,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
+            return asyncSearchResponse;
         }
         return null;
     }
@@ -260,29 +258,13 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         keepAliveReaper.cancel();
     }
 
-    /***
-     *
-     * @param request
-     * @param asyncSearchContext
-     * @param listener
-     */
     public void updateKeepAlive(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext,
                                 ActionListener<ActionResponse> listener) {
         assert request.getKeepAlive() != null : "Keep Alive requested is null";
         AsyncSearchContext.Lifetime lifetime = asyncSearchContext.getLifetime();
         long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
         if (lifetime.equals(AsyncSearchContext.Lifetime.STORE)) {
-            persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime, new ActionListener<ActionResponse>() {
-                @Override
-                public void onResponse(ActionResponse actionResponse) {
-
-                }
-
-                @Override
-                public void onFailure(Exception e) {
-
-                }
-            });
+            persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime, listener);
         } else {
             //TODO acquire lock so that if the context is about to be persisted, we don't lose out on the updated state
             //asyncSearchContext.setExpirationM(requestedExpirationTime);
@@ -302,7 +284,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     /***
      * Listens to the cancellation for {@link com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask} and
      * updates the corresponding state on disk.
-     * @param contextId
      */
     public void onCancelled(AsyncSearchContextId contextId) {
         Optional<ActiveSearchContext> activeContext = findActiveContext(contextId);

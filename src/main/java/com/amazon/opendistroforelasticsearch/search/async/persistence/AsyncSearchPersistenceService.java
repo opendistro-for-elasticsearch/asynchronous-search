@@ -1,6 +1,5 @@
 package com.amazon.opendistroforelasticsearch.search.async.persistence;
 
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -29,6 +28,8 @@ import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
@@ -36,11 +37,7 @@ import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -65,7 +62,7 @@ public class AsyncSearchPersistenceService {
      */
     private static final BackoffPolicy STORE_BACKOFF_POLICY =
             BackoffPolicy.exponentialBackoff(timeValueMillis(250), 14);
-    public static final String ASYNC_SEARCH_RESPONSE_MAPPING_FILE = "opendistro_async_search_response_index_mapping.json";
+    private static final String ASYNC_SEARCH_RESPONSE_MAPPING_FILE = "opendistro_async_search_response_index_mapping.json";
 
     private final Client client;
     private final ClusterService clusterService;
@@ -117,7 +114,7 @@ public class AsyncSearchPersistenceService {
         client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id), new ActionListener<DeleteResponse>() {
             @Override
             public void onResponse(DeleteResponse deleteResponse) {
-                if(deleteResponse.getResult() == DocWriteResponse.Result.NOT_FOUND) {
+                if (deleteResponse.getResult() == DocWriteResponse.Result.NOT_FOUND) {
                     listener.onFailure(new ResourceNotFoundException(id));
                 } else {
                     logger.debug("Deleted async search {}", id);
@@ -207,7 +204,7 @@ public class AsyncSearchPersistenceService {
 
     private void createAsyncSearchResponseIndex(ActionListener<CreateIndexResponse> listener) {
         CreateIndexRequest createIndexRequest = new CreateIndexRequest()
-                .mapping(MAPPING_TYPE, mapping(), XContentType.JSON)
+                .mapping(MAPPING_TYPE, mapping())
                 .settings(indexSettings())
                 .index(ASYNC_SEARCH_RESPONSE_INDEX_NAME)
                 .cause("async_search_response_index");
@@ -275,19 +272,37 @@ public class AsyncSearchPersistenceService {
                 .build();
     }
 
-    private String mapping() {
+    private XContentBuilder mapping() {
         try {
-            InputStream in = LockService.class.getResourceAsStream(ASYNC_SEARCH_RESPONSE_MAPPING_FILE);
-            StringBuilder stringBuilder = new StringBuilder();
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-            for (String line; (line = bufferedReader.readLine()) != null; ) {
-                stringBuilder.append(line);
-            }
-            return stringBuilder.toString();
-        } catch (IOException e) {
-            throw new IllegalArgumentException("Lock Mapping cannot be read correctly.");
-        }
 
+            XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
+            builder.startObject()
+
+
+                    //props
+                    .startObject("properties")
+
+                    //response
+                    .startObject(RESPONSE).field("type", "text").endObject()
+                    //response
+
+                    //expiry
+                    .startObject(EXPIRATION_TIME).field("type", "long").endObject()
+                    //expiry
+
+                    //id
+                    .startObject(ASYNC_ID).field("type", "keyword").endObject()
+                    //id
+
+                    .endObject()
+                    //props
+
+                    .endObject();
+
+            return builder;
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     private boolean indexExists() {
