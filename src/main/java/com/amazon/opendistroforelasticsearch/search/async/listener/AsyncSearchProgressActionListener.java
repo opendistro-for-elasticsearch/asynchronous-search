@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
-import com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.memory.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

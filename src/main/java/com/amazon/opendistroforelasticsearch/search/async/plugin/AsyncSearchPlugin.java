@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
+import com.amazon.opendistroforelasticsearch.search.async.memory.AsyncSearchInMemoryService;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
@@ -60,7 +61,6 @@ import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestHandler;
 import org.elasticsearch.script.ScriptService;
 import org.elasticsearch.threadpool.ExecutorBuilder;
-import org.elasticsearch.threadpool.FixedExecutorBuilder;
 import org.elasticsearch.threadpool.ScalingExecutorBuilder;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.watcher.ResourceWatcherService;
@@ -73,6 +73,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
     public static final String OPEN_DISTRO_ASYNC_SEARCH_MANAGEMENT_THREAD_POOL_NAME = "open_distro_async_search_management";
     public static final String OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME = "open_distro_async_search_generic";
     private AsyncSearchPersistenceService persistenceService;
+    private AsyncSearchInMemoryService inMemoryService;
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
@@ -94,7 +95,8 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
 
         this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool, namedWriteableRegistry);
-        return Arrays.asList(new AsyncSearchService(persistenceService, client, clusterService, threadPool, namedWriteableRegistry));
+        this.inMemoryService = new AsyncSearchInMemoryService(threadPool, clusterService);
+        return Arrays.asList(new AsyncSearchService(persistenceService, inMemoryService, client, clusterService, threadPool, namedWriteableRegistry));
     }
 
 

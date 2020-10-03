@@ -22,7 +22,7 @@ public class AsyncSearchContextPermit {
     private final ThreadPool threadPool;
     private static final Logger logger = LogManager.getLogger(AsyncSearchContextPermit.class);
 
-    AsyncSearchContextPermit(AsyncSearchContextId asyncSearchContextId, ThreadPool threadPool) {
+    public AsyncSearchContextPermit(AsyncSearchContextId asyncSearchContextId, ThreadPool threadPool) {
         this.asyncSearchContextId = asyncSearchContextId;
         this.threadPool = threadPool;
     }

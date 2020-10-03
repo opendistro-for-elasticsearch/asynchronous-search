@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.memory.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
@@ -25,7 +25,7 @@ import org.elasticsearch.transport.TransportService;
 
 import java.util.Objects;
 
-import static com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext.Stage.RUNNING;
+import static com.amazon.opendistroforelasticsearch.search.async.memory.ActiveAsyncSearchContext.Stage.RUNNING;
 
 /**
  * Responsible for returning partial response from {@link AsyncSearchService}. The listener needs to wait for completion if
