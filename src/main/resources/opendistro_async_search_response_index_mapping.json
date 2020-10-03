@@ -2,15 +2,11 @@
   "dynamic": "strict",
   "properties": {
     "response": {
-      "type": "text",
-      "enabled": false
+      "type": "text"
     },
     "expiration_time": {
       "type": "date",
       "format": "epoch_millis"
-    },
-    "async_id": {
-      "type": "keyword"
     }
   }
 }

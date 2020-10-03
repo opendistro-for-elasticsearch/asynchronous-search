@@ -23,22 +23,18 @@ public abstract class AbstractAsyncSearchContext {
         STORE
     }
 
-    private final String asyncId;
+    private final AsyncSearchId asyncSearchId;
 
-    public AbstractAsyncSearchContext(String asyncId) {
-        this.asyncId = asyncId;
+    public AbstractAsyncSearchContext(AsyncSearchId asyncSearchId) {
+        this.asyncSearchId = asyncSearchId;
     }
 
     public AsyncSearchContextId getAsyncSearchContextId() {
-        return getParsedAsyncSearchId().getAsyncSearchContextId();
+        return asyncSearchId.getAsyncSearchContextId();
     }
 
-    public AsyncSearchId getParsedAsyncSearchId() {
-        return AsyncSearchId.parseAsyncId(asyncId);
-    }
-
-    public String getAsyncSearchId() {
-        return asyncId;
+    public AsyncSearchId getAsyncSearchId() {
+        return asyncSearchId;
     }
 
     public abstract AsyncSearchResponse getAsyncSearchResponse();
@@ -48,7 +44,7 @@ public abstract class AbstractAsyncSearchContext {
     public abstract Source getSource();
 
     public boolean isExpired() {
-        return System.currentTimeMillis() > getExpirationTimeInMills();
+        return System.nanoTime() > getExpirationTimeInMills();
     }
 
 }

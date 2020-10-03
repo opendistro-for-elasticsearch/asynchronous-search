@@ -1,4 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
@@ -18,6 +20,7 @@ public class AsyncSearchContextPermit {
     private final Semaphore mutex = new Semaphore(1, true);
     private final AsyncSearchContextId asyncSearchContextId;
     private final ThreadPool threadPool;
+    private static final Logger logger = LogManager.getLogger(AsyncSearchContextPermit.class);
 
     AsyncSearchContextPermit(AsyncSearchContextId asyncSearchContextId, ThreadPool threadPool) {
         this.asyncSearchContextId = asyncSearchContextId;
@@ -63,6 +66,7 @@ public class AsyncSearchContextPermit {
             @Override
             protected void doRun()  {
                 final Releasable releasable = acquireContextLock(timeout, reason);
+                logger.info("Successfully acquired permit for {}", reason);
                 onAcquired.onResponse(() -> releasable.close());
             }
         });

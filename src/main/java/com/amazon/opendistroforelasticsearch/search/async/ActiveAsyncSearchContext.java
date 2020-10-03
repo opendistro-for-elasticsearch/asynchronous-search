@@ -46,7 +46,6 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     private final AtomicReference<SearchResponse> searchResponse;
 
     private SetOnce<SearchTask> searchTask = new SetOnce<>();
-    private final String nodeId;
     private volatile long expirationTimeInMills;
     private final Boolean keepOnCompletion;
     private final AsyncSearchContextId asyncSearchContextId;
@@ -56,10 +55,9 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     private final AsyncSearchContextPermit asyncSearchContextPermit;
     private final ThreadPool threadPool;
 
-    public ActiveAsyncSearchContext(String nodeId, AsyncSearchContextId asyncSearchContextId, TimeValue keepAlive, boolean keepOnCompletion, ThreadPool threadPool) {
-        super(AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId,asyncSearchContextId)));
-        this.nodeId = nodeId;
-        this.asyncSearchContextId = asyncSearchContextId;
+    public ActiveAsyncSearchContext(AsyncSearchId asyncSearchId, TimeValue keepAlive, boolean keepOnCompletion, ThreadPool threadPool) {
+        super(asyncSearchId);
+        this.asyncSearchContextId = asyncSearchId.getAsyncSearchContextId();
         this.keepOnCompletion = keepOnCompletion;
         this.isRunning = new AtomicBoolean(true);
         this.isPartial = new AtomicBoolean(true);
@@ -80,11 +78,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     }
 
     public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
-        try {
-            asyncSearchContextPermit.asyncAcquirePermit(onPermitAcquired, timeout, reason);
-        } catch (Exception e) {
-            throw e;
-        }
+        asyncSearchContextPermit.asyncAcquirePermit(onPermitAcquired, timeout, reason);
     }
 
     public SearchTask getTask() {
@@ -105,7 +99,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
     @Override
     public AsyncSearchResponse getAsyncSearchResponse() {
-        return new AsyncSearchResponse(getAsyncSearchId(), isPartial(), isRunning(), searchTask.get().getStartTime(), getExpirationTimeInMills(),
+        return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isPartial(), isRunning(), searchTask.get().getStartTime(), getExpirationTimeInMills(),
                 isRunning() ? buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
     }
 

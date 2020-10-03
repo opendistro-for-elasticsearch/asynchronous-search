@@ -1,6 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.persistence;
 
 import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
@@ -15,44 +16,34 @@ import java.util.Base64;
 
 public class AsyncSearchPersistenceModel extends AbstractAsyncSearchContext implements ToXContentObject {
 
-    public static final String ASYNC_ID = "async_id";
     public static final String EXPIRATION_TIME = "expiration_time";
     public static final String RESPONSE = "response";
-    private final String asyncSearchId;
     private final long expirationTime;
-    private final String response;
-
     private final NamedWriteableRegistry namedWriteableRegistry;
 
     public String getResponse() {
         return response;
     }
 
-    public AsyncSearchPersistenceModel(
-            NamedWriteableRegistry namedWriteableRegistry,
-            AsyncSearchResponse asyncSearchResponse) throws IOException {
-        super(asyncSearchResponse.getId());
-        this.asyncSearchId = asyncSearchResponse.getId();
+    private final String response;
+
+    public AsyncSearchPersistenceModel(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchResponse asyncSearchResponse) throws IOException {
+        super(AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()));
         this.expirationTime = asyncSearchResponse.getExpirationTimeMillis();
         this.namedWriteableRegistry = namedWriteableRegistry;
         this.response = encodeResponse(asyncSearchResponse);
     }
 
 
-    public AsyncSearchPersistenceModel(
-            NamedWriteableRegistry namedWriteableRegistry,
-            String asyncSearchId,
-            long expirationTime,
-            String response) {
+    public AsyncSearchPersistenceModel(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchId asyncSearchId, long expirationTime, String response) {
         super(asyncSearchId);
-        this.asyncSearchId = asyncSearchId;
         this.expirationTime = expirationTime;
         this.namedWriteableRegistry = namedWriteableRegistry;
         this.response = response;
     }
 
     @Override
-    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) {
         return null;
     }
 
