@@ -29,6 +29,8 @@ import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
@@ -36,11 +38,7 @@ import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -116,7 +114,7 @@ public class AsyncSearchPersistenceService {
         client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id), new ActionListener<DeleteResponse>() {
             @Override
             public void onResponse(DeleteResponse deleteResponse) {
-                if(deleteResponse.getResult() == DocWriteResponse.Result.NOT_FOUND) {
+                if (deleteResponse.getResult() == DocWriteResponse.Result.NOT_FOUND) {
                     listener.onFailure(new ResourceNotFoundException(id));
                 } else {
                     logger.debug("Deleted async search {}", id);
@@ -136,12 +134,12 @@ public class AsyncSearchPersistenceService {
      * Throws ResourceNotFoundException if index doesn't exist.
      */
 
-    public void updateExpirationTime(String id, long expirationTimeMillis, ActionListener<ActionResponse> listener) {
+    public void updateExpirationTime(String id, long expirationTimeNanos, ActionListener<ActionResponse> listener) {
         if (!indexExists()) {
             listener.onFailure(new ResourceNotFoundException(id));
         }
         Map<String, Object> source = new HashMap<>();
-        source.put(EXPIRATION_TIME, expirationTimeMillis);
+        source.put(EXPIRATION_TIME, expirationTimeNanos);
         UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id);
         updateRequest.doc(source, XContentType.JSON);
         client.update(updateRequest, ActionListener.wrap(
@@ -206,7 +204,7 @@ public class AsyncSearchPersistenceService {
 
     private void createAsyncSearchResponseIndex(ActionListener<CreateIndexResponse> listener) {
         CreateIndexRequest createIndexRequest = new CreateIndexRequest()
-                .mapping(MAPPING_TYPE, mapping(), XContentType.JSON)
+                .mapping(MAPPING_TYPE, mapping())
                 .settings(indexSettings())
                 .index(ASYNC_SEARCH_RESPONSE_INDEX_NAME)
                 .cause("async_search_response_index");
@@ -218,11 +216,11 @@ public class AsyncSearchPersistenceService {
                 getResponse.getSource() != null
                 && getResponse.getSource().containsKey(RESPONSE)
                 && getResponse.getSource().containsKey(EXPIRATION_TIME)) {
-            long expirationTimeMillis =
+            long expirationTimeNanos =
                     (long) getResponse.getSource().get(EXPIRATION_TIME);
-            if (System.nanoTime() < expirationTimeMillis) {
+            if (System.nanoTime() < expirationTimeNanos) {
                 listener.onResponse(new AsyncSearchPersistenceModel(namedWriteableRegistry, AsyncSearchId.parseAsyncId(id),
-                        expirationTimeMillis,
+                        expirationTimeNanos,
                         (String) getResponse.getSource().get(RESPONSE)));
             } else {
                 listener.onFailure(new ResourceNotFoundException(id));
@@ -237,7 +235,7 @@ public class AsyncSearchPersistenceService {
 
         Map<String, Object> source = new HashMap<>();
         source.put(RESPONSE, model.getResponse());
-        source.put(EXPIRATION_TIME, model.getExpirationTimeInMills());
+        source.put(EXPIRATION_TIME, model.getExpirationTimeNanos());
         IndexRequestBuilder index = client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX_NAME, MAPPING_TYPE,
                 AsyncSearchId.buildAsyncId(model.getAsyncSearchId())).setSource(source, XContentType.JSON);
         doStoreResult(STORE_BACKOFF_POLICY.iterator(), index, listener);
@@ -273,15 +271,31 @@ public class AsyncSearchPersistenceService {
                 .build();
     }
 
-    private String mapping() {
+    private XContentBuilder mapping() {
         try {
-            InputStream in = getClass().getClassLoader().getResourceAsStream(ASYNC_SEARCH_RESPONSE_MAPPING_FILE);
-            StringBuilder stringBuilder = new StringBuilder();
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-            for (String line; (line = bufferedReader.readLine()) != null; ) {
-                stringBuilder.append(line);
-            }
-            return stringBuilder.toString();
+
+            XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
+            builder.startObject()
+
+
+                    //props
+                    .startObject("properties")
+
+                    //response
+                    .startObject(RESPONSE).field("type", "text").endObject()
+                    //response
+
+                    //expiry
+                    .startObject(EXPIRATION_TIME).field("type", "long").endObject()
+                    //expiry
+
+
+                    .endObject()
+                    //props
+
+                    .endObject();
+
+            return builder;
         } catch (IOException e) {
             throw new IllegalArgumentException("Async search persistence mapping cannot be read correctly.");
         }

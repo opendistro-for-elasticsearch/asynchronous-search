@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import org.apache.lucene.store.ByteArrayDataInput;
 import org.apache.lucene.store.RAMOutputStream;
 
-import java.io.IOException;
 import java.util.Base64;
 
 public class AsyncSearchId {
@@ -39,6 +38,11 @@ public class AsyncSearchId {
 
     public String getNode() {
         return node;
+    }
+
+    @Override
+    public String toString() {
+        return "[" + node + "][" + asyncSearchContextId + "]";
     }
 
     public static String buildAsyncId(AsyncSearchId asyncSearchId) {

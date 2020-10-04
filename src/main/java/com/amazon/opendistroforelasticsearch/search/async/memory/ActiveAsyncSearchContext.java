@@ -1,6 +1,10 @@
 package com.amazon.opendistroforelasticsearch.search.async.memory;
 
-import com.amazon.opendistroforelasticsearch.search.async.*;
+import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextPermit;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
@@ -21,6 +25,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -47,7 +52,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     private final AtomicReference<SearchResponse> searchResponse;
 
     private SetOnce<SearchTask> searchTask = new SetOnce<>();
-    private volatile long expirationTimeInMills;
+    private volatile long expirationTimeNanos;
     private final Boolean keepOnCompletion;
     private final AsyncSearchContextId asyncSearchContextId;
     private final AtomicReference<ActiveAsyncSearchContext.ResultsHolder> resultsHolder = new AtomicReference<>();
@@ -74,7 +79,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
     public void setTask(SearchTask searchTask) {
         this.searchTask.set(searchTask);
-        this.setExpirationMillis(searchTask.getStartTime() + keepAlive.getMillis());
+        this.setExpirationNanos(searchTask.getStartTime() + keepAlive.getNanos());
         setStage(Stage.RUNNING);
     }
 
@@ -94,13 +99,14 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         return searchTask.get().getStartTime();
     }
 
-    public void setExpirationMillis(long expirationTimeInMills) {
-        this.expirationTimeInMills = expirationTimeInMills;
+    public void setExpirationNanos(long expirationTimeNanos) {
+        this.expirationTimeNanos = expirationTimeNanos;
     }
 
     @Override
     public AsyncSearchResponse getAsyncSearchResponse() {
-        return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isPartial(), isRunning(), searchTask.get().getStartTime(), getExpirationTimeInMills(),
+        return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isPartial(), isRunning(), searchTask.get().getStartTime(),
+                getExpirationTimeMillis(),
                 isRunning() ? buildPartialSearchResponse() : getFinalSearchResponse(), error.get());
     }
 
@@ -125,8 +131,12 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     }
 
     @Override
-    public long getExpirationTimeInMills() {
-        return expirationTimeInMills;
+    public long getExpirationTimeNanos() {
+        return expirationTimeNanos;
+    }
+
+    public long getExpirationTimeMillis() {
+        return TimeUnit.NANOSECONDS.toMillis(this.expirationTimeNanos);
     }
 
     @Override

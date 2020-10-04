@@ -51,9 +51,6 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
 /***
- * Manages the lifetime of {@link AbstractAsyncSearchContext} for all the async searches running on the coordinator node. Once the
- * response have been persisted or otherwise ready to be expunged, the {@link AsyncSearchInMemoryService.Reaper} frees up the in-memory contexts maintained
- * on the coordinator node
  */
 public class AsyncSearchService  implements ClusterStateListener {
 
@@ -175,7 +172,8 @@ public class AsyncSearchService  implements ClusterStateListener {
             ActiveAsyncSearchContext asyncSearchContext = asyncSearchContextOptional.get();
             asyncSearchContext.processFinalResponse(searchResponse);
             asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
-            AsyncSearchPersistenceModel model = new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchResponse);
+            AsyncSearchPersistenceModel model = new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchResponse,
+                    asyncSearchContext.getExpirationTimeNanos());
             acquireSearchContextPermit(asyncSearchContext, ActionListener.wrap(
                     releasable -> {
                          persistenceService.createResponse(model, ActionListener.wrap(
@@ -208,7 +206,7 @@ public class AsyncSearchService  implements ClusterStateListener {
 
     public void updateKeepAlive(GetAsyncSearchRequest request, AbstractAsyncSearchContext abstractAsyncSearchContext, ActionListener<Boolean> listener) {
         AbstractAsyncSearchContext.Source source = abstractAsyncSearchContext.getSource();
-        long requestedExpirationTime =  System.nanoTime() + request.getKeepAlive().getMillis();
+        long requestedExpirationTime =  System.nanoTime() + request.getKeepAlive().getNanos();
         if (source.equals(AbstractAsyncSearchContext.Source.STORE)) {
             persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime,
                     ActionListener.wrap((actionResponse) -> listener.onResponse(true), listener::onFailure));
@@ -218,7 +216,7 @@ public class AsyncSearchService  implements ClusterStateListener {
                 releasable -> {
                     Optional<ActiveAsyncSearchContext> activeContext = asyncSearchInMemoryService.findActiveContext(activeAsyncSearchContext.getAsyncSearchContextId());
                     if (activeContext.isPresent()) {
-                        activeContext.get().setExpirationMillis(requestedExpirationTime);
+                        activeContext.get().setExpirationNanos(requestedExpirationTime);
                     }
                     listener.onResponse(true);
                     releasable.close();
