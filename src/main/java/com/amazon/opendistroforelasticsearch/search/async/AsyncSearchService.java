@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearc
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
@@ -51,6 +52,7 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
 /***
+ * Manages the lifetime of {@link AbstractAsyncSearchContext} for all the async searches running on the coordinator node.
  */
 public class AsyncSearchService implements ClusterStateListener {
 
@@ -207,8 +209,11 @@ public class AsyncSearchService implements ClusterStateListener {
         return asyncSearchResponse;
     }
 
-    public void onSearchFailure(Exception e, ActiveAsyncSearchContext asyncSearchContext) {
-        asyncSearchContext.processFailure(e);
+    public void onSearchFailure(Exception e, AsyncSearchContextId asyncSearchContextId) {
+        Optional<ActiveAsyncSearchContext> activeContext = asyncSearchInMemoryService.findActiveContext(asyncSearchContextId);
+        if (activeContext.isPresent()) {
+            activeContext.get().processFailure(e);
+        }
     }
 
 

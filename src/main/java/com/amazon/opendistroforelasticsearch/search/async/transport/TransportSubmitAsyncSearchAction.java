@@ -16,11 +16,11 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
 import com.amazon.opendistroforelasticsearch.search.async.memory.ActiveAsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchResponseActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
@@ -46,7 +46,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.listener.AsyncS
 
 /**
  * Submits an async search request by executing a {@link TransportSearchAction} on an {@link AsyncSearchTask} with
- * a {@link AsyncSearchProgressActionListener} set on the task. The listener is wrapped with a completion timeout wrapper via
+ * a {@link AsyncSearchResponseActionListener} set on the task. The listener is wrapped with a completion timeout wrapper via
  * {@link AsyncSearchTimeoutWrapper} which ensures that exactly one of action listener or the timeout listener gets executed
  */
 public class TransportSubmitAsyncSearchAction extends HandledTransportAction<SubmitAsyncSearchRequest, AsyncSearchResponse> {
@@ -75,12 +75,13 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
+            final long relativeStartNanos = System.nanoTime();
             ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request);
-            AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(
-                    asyncSearchContext.getResultsHolder(),
+            AsyncSearchResponseActionListener progressActionListener = new AsyncSearchResponseActionListener(relativeStartNanos,
                     (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),
-                    (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext), threadPool.executor(ThreadPool.Names.GENERIC));
+                    (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext.getAsyncSearchContextId()), threadPool.executor(ThreadPool.Names.GENERIC));
             logger.debug("Initiated sync search request {}", asyncSearchContext.getAsyncSearchId());
+            asyncSearchContext.searchResponseSupplier(progressActionListener.getPartialResponseSupplier());
             PrioritizedActionListener<AsyncSearchResponse> wrappedListener = initListener(listener,
                     (actionListener) -> {
                 logger.debug("Timeout triggered for async search");

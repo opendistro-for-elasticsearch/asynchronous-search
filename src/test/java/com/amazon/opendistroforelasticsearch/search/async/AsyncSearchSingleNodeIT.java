@@ -3,6 +3,8 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.index.query.MatchQueryBuilder;

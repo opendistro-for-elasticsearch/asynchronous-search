@@ -22,6 +22,10 @@ import java.util.stream.Collectors;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
 
+/**
+ *  Once the response have been persisted or otherwise ready to be expunged, the {@link AsyncSearchInMemoryService.Reaper} frees up the in-memory contexts maintained
+ *  on the coordinator node
+ */
 public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
 
     private static Logger logger = LogManager.getLogger(AsyncSearchInMemoryService.class);

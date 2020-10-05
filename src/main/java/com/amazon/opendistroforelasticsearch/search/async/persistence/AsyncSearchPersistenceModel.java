@@ -2,7 +2,7 @@ package com.amazon.opendistroforelasticsearch.search.async.persistence;
 
 import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;

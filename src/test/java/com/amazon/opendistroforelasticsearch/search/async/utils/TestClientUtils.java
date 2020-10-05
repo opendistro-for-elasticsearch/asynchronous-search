@@ -1,7 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.utils;
 
-import com.amazon.opendistroforelasticsearch.search.async.AcknowledgedResponse;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;

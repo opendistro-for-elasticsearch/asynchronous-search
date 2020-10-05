@@ -16,6 +16,8 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
 
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+
 public abstract class AbstractAsyncSearchContext {
 
     public enum Source {

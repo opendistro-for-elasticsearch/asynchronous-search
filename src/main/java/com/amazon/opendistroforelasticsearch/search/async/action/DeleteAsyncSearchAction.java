@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.action;
 
-import com.amazon.opendistroforelasticsearch.search.async.AcknowledgedResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import org.elasticsearch.action.ActionType;
 
 
