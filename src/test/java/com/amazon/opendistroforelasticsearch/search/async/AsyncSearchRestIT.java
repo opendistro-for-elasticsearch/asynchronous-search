@@ -32,7 +32,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         assertNull(getResponse.getSearchResponse().getAggregations());
         assertEquals(5, getResponse.getSearchResponse().getHits().getTotalHits().value);
         assertFalse(getResponse.isPartial());
-
+        //TODO confirm from stats api that response is persisted to index by checking persisted response count
         DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(getResponse.getId());
         Response response = deleteAsyncSearchApi(deleteAsyncSearchRequest);
         assertEquals(response.getStatusLine().getStatusCode(), 200);

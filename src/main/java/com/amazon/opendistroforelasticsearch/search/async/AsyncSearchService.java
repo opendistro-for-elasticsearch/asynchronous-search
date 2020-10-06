@@ -27,6 +27,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.StepListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.client.Client;
@@ -47,6 +48,7 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
@@ -154,26 +156,29 @@ public class AsyncSearchService implements ClusterStateListener {
                 .collect(Collectors.toSet()));
     }
 
-    public boolean freeContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<Boolean> listener) {
+    public void freeContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<Boolean> listener) {
         try {
-            persistenceService.deleteResponse(id, listener);
-            AbstractAsyncSearchContext abstractAsyncSearchContext = asyncSearchInMemoryService.getContext(asyncSearchContextId);
-            if (abstractAsyncSearchContext != null) {
-                logger.info("Removing {} from context map", asyncSearchContextId);
-                /*ActiveAsyncSearchContext.Stage stage = asyncSearchContext.getStage();
-                if (RUNNING.equals(stage) || INIT.equals(stage)) {
-                    AsyncSearchUtils.cancelTask(new TaskId(clusterService.localNode().getId(), asyncSearchContext.getTask().getId()),
-                            client);
-                }*/
-                asyncSearchInMemoryService.removeContext(asyncSearchContextId);
-                return true;
-            } else {
-                throw new ResourceNotFoundException(getAsyncSearchId(asyncSearchContextId));
-            }
+            Consumer<Boolean> inMemoryDelete = storeDeleteAcknowledged -> {
+                AbstractAsyncSearchContext abstractAsyncSearchContext = asyncSearchInMemoryService.getContext(asyncSearchContextId);
+                if (abstractAsyncSearchContext != null) {
+                    logger.info("Removing {} from context map", asyncSearchContextId);
+                    asyncSearchInMemoryService.removeContext(asyncSearchContextId);
+                    listener.onResponse(true);
+                } else if (storeDeleteAcknowledged) {
+                    listener.onResponse(true);
+                } else {
+                    listener.onFailure(new ResourceNotFoundException(id));
+                }
+            };
+            StepListener<Boolean> storeDelete = new StepListener<Boolean>();
+            persistenceService.deleteResponse(id, storeDelete);
+            storeDelete.whenComplete(r -> inMemoryDelete.accept(true), e -> inMemoryDelete.accept(false));
+
+
         } catch (Exception e) {
             logger.error("Failed to build asyncsearch id for context ["
                     + asyncSearchContextId.getId() + "] on node [" + clusterService.localNode().getId() + "]", e);
-            return false;
+            listener.onFailure(e);
         }
     }
 
@@ -217,6 +222,7 @@ public class AsyncSearchService implements ClusterStateListener {
         Optional<ActiveAsyncSearchContext> activeContext = asyncSearchInMemoryService.findActiveContext(asyncSearchContextId);
         if (activeContext.isPresent()) {
             activeContext.get().processFailure(e);
+            asyncSearchInMemoryService.removeContext(asyncSearchContextId);
         }
     }
 
