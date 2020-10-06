@@ -63,17 +63,13 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         this.keepAlive = keepAlive;
         this.threadPool = threadPool;
         this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId, threadPool);
-        this.stage = Stage.INIT;
     }
 
-    public void setTask(SearchTask searchTask) {
+    public void prepareSearch(SearchTask searchTask, Supplier<SearchResponse> partialResponseSupplier) {
+        this.searchResponseSupplier.set(partialResponseSupplier);
         this.searchTask.set(searchTask);
         this.setExpirationNanos(searchTask.getStartTime() + keepAlive.getNanos());
-        setStage(Stage.RUNNING);
-    }
-
-    public void searchResponseSupplier(Supplier<SearchResponse> searchResponseSupplier) {
-        this.searchResponseSupplier.set(searchResponseSupplier);
+        this.stage = Stage.INIT;
     }
 
     public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
@@ -133,7 +129,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         return stage;
     }
 
-    public synchronized void processFailure(Exception e) {
+    public void processFailure(Exception e) {
         this.isCompleted.set(true);
         this.isPartial.set(false);
         this.isRunning.set(false);
@@ -142,7 +138,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     }
 
 
-    public synchronized void processFinalResponse(SearchResponse response) {
+    public void processFinalResponse(SearchResponse response) {
         setStage(Stage.COMPLETED);
         this.searchResponse.compareAndSet(null, response);
         this.isCompleted.set(true);
@@ -151,7 +147,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     }
 
 
-    public synchronized AbstractAsyncSearchContext setStage(Stage stage) {
+    public synchronized void setStage(Stage stage) {
         switch (stage) {
             case RUNNING:
                 validateAndSetStage(Stage.INIT, stage);
@@ -167,7 +163,6 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
             default:
                 throw new IllegalArgumentException("unknown AsyncSearchContext.Stage [" + stage + "]");
         }
-        return this;
     }
 
     private void validateAndSetStage(Stage expected, Stage next) {

@@ -81,7 +81,6 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),
                     (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext.getAsyncSearchContextId()), threadPool.executor(ThreadPool.Names.GENERIC));
             logger.debug("Initiated sync search request {}", asyncSearchContext.getAsyncSearchId());
-            asyncSearchContext.searchResponseSupplier(progressActionListener.getPartialResponseSupplier());
             PrioritizedActionListener<AsyncSearchResponse> wrappedListener = initListener(listener,
                     (actionListener) -> {
                 logger.debug("Timeout triggered for async search");
@@ -96,11 +95,12 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, AsyncSearchTask.NAME,
                             parentTaskId, headers, asyncSearchContext.getAsyncSearchContextId(),
                             (contextId) -> asyncSearchService.onCancelled(contextId));
-                    asyncSearchContext.setTask(asyncSearchTask);
+                    asyncSearchContext.prepareSearch(asyncSearchTask, progressActionListener.getPartialResponseSupplier());
                     asyncSearchTask.setProgressListener(progressActionListener);
                     return asyncSearchTask;
                 }
             }, progressActionListener);
+            asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.RUNNING);
             AsyncSearchTimeoutWrapper.scheduleTimeout(threadPool, request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC,
                     wrappedListener);
         } catch (Exception e) {
