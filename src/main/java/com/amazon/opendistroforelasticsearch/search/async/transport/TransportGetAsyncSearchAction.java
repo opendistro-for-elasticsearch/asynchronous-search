@@ -5,7 +5,7 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchResponseActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.memory.ActiveAsyncSearchContext;
@@ -13,7 +13,6 @@ import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearch
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.GroupedActionListener;
@@ -69,7 +68,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                             assert asyncSearchContext instanceof ActiveAsyncSearchContext : "expected instance to be of type" + ActiveAsyncSearchContext.class;
                             ActiveAsyncSearchContext activeAsyncSearchContext = (ActiveAsyncSearchContext) asyncSearchContext;
                             if (activeAsyncSearchContext.getStage() == RUNNING) {
-                                AsyncSearchResponseActionListener progressActionListener = activeAsyncSearchContext.getProgressActionListener();
+                                AsyncSearchProgressListener progressActionListener = activeAsyncSearchContext.getProgressActionListener();
                                 if (updateNeeded) {
                                     ActionListener<AsyncSearchResponse> groupedListener = new GroupedActionListener<>(
                                         ActionListener.wrap(

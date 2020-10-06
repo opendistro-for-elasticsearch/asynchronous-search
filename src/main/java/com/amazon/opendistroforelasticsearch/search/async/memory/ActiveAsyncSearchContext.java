@@ -4,7 +4,7 @@ import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextPermit;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchResponseActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
@@ -44,10 +44,10 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     private volatile TimeValue keepAlive;
     private volatile ActiveAsyncSearchContext.Stage stage;
     private final AsyncSearchContextPermit asyncSearchContextPermit;
-    private AsyncSearchResponseActionListener progressActionListener;
+    private AsyncSearchProgressListener progressActionListener;
 
     public ActiveAsyncSearchContext(AsyncSearchId asyncSearchId, TimeValue keepAlive, boolean keepOnCompletion,
-                                    ThreadPool threadPool, AsyncSearchResponseActionListener progressActionListener) {
+                                    ThreadPool threadPool, AsyncSearchProgressListener progressActionListener) {
         super(asyncSearchId);
         this.asyncSearchContextId = asyncSearchId.getAsyncSearchContextId();
         this.keepOnCompletion = keepOnCompletion;
@@ -61,7 +61,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         this.progressActionListener = progressActionListener;
     }
 
-    public AsyncSearchResponseActionListener getProgressActionListener() {
+    public AsyncSearchProgressListener getProgressActionListener() {
         return progressActionListener;
     }
 

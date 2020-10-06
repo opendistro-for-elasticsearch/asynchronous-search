@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchResponseActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.memory.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.memory.AsyncSearchInMemoryService;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel;
@@ -116,7 +116,7 @@ public class AsyncSearchService implements ClusterStateListener {
 
     public final ActiveAsyncSearchContext prepareContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, long relativeStartNanos) {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
-        AsyncSearchResponseActionListener progressActionListener = new AsyncSearchResponseActionListener(relativeStartNanos,
+        AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartNanos,
                 (response) -> onSearchResponse(response, asyncSearchContextId),
                 (e) -> onSearchFailure(e, asyncSearchContextId), threadPool.executor(ThreadPool.Names.GENERIC));
         ActiveAsyncSearchContext asyncSearchContext = new ActiveAsyncSearchContext(new AsyncSearchId(clusterService.localNode().getId(),
