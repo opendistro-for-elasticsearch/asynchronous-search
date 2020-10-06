@@ -52,7 +52,7 @@ public class AsyncSearchPersistenceModel extends AbstractAsyncSearchContext impl
 
     @Override
     public AsyncSearchResponse getAsyncSearchResponse() {
-        return new AsyncSearchResponse(decodeResponse(response), TimeUnit.NANOSECONDS.toMillis(expirationTimeNanos));
+        return new AsyncSearchResponse(decodeResponse(response), TimeUnit.MILLISECONDS.convert(expirationTimeNanos, TimeUnit.NANOSECONDS));
     }
 
     @Override

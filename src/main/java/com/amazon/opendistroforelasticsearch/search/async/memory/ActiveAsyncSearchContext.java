@@ -79,7 +79,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
     public void setTask(SearchTask searchTask) {
         this.searchTask.set(searchTask);
-        this.setExpirationNanos(searchTask.getStartTime() + keepAlive.getNanos());
+        this.setExpirationNanos(searchTask.getStartTimeNanos() + keepAlive.getNanos());
         setStage(Stage.RUNNING);
     }
 
@@ -136,7 +136,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     }
 
     public long getExpirationTimeMillis() {
-        return TimeUnit.NANOSECONDS.toMillis(this.expirationTimeNanos);
+        return TimeUnit.MILLISECONDS.convert(this.expirationTimeNanos, TimeUnit.NANOSECONDS);
     }
 
     @Override

@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
@@ -23,9 +24,15 @@ import com.amazon.opendistroforelasticsearch.search.async.memory.AsyncSearchInMe
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchReaperPersistentTaskExecutor;
+import com.amazon.opendistroforelasticsearch.search.async.rest.RestAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStat;
+import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
+import com.amazon.opendistroforelasticsearch.search.async.stats.StatNames;
+import com.amazon.opendistroforelasticsearch.search.async.stats.supplier.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportSubmitAsyncSearchAction;
@@ -65,12 +72,16 @@ import org.elasticsearch.threadpool.ScalingExecutorBuilder;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.watcher.ResourceWatcherService;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin, PersistentTaskPlugin, SystemIndexPlugin {
 
@@ -78,6 +89,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
     public static final String OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME = "open_distro_async_search_generic";
     private AsyncSearchPersistenceService persistenceService;
     private AsyncSearchInMemoryService inMemoryService;
+    private AsyncSearchStats asyncSearchStats;
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
@@ -87,7 +99,9 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
         return Arrays.asList(
                 new RestSubmitAsyncSearchAction(),
                 new RestGetAsyncSearchAction(),
-                new RestDeleteAsyncSearchAction());
+                new RestDeleteAsyncSearchAction(),
+                new RestAsyncSearchStatsAction(asyncSearchStats));
+
     }
 
     @Override
@@ -98,9 +112,17 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
                                                IndexNameExpressionResolver indexNameExpressionResolver,
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
 
+        Map<String, AsyncSearchStat<?>> stats = Stream.of(
+                new AbstractMap.SimpleEntry<>(
+                        StatNames.RUNNING_ASYNC_SEARCH_COUNT.getName(), new AsyncSearchStat<>(false, new CounterSupplier())))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        asyncSearchStats = new AsyncSearchStats(stats);
         this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool, namedWriteableRegistry);
-        this.inMemoryService = new AsyncSearchInMemoryService(threadPool, clusterService);
-        return Arrays.asList(new AsyncSearchService(persistenceService, inMemoryService, client, clusterService, threadPool, namedWriteableRegistry));
+        this.inMemoryService = new AsyncSearchInMemoryService(threadPool, clusterService, asyncSearchStats);
+        return Arrays.asList(new AsyncSearchService(persistenceService, inMemoryService, client, clusterService, threadPool,
+                namedWriteableRegistry), asyncSearchStats);
+
     }
 
 
@@ -130,6 +152,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays.asList(
+                new ActionHandler<>(AsyncSearchStatsAction.INSTANCE, TransportAsyncSearchStatsAction.class),
                 new ActionHandler<>(SubmitAsyncSearchAction.INSTANCE, TransportSubmitAsyncSearchAction.class),
                 new ActionHandler<>(GetAsyncSearchAction.INSTANCE, TransportGetAsyncSearchAction.class),
                 new ActionHandler<>(DeleteAsyncSearchAction.INSTANCE, TransportDeleteAsyncSearchAction.class));

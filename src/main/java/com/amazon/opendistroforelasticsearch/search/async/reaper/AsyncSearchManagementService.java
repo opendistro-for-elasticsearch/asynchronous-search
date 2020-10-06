@@ -51,7 +51,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
     @Override
     public void onMaster() {
-        masterScheduledFuture = threadPool.scheduleWithFixedDelay(new RunnableReaper(), TimeValue.timeValueSeconds(3),
+        masterScheduledFuture = threadPool.scheduleWithFixedDelay(new RunnableReaper(), TimeValue.timeValueMinutes(3),
                 ThreadPool.Names.GENERIC);
     }
 

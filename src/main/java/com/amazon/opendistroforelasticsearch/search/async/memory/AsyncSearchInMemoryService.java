@@ -2,6 +2,8 @@ package com.amazon.opendistroforelasticsearch.search.async.memory;
 
 import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
+import com.amazon.opendistroforelasticsearch.search.async.stats.StatNames;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -29,17 +31,19 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
     private final Scheduler.Cancellable keepAliveReaper;
     private final ThreadPool threadPool;
     private final ClusterService clusterService;
+    private final AsyncSearchStats asyncSearchStats;
 
     public static final Setting<TimeValue> KEEPALIVE_INTERVAL_SETTING =
             Setting.positiveTimeSetting("async_search.keep_alive_interval", timeValueMinutes(1), Setting.Property.NodeScope);
 
     private final ConcurrentMapLong<ActiveAsyncSearchContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
 
-    public AsyncSearchInMemoryService(ThreadPool threadPool, ClusterService clusterService) {
+    public AsyncSearchInMemoryService(ThreadPool threadPool, ClusterService clusterService, AsyncSearchStats asyncSearchStats) {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         Settings settings = clusterService.getSettings();
         this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new Reaper(), KEEPALIVE_INTERVAL_SETTING.get(settings), ThreadPool.Names.GENERIC);
+        this.asyncSearchStats = asyncSearchStats;
     }
 
     public Optional<ActiveAsyncSearchContext> findActiveContext(AsyncSearchContextId asyncSearchContextId) {
@@ -58,16 +62,22 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
         return null;
     }
 
+    /**
+     * AsyncSearchStats are updated from here. hence to maintain stat correctness, we can't put new context in map from elsewhere.
+     */
     public void putContext(AsyncSearchContextId asyncSearchContextId, ActiveAsyncSearchContext asyncSearchContext) {
         activeContexts.put(asyncSearchContextId.getId(), asyncSearchContext);
+        asyncSearchStats.getStat(StatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).increment();
     }
 
     public Map<Long, ActiveAsyncSearchContext> getAllContexts() {
         return CollectionUtils.copyMap(activeContexts);
     }
 
+
     public void removeContext(AsyncSearchContextId asyncSearchContextId) {
         activeContexts.remove(asyncSearchContextId.getId());
+        asyncSearchStats.getStat(StatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).decrement();
     }
 
     public boolean freeCachedContext(AsyncSearchContextId asyncSearchContextId) {
