@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 /***
  * The implementation of {@link CompositeSearchResponseActionListener} responsible for updating the partial results of a single async
@@ -47,11 +46,13 @@ public class AsyncSearchResponseActionListener extends CompositeSearchResponseAc
     private final Logger logger = LogManager.getLogger(getClass());
 
     private PartialResultsHolder partialResultsHolder;
+    private long relativeStartNanos;
 
     public AsyncSearchResponseActionListener(long relativeStartNanos, CheckedFunction<SearchResponse, AsyncSearchResponse, Exception> function,
                                              Consumer<Exception> onFailure, Executor executor) {
         super(function, onFailure, executor);
-        this.partialResultsHolder = new PartialResultsHolder(relativeStartNanos);
+        this.partialResultsHolder = new PartialResultsHolder();
+        this.relativeStartNanos = relativeStartNanos;
     }
 
     @Override
@@ -120,12 +121,23 @@ public class AsyncSearchResponseActionListener extends CompositeSearchResponseAc
                 partialResultsHolder.successfulShards.incrementAndGet());
     }
 
-
-    public Supplier<SearchResponse> getPartialResponseSupplier() {
-        return partialResultsHolder::partialResponse;
+    public SearchResponse partialResponse() {
+        if (partialResultsHolder.isInitialized.get()) {
+            SearchHits searchHits = new SearchHits(SearchHits.EMPTY, partialResultsHolder.totalHits.get(), Float.NaN);
+            InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits,
+                    partialResultsHolder.internalAggregations.get() == null ? partialResultsHolder.delayedInternalAggregations.get().expand() : partialResultsHolder.internalAggregations.get(),
+                    null, null, false, false, partialResultsHolder.reducePhase.get());
+            ShardSearchFailure[] shardSearchFailures = partialResultsHolder.shardSearchFailures.toArray(new ShardSearchFailure[]{});
+            long tookInMillis = System.nanoTime() - relativeStartNanos;
+            return new SearchResponse(internalSearchResponse, null, partialResultsHolder.totalShards.get(), partialResultsHolder.successfulShards.get(),
+                    partialResultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures, partialResultsHolder.clusters.get());
+        } else {
+            return null;
+        }
     }
 
-    static class PartialResultsHolder {
+
+    public static class PartialResultsHolder {
         private final AtomicInteger reducePhase;
         private final AtomicReference<TotalHits> totalHits;
         private final AtomicReference<InternalAggregations> internalAggregations;
@@ -138,9 +150,8 @@ public class AsyncSearchResponseActionListener extends CompositeSearchResponseAc
         private final AtomicArray<ShardSearchFailure> shardSearchFailures;
         private final AtomicInteger pos;
         private final AtomicBoolean hasFetchPhase;
-        private final long relativeStartNanos;
 
-        PartialResultsHolder(long relativeStartNanos) {
+        PartialResultsHolder() {
             this.internalAggregations = new AtomicReference<>();
             this.shardSearchFailures = new AtomicArray<>(1);
             this.totalShards = new AtomicInteger();
@@ -153,22 +164,6 @@ public class AsyncSearchResponseActionListener extends CompositeSearchResponseAc
             this.totalHits = new AtomicReference<>();
             this.clusters = new AtomicReference<>();
             this.delayedInternalAggregations = new AtomicReference<>();
-            this.relativeStartNanos = relativeStartNanos;
-        }
-
-        SearchResponse partialResponse() {
-            if (isInitialized.get()) {
-                SearchHits searchHits = new SearchHits(SearchHits.EMPTY, totalHits.get(), Float.NaN);
-                InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits,
-                        internalAggregations.get() == null ? delayedInternalAggregations.get().expand() : internalAggregations.get(),
-                        null, null, false, false, reducePhase.get());
-                ShardSearchFailure[] shardSearchFailures = this.shardSearchFailures.toArray(new ShardSearchFailure[]{});
-                long tookInMillis = System.nanoTime() - relativeStartNanos;
-                return new SearchResponse(internalSearchResponse, null, totalShards.get(), successfulShards.get(),
-                        skippedShards.get(), tookInMillis, shardSearchFailures, clusters.get());
-            } else {
-                return null;
-            }
         }
     }
 }

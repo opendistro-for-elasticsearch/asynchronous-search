@@ -76,10 +76,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
             final long relativeStartNanos = System.nanoTime();
-            ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request);
-            AsyncSearchResponseActionListener progressActionListener = new AsyncSearchResponseActionListener(relativeStartNanos,
-                    (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),
-                    (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext.getAsyncSearchContextId()), threadPool.executor(ThreadPool.Names.GENERIC));
+            ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartNanos);
+            AsyncSearchResponseActionListener progressActionListener = asyncSearchContext.getProgressActionListener();
             logger.debug("Initiated sync search request {}", asyncSearchContext.getAsyncSearchId());
             PrioritizedActionListener<AsyncSearchResponse> wrappedListener = initListener(listener,
                     (actionListener) -> {
@@ -95,7 +93,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, AsyncSearchTask.NAME,
                             parentTaskId, headers, asyncSearchContext.getAsyncSearchContextId(),
                             (contextId) -> asyncSearchService.onCancelled(contextId));
-                    asyncSearchContext.prepareSearch(asyncSearchTask, progressActionListener.getPartialResponseSupplier());
+                    asyncSearchContext.prepareSearch(asyncSearchTask);
                     asyncSearchTask.setProgressListener(progressActionListener);
                     return asyncSearchTask;
                 }

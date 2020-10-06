@@ -4,9 +4,8 @@ import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextPermit;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchResponseActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
@@ -19,7 +18,6 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 
 public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
@@ -31,8 +29,6 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         PERSISTED,
         FAILED
     }
-
-    private static final Logger logger = LogManager.getLogger(AbstractAsyncSearchContext.class);
 
     private final AtomicBoolean isRunning;
     private final AtomicBoolean isCompleted;
@@ -48,10 +44,10 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     private volatile TimeValue keepAlive;
     private volatile ActiveAsyncSearchContext.Stage stage;
     private final AsyncSearchContextPermit asyncSearchContextPermit;
-    private final ThreadPool threadPool;
-    private SetOnce<Supplier<SearchResponse>> searchResponseSupplier = new SetOnce<>();
+    private AsyncSearchResponseActionListener progressActionListener;
 
-    public ActiveAsyncSearchContext(AsyncSearchId asyncSearchId, TimeValue keepAlive, boolean keepOnCompletion, ThreadPool threadPool) {
+    public ActiveAsyncSearchContext(AsyncSearchId asyncSearchId, TimeValue keepAlive, boolean keepOnCompletion,
+                                    ThreadPool threadPool, AsyncSearchResponseActionListener progressActionListener) {
         super(asyncSearchId);
         this.asyncSearchContextId = asyncSearchId.getAsyncSearchContextId();
         this.keepOnCompletion = keepOnCompletion;
@@ -61,12 +57,15 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         this.error = new AtomicReference<>();
         this.searchResponse = new AtomicReference<>();
         this.keepAlive = keepAlive;
-        this.threadPool = threadPool;
         this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId, threadPool);
+        this.progressActionListener = progressActionListener;
     }
 
-    public void prepareSearch(SearchTask searchTask, Supplier<SearchResponse> partialResponseSupplier) {
-        this.searchResponseSupplier.set(partialResponseSupplier);
+    public AsyncSearchResponseActionListener getProgressActionListener() {
+        return progressActionListener;
+    }
+
+    public void prepareSearch(SearchTask searchTask) {
         this.searchTask.set(searchTask);
         this.setExpirationNanos(searchTask.getStartTime() + keepAlive.getNanos());
         this.stage = Stage.INIT;
@@ -92,7 +91,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isPartial(), isRunning(), searchTask.get().getStartTime(),
                 getExpirationTimeMillis(),
-                isRunning() ? searchResponseSupplier.get().get() : getFinalSearchResponse(), error.get());
+                isRunning() ? progressActionListener.partialResponse() : getFinalSearchResponse(), error.get());
     }
 
     public SearchResponse getFinalSearchResponse() {
@@ -172,7 +171,4 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         }
         stage = next;
     }
-
-
-
 }
