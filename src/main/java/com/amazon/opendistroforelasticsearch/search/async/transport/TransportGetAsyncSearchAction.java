@@ -2,10 +2,10 @@ package com.amazon.opendistroforelasticsearch.search.async.transport;
 
 import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.memory.ActiveAsyncSearchContext;
@@ -13,7 +13,6 @@ import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearch
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.GroupedActionListener;
@@ -69,7 +68,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                             assert asyncSearchContext instanceof ActiveAsyncSearchContext : "expected instance to be of type" + ActiveAsyncSearchContext.class;
                             ActiveAsyncSearchContext activeAsyncSearchContext = (ActiveAsyncSearchContext) asyncSearchContext;
                             if (activeAsyncSearchContext.getStage() == RUNNING) {
-                                SearchTask asyncSearchTask = activeAsyncSearchContext.getTask();
+                                AsyncSearchProgressListener progressActionListener = activeAsyncSearchContext.getProgressActionListener();
                                 if (updateNeeded) {
                                     ActionListener<AsyncSearchResponse> groupedListener = new GroupedActionListener<>(
                                         ActionListener.wrap(
@@ -83,11 +82,10 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                     PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                                             request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, groupedListener,
                                             (actionListener) -> {
-                                                ((AsyncSearchProgressActionListener) asyncSearchTask.getProgressListener()).removeListener(actionListener);
+                                                progressActionListener.removeListener(actionListener);
                                                 groupedListener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                                             });
-                                    ((AsyncSearchProgressActionListener) asyncSearchTask.getProgressListener())
-                                            .addOrExecuteListener(wrappedListener);
+                                    progressActionListener.addOrExecuteListener(wrappedListener);
                                     asyncSearchService.updateKeepAlive(request, asyncSearchContext, ActionListener.wrap(
                                             (response) -> listener.onResponse(asyncSearchContext.getAsyncSearchResponse()),
                                             listener::onFailure));
@@ -95,11 +93,10 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                     PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                                             request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener,
                                             (actionListener) -> {
-                                                ((AsyncSearchProgressActionListener) asyncSearchTask.getProgressListener()).removeListener(actionListener);
+                                                progressActionListener.removeListener(actionListener);
                                                 listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                                             });
-                                    ((AsyncSearchProgressActionListener) asyncSearchTask.getProgressListener())
-                                            .addOrExecuteListener(wrappedListener);
+                                    progressActionListener.addOrExecuteListener(wrappedListener);
                                 }
                             } else {
                                 if (updateNeeded) {

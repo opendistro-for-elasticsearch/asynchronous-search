@@ -15,12 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.memory.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.memory.AsyncSearchInMemoryService;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
@@ -51,6 +53,7 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
 /***
+ * Manages the lifetime of {@link AbstractAsyncSearchContext} for all the async searches running on the coordinator node.
  */
 public class AsyncSearchService implements ClusterStateListener {
 
@@ -111,12 +114,15 @@ public class AsyncSearchService implements ClusterStateListener {
         this.maxKeepAlive = maxKeepAlive.millis();
     }
 
-    public final ActiveAsyncSearchContext createAndPutContext(SubmitAsyncSearchRequest submitAsyncSearchRequest) {
+    public final ActiveAsyncSearchContext prepareContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, long relativeStartNanos) {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
+        AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartNanos,
+                (response) -> onSearchResponse(response, asyncSearchContextId),
+                (e) -> onSearchFailure(e, asyncSearchContextId), threadPool.executor(ThreadPool.Names.GENERIC));
         ActiveAsyncSearchContext asyncSearchContext = new ActiveAsyncSearchContext(new AsyncSearchId(clusterService.localNode().getId(),
                 asyncSearchContextId),
                 submitAsyncSearchRequest.getKeepAlive(),
-                submitAsyncSearchRequest.keepOnCompletion(), threadPool);
+                submitAsyncSearchRequest.keepOnCompletion(), threadPool, progressActionListener);
         asyncSearchInMemoryService.putContext(asyncSearchContextId, asyncSearchContext);
         return asyncSearchContext;
     }
@@ -207,8 +213,11 @@ public class AsyncSearchService implements ClusterStateListener {
         return asyncSearchResponse;
     }
 
-    public void onSearchFailure(Exception e, ActiveAsyncSearchContext asyncSearchContext) {
-        asyncSearchContext.processFailure(e);
+    public void onSearchFailure(Exception e, AsyncSearchContextId asyncSearchContextId) {
+        Optional<ActiveAsyncSearchContext> activeContext = asyncSearchInMemoryService.findActiveContext(asyncSearchContextId);
+        if (activeContext.isPresent()) {
+            activeContext.get().processFailure(e);
+        }
     }
 
 

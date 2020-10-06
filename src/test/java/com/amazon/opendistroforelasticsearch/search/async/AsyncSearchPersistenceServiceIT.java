@@ -3,6 +3,7 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;

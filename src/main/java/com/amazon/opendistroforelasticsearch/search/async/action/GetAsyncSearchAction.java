@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.action;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.action.ActionType;
 
 public class GetAsyncSearchAction extends ActionType<AsyncSearchResponse> {

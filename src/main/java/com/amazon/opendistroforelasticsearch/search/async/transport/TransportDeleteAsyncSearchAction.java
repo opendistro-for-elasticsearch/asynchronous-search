@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.AcknowledgedResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;

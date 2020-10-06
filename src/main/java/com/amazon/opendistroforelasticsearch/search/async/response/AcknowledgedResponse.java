@@ -1,4 +1,4 @@
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.response;
 
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.common.ParseField;

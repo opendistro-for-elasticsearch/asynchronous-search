@@ -19,7 +19,7 @@ import java.util.function.Consumer;
  * invoked once. If the search completes before the listener was added,
  **/
 
-public class CompositeSearchProgressActionListener<T> extends SearchProgressActionListener {
+public class CompositeSearchResponseActionListener<T> extends SearchProgressActionListener {
 
     private final List<ActionListener<T>> actionListeners;
     private final CheckedFunction<SearchResponse, T, Exception> function;
@@ -29,7 +29,7 @@ public class CompositeSearchProgressActionListener<T> extends SearchProgressActi
 
     private final Logger logger = LogManager.getLogger(getClass());
 
-    CompositeSearchProgressActionListener(CheckedFunction<SearchResponse, T, Exception> function, Consumer<Exception> onFailure, Executor executor) {
+    CompositeSearchResponseActionListener(CheckedFunction<SearchResponse, T, Exception> function, Consumer<Exception> onFailure, Executor executor) {
         this.function = function;
         this.executor = executor;
         this.onFailure = onFailure;

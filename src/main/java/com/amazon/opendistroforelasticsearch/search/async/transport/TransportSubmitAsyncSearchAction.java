@@ -16,12 +16,11 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
 import com.amazon.opendistroforelasticsearch.search.async.memory.ActiveAsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressActionListener;
-import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
@@ -42,11 +41,9 @@ import org.elasticsearch.transport.TransportService;
 
 import java.util.Map;
 
-import static com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper.initListener;
-
 /**
  * Submits an async search request by executing a {@link TransportSearchAction} on an {@link AsyncSearchTask} with
- * a {@link AsyncSearchProgressActionListener} set on the task. The listener is wrapped with a completion timeout wrapper via
+ * a {@link AsyncSearchProgressListener} set on the task. The listener is wrapped with a completion timeout wrapper via
  * {@link AsyncSearchTimeoutWrapper} which ensures that exactly one of action listener or the timeout listener gets executed
  */
 public class TransportSubmitAsyncSearchAction extends HandledTransportAction<SubmitAsyncSearchRequest, AsyncSearchResponse> {
@@ -75,19 +72,10 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
-            ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.createAndPutContext(request);
-            AsyncSearchProgressActionListener progressActionListener = new AsyncSearchProgressActionListener(
-                    asyncSearchContext.getResultsHolder(),
-                    (response) -> asyncSearchService.onSearchResponse(response, asyncSearchContext.getAsyncSearchContextId()),
-                    (e) -> asyncSearchService.onSearchFailure(e, asyncSearchContext), threadPool.executor(ThreadPool.Names.GENERIC));
+            final long relativeStartNanos = System.nanoTime();
+            ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartNanos);
+            AsyncSearchProgressListener progressActionListener = asyncSearchContext.getProgressActionListener();
             logger.debug("Initiated sync search request {}", asyncSearchContext.getAsyncSearchId());
-            PrioritizedActionListener<AsyncSearchResponse> wrappedListener = initListener(listener,
-                    (actionListener) -> {
-                logger.debug("Timeout triggered for async search");
-                progressActionListener.removeListener(actionListener);
-                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-            });
-            progressActionListener.addOrExecuteListener(wrappedListener);
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
                 @Override
@@ -95,13 +83,18 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, AsyncSearchTask.NAME,
                             parentTaskId, headers, asyncSearchContext.getAsyncSearchContextId(),
                             (contextId) -> asyncSearchService.onCancelled(contextId));
-                    asyncSearchContext.setTask(asyncSearchTask);
+                    AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool, request.getWaitForCompletionTimeout(),
+                            ThreadPool.Names.GENERIC, listener, (actionListener) -> {
+                                logger.debug("Timeout triggered for async search");
+                                progressActionListener.removeListener(actionListener);
+                                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                            });
                     asyncSearchTask.setProgressListener(progressActionListener);
+                    asyncSearchContext.prepareSearch(asyncSearchTask);
                     return asyncSearchTask;
                 }
             }, progressActionListener);
-            AsyncSearchTimeoutWrapper.scheduleTimeout(threadPool, request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC,
-                    wrappedListener);
+            asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.RUNNING);
         } catch (Exception e) {
             listener.onFailure(e);
         }
