@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Base64;
 
-public class AsyncSearchPersistenceModel extends AbstractAsyncSearchContext implements ToXContentObject {
+public class AsyncSearchPersistenceContext extends AbstractAsyncSearchContext implements ToXContentObject {
 
     public static final String EXPIRATION_TIME = "expiration_time";
     public static final String RESPONSE = "response";
@@ -27,7 +27,7 @@ public class AsyncSearchPersistenceModel extends AbstractAsyncSearchContext impl
 
     private final String response;
 
-    public AsyncSearchPersistenceModel(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchResponse asyncSearchResponse) throws IOException {
+    public AsyncSearchPersistenceContext(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchResponse asyncSearchResponse) throws IOException {
         super(AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()));
         this.expirationTimeMillis = asyncSearchResponse.getExpirationTimeMillis();
         this.namedWriteableRegistry = namedWriteableRegistry;
@@ -35,7 +35,7 @@ public class AsyncSearchPersistenceModel extends AbstractAsyncSearchContext impl
     }
 
 
-    public AsyncSearchPersistenceModel(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchId asyncSearchId,
+    public AsyncSearchPersistenceContext(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchId asyncSearchId,
                                        long expirationTimeMillis, String response) {
         super(asyncSearchId);
         this.expirationTimeMillis = expirationTimeMillis;

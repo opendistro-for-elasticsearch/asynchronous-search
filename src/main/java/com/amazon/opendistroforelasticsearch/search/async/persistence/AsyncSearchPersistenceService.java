@@ -43,8 +43,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.EXPIRATION_TIME;
-import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.RESPONSE;
+import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceContext.EXPIRATION_TIME;
+import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceContext.RESPONSE;
 import static org.elasticsearch.action.admin.cluster.node.tasks.get.GetTaskAction.TASKS_ORIGIN;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
@@ -83,7 +83,7 @@ public class AsyncSearchPersistenceService {
      * Creates async search response as document in index. Creates index if necessary, before creating document. Retries response
      * creation on failure with exponential backoff
      */
-    public void createResponse(AsyncSearchPersistenceModel model, ActionListener<IndexResponse> listener) {
+    public void createResponse(AsyncSearchPersistenceContext model, ActionListener<IndexResponse> listener) {
         if (indexExists()) {
             doStoreResult(model, listener);
         } else {
@@ -94,7 +94,7 @@ public class AsyncSearchPersistenceService {
     /**
      * Throws ResourceNotFoundException if index doesn't exist
      */
-    public void getResponse(String id, ActionListener<AsyncSearchPersistenceModel> listener) {
+    public void getResponse(String id, ActionListener<AsyncSearchPersistenceContext> listener) {
         if (!indexExists()) {
             listener.onFailure(new ResourceNotFoundException(id));
         }
@@ -184,7 +184,7 @@ public class AsyncSearchPersistenceService {
 
     }
 
-    private void createIndexAndDoStoreResult(AsyncSearchPersistenceModel model, ActionListener<IndexResponse> listener) {
+    private void createIndexAndDoStoreResult(AsyncSearchPersistenceContext model, ActionListener<IndexResponse> listener) {
         createAsyncSearchResponseIndex(ActionListener.wrap(
                 createIndexResponse -> doStoreResult(model, listener),
                 exception -> {
@@ -211,7 +211,7 @@ public class AsyncSearchPersistenceService {
         client.admin().indices().create(createIndexRequest, listener);
     }
 
-    private void processGetResponse(String id, GetResponse getResponse, ActionListener<AsyncSearchPersistenceModel> listener) {
+    private void processGetResponse(String id, GetResponse getResponse, ActionListener<AsyncSearchPersistenceContext> listener) {
         if (getResponse.isExists() &&
                 getResponse.getSource() != null
                 && getResponse.getSource().containsKey(RESPONSE)
@@ -219,7 +219,7 @@ public class AsyncSearchPersistenceService {
             long expirationTimeMillis =
                     (long) getResponse.getSource().get(EXPIRATION_TIME);
             if (System.currentTimeMillis() < expirationTimeMillis) {
-                listener.onResponse(new AsyncSearchPersistenceModel(namedWriteableRegistry, AsyncSearchId.parseAsyncId(id),
+                listener.onResponse(new AsyncSearchPersistenceContext(namedWriteableRegistry, AsyncSearchId.parseAsyncId(id),
                         expirationTimeMillis,
                         (String) getResponse.getSource().get(RESPONSE)));
             } else {
@@ -231,7 +231,7 @@ public class AsyncSearchPersistenceService {
         }
     }
 
-    private void doStoreResult(AsyncSearchPersistenceModel model, ActionListener<IndexResponse> listener) {
+    private void doStoreResult(AsyncSearchPersistenceContext model, ActionListener<IndexResponse> listener) {
 
         Map<String, Object> source = new HashMap<>();
         source.put(RESPONSE, model.getResponse());

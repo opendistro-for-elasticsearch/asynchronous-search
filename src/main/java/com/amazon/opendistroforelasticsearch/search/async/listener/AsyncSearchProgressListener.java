@@ -55,7 +55,7 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
 
     /***
      * Returns the partial response for the search response.
-     * @return SearchResponse
+     * @return the partial search response
      */
     public SearchResponse partialResponse() {
         return partialResultsHolder.partialResponse();

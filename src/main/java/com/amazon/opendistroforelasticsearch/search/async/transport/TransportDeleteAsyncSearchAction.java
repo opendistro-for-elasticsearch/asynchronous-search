@@ -51,6 +51,4 @@ public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchA
             listener.onFailure(e);
         }
     }
-
-
 }

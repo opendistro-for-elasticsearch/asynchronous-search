@@ -86,7 +86,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                                 groupedListener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                                             });
                                     progressActionListener.addOrExecuteListener(wrappedListener);
-                                    asyncSearchService.updateKeepAlive(request, asyncSearchContext, listener);
+                                    asyncSearchService.updateKeepAlive(request, asyncSearchContext, groupedListener);
                                 } else {
                                     PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                                             request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener,

@@ -31,7 +31,7 @@ public abstract class AbstractAsyncSearchContext {
         this.asyncSearchId = asyncSearchId;
     }
 
-    public AsyncSearchContextId getAsyncSearchContextId() {
+    public AsyncSearchContextId getContextId() {
         return asyncSearchId.getAsyncSearchContextId();
     }
 

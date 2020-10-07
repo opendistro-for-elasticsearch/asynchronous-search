@@ -60,7 +60,7 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
         if (context == null) {
             return null;
         }
-        if (context.getAsyncSearchContextId().getContextId().equals(contextId.getContextId())) {
+        if (context.getContextId().getContextId().equals(contextId.getContextId())) {
             return context;
         }
         return null;
@@ -84,7 +84,7 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
         asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).decrement();
     }
 
-    public boolean freeCachedContext(AsyncSearchContextId asyncSearchContextId) {
+    public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
         AbstractAsyncSearchContext abstractAsyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
         if (abstractAsyncSearchContext != null) {
             logger.debug("Removing {} from context map", asyncSearchContextId);
@@ -101,7 +101,7 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
     @Override
     protected void doStop() {
         for (final AbstractAsyncSearchContext context : activeContexts.values()) {
-            freeCachedContext(context.getAsyncSearchContextId());
+            freeContext(context.getContextId());
         }
     }
 
@@ -122,7 +122,7 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
                 Set<ActiveAsyncSearchContext> toReap = activeContexts.values().stream()
                         .filter(a -> a.getStage().equals(ActiveAsyncSearchContext.Stage.ABORTED) || a.getStage().equals(ActiveAsyncSearchContext.Stage.PERSISTED))
                         .collect(Collectors.toSet());
-                toReap.forEach(a -> freeCachedContext(a.getAsyncSearchContextId()));
+                toReap.forEach(a -> freeContext(a.getContextId()));
             } catch (Exception e) {
                 logger.error("Exception while reaping contexts");
             }

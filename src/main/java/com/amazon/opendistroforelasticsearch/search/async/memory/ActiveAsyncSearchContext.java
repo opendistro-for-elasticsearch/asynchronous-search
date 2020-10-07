@@ -5,11 +5,13 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextPermit;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
+import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
@@ -18,30 +20,52 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * The context representing an ongoing search, keeps track of the underlying {@link SearchTask} and {@link SearchProgressActionListener}
+ */
 public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
+    /**
+     * The state of the async search.
+     */
     public enum Stage {
+        /**
+         * At the start of the search, before the {@link SearchTask starts to run}
+         */
         INIT,
+        /**
+         * The search state actually has been started
+         */
         RUNNING,
+        /**
+         * The search has completed successfully
+         */
         COMPLETED,
+        /**
+         * The search has been cancelled either by the user, task API cancel or {@link AsyncSearchManagementService}
+         */
         ABORTED,
+        /**
+         * The context has been persisted to system index
+         */
         PERSISTED,
+        /**
+         * The search execution has failed
+         */
         FAILED
     }
 
     private final AtomicBoolean isRunning;
     private final AtomicBoolean isCompleted;
     private final AtomicBoolean isPartial;
-
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
-
     private SetOnce<SearchTask> searchTask = new SetOnce<>();
     private volatile long expirationTimeMillis;
     private final Boolean keepOnCompletion;
     private final AsyncSearchContextId asyncSearchContextId;
     private volatile TimeValue keepAlive;
-    private volatile ActiveAsyncSearchContext.Stage stage;
+    private volatile Stage stage;
     private final AsyncSearchContextPermit asyncSearchContextPermit;
     private AsyncSearchProgressListener progressActionListener;
 
@@ -84,6 +108,10 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
     public void setExpirationMillis(long expirationTimeMillis) {
         this.expirationTimeMillis = expirationTimeMillis;
+    }
+
+    public boolean needsPersistence() {
+        return keepOnCompletion;
     }
 
     @Override
@@ -141,6 +169,10 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     }
 
 
+    /**
+     * Atomically validates and updates the state of the search
+     * @param stage
+     */
     public synchronized void setStage(Stage stage) {
         switch (stage) {
             case RUNNING:
@@ -165,5 +197,24 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
                     + stage + "] (expected [" + expected + "])");
         }
         stage = next;
+    }
+
+    @Override
+    public String toString() {
+        return "ActiveAsyncSearchContext{" +
+                "isRunning=" + isRunning +
+                ", isCompleted=" + isCompleted +
+                ", isPartial=" + isPartial +
+                ", error=" + error +
+                ", searchResponse=" + searchResponse +
+                ", searchTask=" + searchTask +
+                ", expirationTimeNanos=" + expirationTimeMillis +
+                ", keepOnCompletion=" + keepOnCompletion +
+                ", asyncSearchContextId=" + asyncSearchContextId +
+                ", keepAlive=" + keepAlive +
+                ", stage=" + stage +
+                ", asyncSearchContextPermit=" + asyncSearchContextPermit +
+                ", progressActionListener=" + progressActionListener +
+                '}';
     }
 }

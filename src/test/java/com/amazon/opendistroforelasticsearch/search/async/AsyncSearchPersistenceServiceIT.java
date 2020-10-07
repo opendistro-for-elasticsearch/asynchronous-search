@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel;
+import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceContext;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
@@ -65,7 +65,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         //assert failure
         CountDownLatch getLatch1 = new CountDownLatch(1);
         persistenceService.getResponse(newAsyncSearchResponse.getId(), ActionListener.wrap(
-                (AsyncSearchPersistenceModel r) -> failure(getLatch1),
+                (AsyncSearchPersistenceContext r) -> failure(getLatch1),
                 exception -> {
                     assertRnf(getLatch, exception);
                 }));
@@ -78,7 +78,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         TransportService transportService = getInstanceFromNode(TransportService.class);
         NamedWriteableRegistry namedWriteableRegistry = writableRegistry();
         AsyncSearchId asyncSearchId = generateNewAsynSearchId(transportService);
-        AsyncSearchPersistenceModel model1 = new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchId,
+        AsyncSearchPersistenceContext model1 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId,
                 System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(),
                 "responseString");
         CountDownLatch createLatch = new CountDownLatch(1);
@@ -88,7 +88,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         CountDownLatch latch = new CountDownLatch(2);
         //assert failure
         persistenceService.getResponse("id", ActionListener.wrap(
-                (AsyncSearchPersistenceModel r) -> failure(latch),
+                (AsyncSearchPersistenceContext r) -> failure(latch),
                 exception -> {
                     assertRnf(latch, exception);
                 }));
@@ -109,9 +109,9 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
 
         AsyncSearchId asyncSearchId1 = generateNewAsynSearchId(transportService);
         AsyncSearchId asyncSearchId2 = generateNewAsynSearchId(transportService);
-        AsyncSearchPersistenceModel model1 = new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchId1,
+        AsyncSearchPersistenceContext model1 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId1,
                 System.currentTimeMillis() + new TimeValue(5, TimeUnit.DAYS).getMillis(), "responseString");
-        AsyncSearchPersistenceModel model2 = new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchId2,
+        AsyncSearchPersistenceContext model2 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId2,
                 System.currentTimeMillis() + new TimeValue(5, TimeUnit.DAYS).getMillis(), "responseString");
         CountDownLatch createLatch = new CountDownLatch(2);
         threadPool.generic().execute(() -> persistenceService.createResponse(model1, ActionListener.wrap(
@@ -124,12 +124,12 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         String id1 = AsyncSearchId.buildAsyncId(asyncSearchId1);
         String id2 = AsyncSearchId.buildAsyncId(asyncSearchId2);
         persistenceService.getResponse(id1, ActionListener.wrap(
-                (AsyncSearchPersistenceModel r) -> getLatch1.countDown(), exception -> failure(getLatch1)));
+                (AsyncSearchPersistenceContext r) -> getLatch1.countDown(), exception -> failure(getLatch1)));
         getLatch1.await();
 
         CountDownLatch getLatch2 = new CountDownLatch(1);
         persistenceService.getResponse(id2, ActionListener.wrap(
-                (AsyncSearchPersistenceModel r) -> getLatch2.countDown(), exception -> failure(getLatch2)));
+                (AsyncSearchPersistenceContext r) -> getLatch2.countDown(), exception -> failure(getLatch2)));
         getLatch2.await();
     }
 
@@ -185,9 +185,9 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
     }
 
     private void verifyResponse(AsyncSearchResponse asyncSearchResponse, CountDownLatch latch,
-                                AsyncSearchPersistenceModel asyncSearchPersistenceModel) {
-        assert asyncSearchPersistenceModel.getAsyncSearchId().toString().equals(AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()).toString());
-        assert asyncSearchPersistenceModel.getAsyncSearchResponse().getExpirationTimeMillis()
+                                AsyncSearchPersistenceContext asyncSearchPersistenceContext) {
+        assert asyncSearchPersistenceContext.getAsyncSearchId().toString().equals(AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()).toString());
+        assert asyncSearchPersistenceContext.getAsyncSearchResponse().getExpirationTimeMillis()
                 == asyncSearchResponse.getExpirationTimeMillis();
         latch.countDown();
     }
@@ -195,7 +195,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
     private void createDoc(AsyncSearchPersistenceService persistenceService, NamedWriteableRegistry namedWriteableRegistry,
                            AsyncSearchResponse asyncSearchResponse) throws IOException, InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        persistenceService.createResponse(new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchResponse),
+        persistenceService.createResponse(new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchResponse),
                 ActionListener.wrap(r -> latch.countDown(), e -> failure(latch)));
         latch.await();
     }

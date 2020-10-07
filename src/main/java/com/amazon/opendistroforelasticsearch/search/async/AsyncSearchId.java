@@ -54,7 +54,7 @@ public class AsyncSearchId {
             out.writeTo(bytes, 0);
             return Base64.getUrlEncoder().encodeToString(bytes);
         } catch (Exception e) {
-            throw new IllegalArgumentException("Cannot parse async search id", e);
+            throw new IllegalArgumentException("Cannot build async search id", e);
         }
     }
 
