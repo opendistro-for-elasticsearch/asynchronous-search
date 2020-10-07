@@ -72,8 +72,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
-            final long relativeStartNanos = System.nanoTime();
-            ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartNanos);
+            final long relativeStartMillis = System.currentTimeMillis();
+            ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartMillis);
             AsyncSearchProgressListener progressActionListener = asyncSearchContext.getProgressActionListener();
             logger.debug("Initiated sync search request {}", asyncSearchContext.getAsyncSearchId());
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());

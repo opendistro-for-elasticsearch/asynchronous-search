@@ -15,7 +15,6 @@ import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -38,7 +37,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     private final AtomicReference<SearchResponse> searchResponse;
 
     private SetOnce<SearchTask> searchTask = new SetOnce<>();
-    private volatile long expirationTimeNanos;
+    private volatile long expirationTimeMillis;
     private final Boolean keepOnCompletion;
     private final AsyncSearchContextId asyncSearchContextId;
     private volatile TimeValue keepAlive;
@@ -67,7 +66,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
     public void prepareSearch(SearchTask searchTask) {
         this.searchTask.set(searchTask);
-        this.setExpirationNanos(searchTask.getStartTimeNanos() + keepAlive.getNanos());
+        this.setExpirationMillis(searchTask.getStartTime() + keepAlive.getMillis());
         this.stage = Stage.INIT;
     }
 
@@ -83,8 +82,8 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         searchResponse.set(null);
     }
 
-    public void setExpirationNanos(long expirationTimeNanos) {
-        this.expirationTimeNanos = expirationTimeNanos;
+    public void setExpirationMillis(long expirationTimeMillis) {
+        this.expirationTimeMillis = expirationTimeMillis;
     }
 
     @Override
@@ -111,12 +110,8 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     }
 
     @Override
-    public long getExpirationTimeNanos() {
-        return expirationTimeNanos;
-    }
-
     public long getExpirationTimeMillis() {
-        return TimeUnit.MILLISECONDS.convert(this.expirationTimeNanos, TimeUnit.NANOSECONDS);
+        return expirationTimeMillis;
     }
 
     @Override

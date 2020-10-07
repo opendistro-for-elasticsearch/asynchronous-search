@@ -134,12 +134,12 @@ public class AsyncSearchPersistenceService {
      * Throws ResourceNotFoundException if index doesn't exist.
      */
 
-    public void updateExpirationTime(String id, long expirationTimeNanos, ActionListener<ActionResponse> listener) {
+    public void updateExpirationTime(String id, long expirationTimeMillis, ActionListener<ActionResponse> listener) {
         if (!indexExists()) {
             listener.onFailure(new ResourceNotFoundException(id));
         }
         Map<String, Object> source = new HashMap<>();
-        source.put(EXPIRATION_TIME, expirationTimeNanos);
+        source.put(EXPIRATION_TIME, expirationTimeMillis);
         UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id);
         updateRequest.doc(source, XContentType.JSON);
         client.update(updateRequest, ActionListener.wrap(
@@ -167,7 +167,7 @@ public class AsyncSearchPersistenceService {
             DeleteByQueryRequest request =
                     new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME)
                             .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME)
-                                    .lte(System.nanoTime()));
+                                    .lte(System.currentTimeMillis()));
             client.execute(DeleteByQueryAction.INSTANCE, request, new ActionListener<BulkByScrollResponse>() {
                 @Override
                 public void onResponse(BulkByScrollResponse bulkByScrollResponse) {
@@ -216,11 +216,11 @@ public class AsyncSearchPersistenceService {
                 getResponse.getSource() != null
                 && getResponse.getSource().containsKey(RESPONSE)
                 && getResponse.getSource().containsKey(EXPIRATION_TIME)) {
-            long expirationTimeNanos =
+            long expirationTimeMillis =
                     (long) getResponse.getSource().get(EXPIRATION_TIME);
-            if (System.nanoTime() < expirationTimeNanos) {
+            if (System.currentTimeMillis() < expirationTimeMillis) {
                 listener.onResponse(new AsyncSearchPersistenceModel(namedWriteableRegistry, AsyncSearchId.parseAsyncId(id),
-                        expirationTimeNanos,
+                        expirationTimeMillis,
                         (String) getResponse.getSource().get(RESPONSE)));
             } else {
                 listener.onFailure(new ResourceNotFoundException(id));
@@ -235,7 +235,7 @@ public class AsyncSearchPersistenceService {
 
         Map<String, Object> source = new HashMap<>();
         source.put(RESPONSE, model.getResponse());
-        source.put(EXPIRATION_TIME, model.getExpirationTimeNanos());
+        source.put(EXPIRATION_TIME, model.getExpirationTimeMillis());
         IndexRequestBuilder index = client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX_NAME, MAPPING_TYPE,
                 AsyncSearchId.buildAsyncId(model.getAsyncSearchId())).setSource(source, XContentType.JSON);
         doStoreResult(STORE_BACKOFF_POLICY.iterator(), index, listener);

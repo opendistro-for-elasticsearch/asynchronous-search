@@ -86,9 +86,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                                 groupedListener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                                             });
                                     progressActionListener.addOrExecuteListener(wrappedListener);
-                                    asyncSearchService.updateKeepAlive(request, asyncSearchContext, ActionListener.wrap(
-                                            (response) -> listener.onResponse(asyncSearchContext.getAsyncSearchResponse()),
-                                            listener::onFailure));
+                                    asyncSearchService.updateKeepAlive(request, asyncSearchContext, listener);
                                 } else {
                                     PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                                             request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener,
@@ -100,9 +98,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                 }
                             } else {
                                 if (updateNeeded) {
-                                    asyncSearchService.updateKeepAlive(request, asyncSearchContext, ActionListener.wrap(
-                                            (response) -> listener.onResponse(asyncSearchContext.getAsyncSearchResponse()),
-                                            listener::onFailure));
+                                    asyncSearchService.updateKeepAlive(request, asyncSearchContext, listener);
                                 } else {
                                     listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                                 }
@@ -110,9 +106,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                             break;
                         case STORE:
                             if (updateNeeded) {
-                                asyncSearchService.updateKeepAlive(request, asyncSearchContext, ActionListener.wrap(
-                                        (response) -> listener.onResponse(asyncSearchContext.getAsyncSearchResponse()),
-                                        listener::onFailure));
+                                asyncSearchService.updateKeepAlive(request, asyncSearchContext, listener);
                             } else {
                                 listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                             }

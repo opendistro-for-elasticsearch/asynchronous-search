@@ -41,12 +41,12 @@ public abstract class AbstractAsyncSearchContext {
 
     public abstract AsyncSearchResponse getAsyncSearchResponse();
 
-    public abstract long getExpirationTimeNanos();
+    public abstract long getExpirationTimeMillis();
 
     public abstract Source getSource();
 
     public boolean isExpired() {
-        return System.nanoTime() > getExpirationTimeNanos();
+        return System.currentTimeMillis() > getExpirationTimeMillis();
     }
 
 }

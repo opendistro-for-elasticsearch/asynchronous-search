@@ -116,9 +116,9 @@ public class AsyncSearchService implements ClusterStateListener {
         this.maxKeepAlive = maxKeepAlive.millis();
     }
 
-    public final ActiveAsyncSearchContext prepareContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, long relativeStartNanos) {
+    public final ActiveAsyncSearchContext prepareContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, long relativeStartMillis) {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
-        AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartNanos,
+        AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartMillis,
                 (response) -> onSearchResponse(response, asyncSearchContextId),
                 (e) -> onSearchFailure(e, asyncSearchContextId), threadPool.executor(ThreadPool.Names.GENERIC));
         ActiveAsyncSearchContext asyncSearchContext = new ActiveAsyncSearchContext(new AsyncSearchId(clusterService.localNode().getId(),
@@ -189,8 +189,7 @@ public class AsyncSearchService implements ClusterStateListener {
             ActiveAsyncSearchContext asyncSearchContext = asyncSearchContextOptional.get();
             asyncSearchContext.processFinalResponse(searchResponse);
             asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
-            AsyncSearchPersistenceModel model = new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchResponse,
-                    asyncSearchContext.getExpirationTimeNanos());
+            AsyncSearchPersistenceModel model = new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchResponse);
             acquireSearchContextPermit(asyncSearchContext, ActionListener.wrap(
                     releasable -> {
                         persistenceService.createResponse(model, ActionListener.wrap(
@@ -228,12 +227,15 @@ public class AsyncSearchService implements ClusterStateListener {
 
 
     public void updateKeepAlive(GetAsyncSearchRequest request, AbstractAsyncSearchContext abstractAsyncSearchContext,
-                                ActionListener<Boolean> listener) {
+                                ActionListener<AsyncSearchResponse> listener) {
         AbstractAsyncSearchContext.Source source = abstractAsyncSearchContext.getSource();
-        long requestedExpirationTime = System.nanoTime() + request.getKeepAlive().getNanos();
+        long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
         if (source.equals(AbstractAsyncSearchContext.Source.STORE)) {
             persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime,
-                    ActionListener.wrap((actionResponse) -> listener.onResponse(true), listener::onFailure));
+                    ActionListener.wrap((actionResponse) -> {
+                        listener.onResponse(new AsyncSearchResponse(abstractAsyncSearchContext.getAsyncSearchResponse(),
+                                requestedExpirationTime));
+                    }, listener::onFailure));
         } else {
             ActiveAsyncSearchContext activeAsyncSearchContext = (ActiveAsyncSearchContext) abstractAsyncSearchContext;
             acquireSearchContextPermit(activeAsyncSearchContext, ActionListener.wrap(
@@ -241,10 +243,12 @@ public class AsyncSearchService implements ClusterStateListener {
                         Optional<ActiveAsyncSearchContext> activeContext =
                                 asyncSearchInMemoryService.findActiveContext(activeAsyncSearchContext.getAsyncSearchContextId());
                         if (activeContext.isPresent()) {
-                            activeContext.get().setExpirationNanos(requestedExpirationTime);
+                            activeContext.get().setExpirationMillis(requestedExpirationTime);
+                            listener.onResponse(activeAsyncSearchContext.getAsyncSearchResponse());
+                            releasable.close();
+                        } else {
+                            listener.onFailure(new AsyncSearchContextMissingException(abstractAsyncSearchContext.getAsyncSearchContextId()));
                         }
-                        listener.onResponse(true);
-                        releasable.close();
                     },
                     listener::onFailure), TimeValue.timeValueSeconds(5), "persisting response");
         }

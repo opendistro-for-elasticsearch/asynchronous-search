@@ -47,10 +47,10 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
 
     private PartialResultsHolder partialResultsHolder;
 
-    public AsyncSearchProgressListener(long relativeStartNanos, CheckedFunction<SearchResponse, AsyncSearchResponse, Exception> function,
+    public AsyncSearchProgressListener(long relativeStartMillis, CheckedFunction<SearchResponse, AsyncSearchResponse, Exception> function,
                                        Consumer<Exception> onFailure, Executor executor) {
         super(function, onFailure, executor);
-        this.partialResultsHolder = new PartialResultsHolder(relativeStartNanos);
+        this.partialResultsHolder = new PartialResultsHolder(relativeStartMillis);
     }
 
     /***
@@ -141,9 +141,9 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
         private final AtomicArray<ShardSearchFailure> shardSearchFailures;
         private final AtomicInteger pos;
         private final AtomicBoolean hasFetchPhase;
-        private final long relativeStartNanos;
+        private final long relativeStartMillis;
 
-        PartialResultsHolder(long relativeStartNanos) {
+        PartialResultsHolder(long relativeStartMillis) {
             this.internalAggregations = new AtomicReference<>();
             this.shardSearchFailures = new AtomicArray<>(1);
             this.totalShards = new AtomicInteger();
@@ -156,7 +156,7 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
             this.totalHits = new AtomicReference<>();
             this.clusters = new AtomicReference<>();
             this.delayedInternalAggregations = new AtomicReference<>();
-            this.relativeStartNanos = relativeStartNanos;
+            this.relativeStartMillis = relativeStartMillis;
         }
 
         SearchResponse partialResponse() {
@@ -166,7 +166,7 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
                         this.internalAggregations.get() == null ? this.delayedInternalAggregations.get().expand() : this.internalAggregations.get(),
                         null, null, false, false, this.reducePhase.get());
                 ShardSearchFailure[] shardSearchFailures = this.shardSearchFailures.toArray(new ShardSearchFailure[]{});
-                long tookInMillis = System.nanoTime() - relativeStartNanos;
+                long tookInMillis = System.currentTimeMillis() - relativeStartMillis;
                 return new SearchResponse(internalSearchResponse, null, this.totalShards.get(), this.successfulShards.get(),
                         this.skippedShards.get(), tookInMillis, shardSearchFailures, this.clusters.get());
             } else {

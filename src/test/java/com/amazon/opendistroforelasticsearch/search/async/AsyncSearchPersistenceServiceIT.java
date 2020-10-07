@@ -52,7 +52,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
 
         CountDownLatch getLatch = new CountDownLatch(1);
         persistenceService.getResponse(newAsyncSearchResponse.getId(), ActionListener.wrap(
-                (AsyncSearchPersistenceModel r) -> verifyResponse(newAsyncSearchResponse, getLatch, r), exception -> failure(getLatch)));
+                r -> verifyResponse(newAsyncSearchResponse, getLatch, r), exception -> failure(getLatch)));
         getLatch.await();
 
         CountDownLatch deleteLatch = new CountDownLatch(1);
@@ -79,7 +79,8 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         NamedWriteableRegistry namedWriteableRegistry = writableRegistry();
         AsyncSearchId asyncSearchId = generateNewAsynSearchId(transportService);
         AsyncSearchPersistenceModel model1 = new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchId,
-                System.nanoTime() + 10000, "responseString");
+                System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(),
+                "responseString");
         CountDownLatch createLatch = new CountDownLatch(1);
         persistenceService.createResponse(model1, ActionListener.wrap(
                 response -> createLatch.countDown(), ex -> failure(createLatch)));
@@ -109,9 +110,9 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         AsyncSearchId asyncSearchId1 = generateNewAsynSearchId(transportService);
         AsyncSearchId asyncSearchId2 = generateNewAsynSearchId(transportService);
         AsyncSearchPersistenceModel model1 = new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchId1,
-                System.nanoTime() + 1000000000000L, "responseString");
+                System.currentTimeMillis() + new TimeValue(5, TimeUnit.DAYS).getMillis(), "responseString");
         AsyncSearchPersistenceModel model2 = new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchId2,
-                System.nanoTime() + 1000000000000L, "responseString");
+                System.currentTimeMillis() + new TimeValue(5, TimeUnit.DAYS).getMillis(), "responseString");
         CountDownLatch createLatch = new CountDownLatch(2);
         threadPool.generic().execute(() -> persistenceService.createResponse(model1, ActionListener.wrap(
                 response -> createLatch.countDown(), ex -> failure(createLatch))));
@@ -137,7 +138,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         AsyncSearchResponse asyncSearchResponse = getAsyncSearchResponse();
 
         CountDownLatch updateLatch = new CountDownLatch(1);
-        long newExpirationTime = System.nanoTime() +10000000000000000L;
+        long newExpirationTime = System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis();
         persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
                 newExpirationTime, ActionListener.wrap(r -> updateLatch.countDown(),
                         e -> failure(updateLatch)));
@@ -146,7 +147,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         CountDownLatch getLatch = new CountDownLatch(1);
         persistenceService.getResponse(asyncSearchResponse.getId(), ActionListener.wrap(r -> {
             AsyncSearchResponse asyncSearchResponse1 = r.getAsyncSearchResponse();
-            assert asyncSearchResponse1.getExpirationTimeMillis() == TimeUnit.NANOSECONDS.toMillis(newExpirationTime);
+            assert asyncSearchResponse1.getExpirationTimeMillis() == newExpirationTime;
             assert asyncSearchResponse1.getId().equals(asyncSearchResponse.getId());
             getLatch.countDown();
         }, e -> failure(getLatch)));
@@ -163,7 +164,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         AsyncSearchResponse newAsyncSearchResponse = new AsyncSearchResponse(AsyncSearchId.buildAsyncId(asyncSearchId),
                 asyncSearchResponse.isPartial(),
                 asyncSearchResponse.isRunning(),
-                asyncSearchResponse.getStartTimeMillis(), System.nanoTime(),
+                asyncSearchResponse.getStartTimeMillis(), System.currentTimeMillis(),
                 asyncSearchResponse.getSearchResponse(),
                 asyncSearchResponse.getError());
         createDoc(persistenceService, namedWriteableRegistry, newAsyncSearchResponse);
@@ -194,13 +195,8 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
     private void createDoc(AsyncSearchPersistenceService persistenceService, NamedWriteableRegistry namedWriteableRegistry,
                            AsyncSearchResponse asyncSearchResponse) throws IOException, InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        persistenceService.createResponse(new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchResponse,
-                        asyncSearchResponse.getExpirationTimeMillis()*1000000L),
-                ActionListener.wrap(r -> {
-                    latch.countDown();
-                }, e -> {
-                    failure(latch);
-                }));
+        persistenceService.createResponse(new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchResponse),
+                ActionListener.wrap(r -> latch.countDown(), e -> failure(latch)));
         latch.await();
     }
 

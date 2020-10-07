@@ -1,13 +1,13 @@
 package com.amazon.opendistroforelasticsearch.search.async.utils;
 
-import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
-import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.bulk.BackoffPolicy;
@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
-import static org.junit.Assert.assertEquals;
 
 public class TestClientUtils {
     static final String INDEX = ".async_search_response";
@@ -72,7 +71,6 @@ public class TestClientUtils {
         AsyncSearchResponse getResponse;
         do {
             getResponse = blockingGetAsyncSearchResponse(client, submitResponse, getAsyncSearchRequest);
-            assertEquals(submitResponse.getExpirationTimeMillis(), getResponse.getExpirationTimeMillis());
         } while (getResponse.isRunning());
         return getResponse;
     }

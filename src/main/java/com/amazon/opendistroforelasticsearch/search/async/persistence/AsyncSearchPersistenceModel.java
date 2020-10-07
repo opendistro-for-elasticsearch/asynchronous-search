@@ -13,13 +13,12 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Base64;
-import java.util.concurrent.TimeUnit;
 
 public class AsyncSearchPersistenceModel extends AbstractAsyncSearchContext implements ToXContentObject {
 
     public static final String EXPIRATION_TIME = "expiration_time";
     public static final String RESPONSE = "response";
-    private final long expirationTimeNanos;
+    private final long expirationTimeMillis;
     private final NamedWriteableRegistry namedWriteableRegistry;
 
     public String getResponse() {
@@ -28,19 +27,18 @@ public class AsyncSearchPersistenceModel extends AbstractAsyncSearchContext impl
 
     private final String response;
 
-    public AsyncSearchPersistenceModel(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchResponse asyncSearchResponse,
-                                       long expirationTimeNanos) throws IOException {
+    public AsyncSearchPersistenceModel(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchResponse asyncSearchResponse) throws IOException {
         super(AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()));
-        this.expirationTimeNanos = expirationTimeNanos;
+        this.expirationTimeMillis = asyncSearchResponse.getExpirationTimeMillis();
         this.namedWriteableRegistry = namedWriteableRegistry;
         this.response = encodeResponse(asyncSearchResponse);
     }
 
 
     public AsyncSearchPersistenceModel(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchId asyncSearchId,
-                                       long expirationTimeNanos, String response) {
+                                       long expirationTimeMillis, String response) {
         super(asyncSearchId);
-        this.expirationTimeNanos = expirationTimeNanos;
+        this.expirationTimeMillis = expirationTimeMillis;
         this.namedWriteableRegistry = namedWriteableRegistry;
         this.response = response;
     }
@@ -52,12 +50,12 @@ public class AsyncSearchPersistenceModel extends AbstractAsyncSearchContext impl
 
     @Override
     public AsyncSearchResponse getAsyncSearchResponse() {
-        return new AsyncSearchResponse(decodeResponse(response), TimeUnit.MILLISECONDS.convert(expirationTimeNanos, TimeUnit.NANOSECONDS));
+        return new AsyncSearchResponse(decodeResponse(response), expirationTimeMillis);
     }
 
     @Override
-    public long getExpirationTimeNanos() {
-        return expirationTimeNanos;
+    public long getExpirationTimeMillis() {
+        return expirationTimeMillis;
     }
 
     @Override
