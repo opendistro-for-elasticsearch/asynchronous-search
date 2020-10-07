@@ -27,7 +27,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.StepListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.client.Client;
@@ -170,10 +169,7 @@ public class AsyncSearchService implements ClusterStateListener {
                     listener.onFailure(new ResourceNotFoundException(id));
                 }
             };
-            StepListener<Boolean> storeDelete = new StepListener<Boolean>();
-            persistenceService.deleteResponse(id, storeDelete);
-            storeDelete.whenComplete(r -> inMemoryDelete.accept(true), e -> inMemoryDelete.accept(false));
-
+            persistenceService.deleteResponse(id, ActionListener.wrap(r -> inMemoryDelete.accept(true), e -> inMemoryDelete.accept(false)));
 
         } catch (Exception e) {
             logger.error("Failed to build asyncsearch id for context ["
