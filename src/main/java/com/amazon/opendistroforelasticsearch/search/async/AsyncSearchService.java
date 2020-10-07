@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearc
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
@@ -50,6 +51,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import static com.amazon.opendistroforelasticsearch.search.async.memory.ActiveAsyncSearchContext.Stage.ABORTED;
+import static com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames.ABORTED_ASYNC_SEARCH_COUNT;
+import static com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames.COMPLETED_ASYNC_SEARCH_COUNT;
+import static com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames.FAILED_ASYNC_SEARCH_COUNT;
+import static com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames.PERSISTED_ASYNC_SEARCH_COUNT;
 import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
@@ -85,10 +91,12 @@ public class AsyncSearchService implements ClusterStateListener {
 
     private final AsyncSearchInMemoryService asyncSearchInMemoryService;
 
+    private final AsyncSearchStats asyncSearchStats;
+
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService,
                               AsyncSearchInMemoryService asyncSearchInMemoryService,
                               Client client, ClusterService clusterService,
-                              ThreadPool threadPool, NamedWriteableRegistry namedWriteableRegistry) {
+                              ThreadPool threadPool, NamedWriteableRegistry namedWriteableRegistry, AsyncSearchStats asyncSearchStats) {
         this.client = client;
         Settings settings = clusterService.getSettings();
         setKeepAlives(DEFAULT_KEEPALIVE_SETTING.get(settings), MAX_KEEPALIVE_SETTING.get(settings));
@@ -99,6 +107,7 @@ public class AsyncSearchService implements ClusterStateListener {
         this.persistenceService = asyncSearchPersistenceService;
         this.asyncSearchInMemoryService = asyncSearchInMemoryService;
         this.namedWriteableRegistry = namedWriteableRegistry;
+        this.asyncSearchStats = asyncSearchStats;
     }
 
     private void validateKeepAlives(TimeValue defaultKeepAlive, TimeValue maxKeepAlive) {
@@ -184,6 +193,7 @@ public class AsyncSearchService implements ClusterStateListener {
         if (asyncSearchContextOptional.isPresent()) {
             ActiveAsyncSearchContext asyncSearchContext = asyncSearchContextOptional.get();
             asyncSearchContext.processFinalResponse(searchResponse);
+            asyncSearchStats.getStat(COMPLETED_ASYNC_SEARCH_COUNT.getName()).increment();
             asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
             AsyncSearchPersistenceModel model = new AsyncSearchPersistenceModel(namedWriteableRegistry, asyncSearchResponse);
             acquireSearchContextPermit(asyncSearchContext, ActionListener.wrap(
@@ -192,6 +202,7 @@ public class AsyncSearchService implements ClusterStateListener {
                                 (indexResponse) -> {
                                     asyncSearchContext.performPostPersistenceCleanup();
                                     asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
+                                    asyncSearchStats.getStat(PERSISTED_ASYNC_SEARCH_COUNT.getName()).increment();
                                     asyncSearchInMemoryService.removeContext(asyncSearchContextId);
                                     releasable.close();
                                 },
@@ -217,6 +228,7 @@ public class AsyncSearchService implements ClusterStateListener {
         Optional<ActiveAsyncSearchContext> activeContext = asyncSearchInMemoryService.findActiveContext(asyncSearchContextId);
         if (activeContext.isPresent()) {
             activeContext.get().processFailure(e);
+            asyncSearchStats.getStat(FAILED_ASYNC_SEARCH_COUNT.getName()).increment();
             asyncSearchInMemoryService.removeContext(asyncSearchContextId);
         }
     }
@@ -269,7 +281,8 @@ public class AsyncSearchService implements ClusterStateListener {
     public void onCancelled(AsyncSearchContextId contextId) {
         Optional<ActiveAsyncSearchContext> activeContext = asyncSearchInMemoryService.findActiveContext(contextId);
         if (activeContext.isPresent()) {
-            activeContext.get().setStage(ActiveAsyncSearchContext.Stage.ABORTED);
+            activeContext.get().setStage(ABORTED);
+            asyncSearchStats.getStat(ABORTED_ASYNC_SEARCH_COUNT.getName()).increment();
         }
     }
 

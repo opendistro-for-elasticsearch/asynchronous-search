@@ -29,9 +29,9 @@ import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSe
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStat;
+import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
-import com.amazon.opendistroforelasticsearch.search.async.stats.StatNames;
-import com.amazon.opendistroforelasticsearch.search.async.stats.supplier.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.search.async.stats.supplier.Counter;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
@@ -114,14 +114,23 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
 
         Map<String, AsyncSearchStat<?>> stats = Stream.of(
                 new AbstractMap.SimpleEntry<>(
-                        StatNames.RUNNING_ASYNC_SEARCH_COUNT.getName(), new AsyncSearchStat<>(false, new CounterSupplier())))
+                        AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName(), new AsyncSearchStat<>(false, new Counter())),
+                new AbstractMap.SimpleEntry<>(
+                        AsyncSearchStatNames.ABORTED_ASYNC_SEARCH_COUNT.getName(), new AsyncSearchStat<>(false, new Counter())),
+                new AbstractMap.SimpleEntry<>(
+                        AsyncSearchStatNames.COMPLETED_ASYNC_SEARCH_COUNT.getName(), new AsyncSearchStat<>(false, new Counter())),
+                new AbstractMap.SimpleEntry<>(
+                        AsyncSearchStatNames.PERSISTED_ASYNC_SEARCH_COUNT.getName(), new AsyncSearchStat<>(false, new Counter())),
+                new AbstractMap.SimpleEntry<>(
+                        AsyncSearchStatNames.FAILED_ASYNC_SEARCH_COUNT.getName(), new AsyncSearchStat<>(false, new Counter()))
+        )
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         asyncSearchStats = new AsyncSearchStats(stats);
         this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool, namedWriteableRegistry);
         this.inMemoryService = new AsyncSearchInMemoryService(threadPool, clusterService, asyncSearchStats);
         return Arrays.asList(new AsyncSearchService(persistenceService, inMemoryService, client, clusterService, threadPool,
-                namedWriteableRegistry), asyncSearchStats);
+                namedWriteableRegistry, asyncSearchStats), asyncSearchStats);
 
     }
 

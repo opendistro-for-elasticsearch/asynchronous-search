@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.stats;
 
-import com.amazon.opendistroforelasticsearch.search.async.stats.supplier.CounterSupplier;
+import com.amazon.opendistroforelasticsearch.search.async.stats.supplier.Counter;
 
 import java.util.function.Supplier;
 
@@ -44,14 +44,14 @@ public class AsyncSearchStat<T> {
     }
 
     public void increment() {
-        if (supplier instanceof CounterSupplier) {
-            ((CounterSupplier) supplier).increment();
+        if (supplier instanceof Counter) {
+            ((Counter) supplier).increment();
         }
     }
 
     public void decrement() {
-        if (supplier instanceof CounterSupplier) {
-            ((CounterSupplier) supplier).decrement();
+        if (supplier instanceof Counter) {
+            ((Counter) supplier).decrement();
         }
 
     }

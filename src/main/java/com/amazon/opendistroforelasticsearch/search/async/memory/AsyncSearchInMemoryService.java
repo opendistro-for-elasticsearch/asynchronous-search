@@ -3,7 +3,7 @@ package com.amazon.opendistroforelasticsearch.search.async.memory;
 import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
-import com.amazon.opendistroforelasticsearch.search.async.stats.StatNames;
+import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -71,7 +71,7 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
      */
     public void putContext(AsyncSearchContextId asyncSearchContextId, ActiveAsyncSearchContext asyncSearchContext) {
         activeContexts.put(asyncSearchContextId.getId(), asyncSearchContext);
-        asyncSearchStats.getStat(StatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).increment();
+        asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).increment();
     }
 
     public Map<Long, ActiveAsyncSearchContext> getAllContexts() {
@@ -81,7 +81,7 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
 
     public void removeContext(AsyncSearchContextId asyncSearchContextId) {
         activeContexts.remove(asyncSearchContextId.getId());
-        asyncSearchStats.getStat(StatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).decrement();
+        asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).decrement();
     }
 
     public boolean freeCachedContext(AsyncSearchContextId asyncSearchContextId) {
