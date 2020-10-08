@@ -207,7 +207,7 @@ public class AsyncSearchService implements ClusterStateListener {
                                 .filter(Objects::nonNull)
                                 .allMatch(resp -> resp == true));
                     },
-                    listener::onFailure), 2);*/
+                    listener::onFailure), 2);
 
 
         } catch (Exception e) {
