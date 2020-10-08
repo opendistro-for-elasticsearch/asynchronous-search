@@ -285,10 +285,7 @@ public class AsyncSearchService implements ClusterStateListener {
             ActiveAsyncSearchContext activeAsyncSearchContext = (ActiveAsyncSearchContext) abstractAsyncSearchContext;
             acquireSearchContextPermit(activeAsyncSearchContext, ActionListener.wrap(
                 releasable -> {
-                    Optional<ActiveAsyncSearchContext> activeContext =
-                            asyncSearchInMemoryService.findActiveContext(activeAsyncSearchContext.getContextId());
-                    if (activeContext.isPresent()) {
-                        activeContext.get().setExpirationMillis(requestedExpirationTime);
+                        if (asyncSearchInMemoryService.updateContext(activeAsyncSearchContext.getContextId(), requestedExpirationTime)) {
                         listener.onResponse(activeAsyncSearchContext.getAsyncSearchResponse());
                         releasable.close();
                     } else {

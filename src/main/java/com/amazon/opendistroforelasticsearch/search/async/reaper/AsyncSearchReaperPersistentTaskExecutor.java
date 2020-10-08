@@ -28,7 +28,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSea
 
 public class AsyncSearchReaperPersistentTaskExecutor extends PersistentTasksExecutor<AsyncSearchReaperParams> {
 
-    public static final String NAME = "cluster:admin/persistent/asycn_search_reaper";
+    public static final String NAME = "cluster:admin/persistent/async_search_reaper";
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchReaperPersistentTaskExecutor.class);
 
