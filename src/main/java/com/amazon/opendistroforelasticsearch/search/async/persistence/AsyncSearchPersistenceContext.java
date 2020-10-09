@@ -27,7 +27,7 @@ public class AsyncSearchPersistenceContext extends AbstractAsyncSearchContext im
 
     private final String response;
 
-    public AsyncSearchPersistenceContext(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchResponse asyncSearchResponse) throws IOException {
+    public AsyncSearchPersistenceContext(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchResponse asyncSearchResponse) {
         super(AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()));
         this.expirationTimeMillis = asyncSearchResponse.getExpirationTimeMillis();
         this.namedWriteableRegistry = namedWriteableRegistry;
@@ -63,12 +63,14 @@ public class AsyncSearchPersistenceContext extends AbstractAsyncSearchContext im
         return Source.STORE;
     }
 
-    private String encodeResponse(AsyncSearchResponse asyncSearchResponse) throws IOException {
+    private String encodeResponse(AsyncSearchResponse asyncSearchResponse) {
 
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             asyncSearchResponse.writeTo(out);
             byte[] bytes = BytesReference.toBytes(out.bytes());
             return Base64.getUrlEncoder().encodeToString(bytes);
+        } catch (IOException e) {
+            return null;
         }
     }
 

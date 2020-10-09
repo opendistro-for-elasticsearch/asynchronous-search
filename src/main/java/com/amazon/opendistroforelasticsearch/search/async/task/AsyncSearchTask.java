@@ -31,4 +31,5 @@ public class AsyncSearchTask extends SearchTask {
         onCancelledContextConsumer.accept(asyncSearchContextId);
     }
 
+
 }

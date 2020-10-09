@@ -5,6 +5,7 @@ import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchReap
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.LocalNodeMasterListener;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -19,6 +20,7 @@ import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * The service takes care of cancelling ongoing searches, clean up async search responses from disk by scheduling delete-by-query on master
@@ -65,8 +67,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
     @Override
     protected void doStart() {
-        taskReaperScheduledFuture = threadPool.scheduleWithFixedDelay(new TaskReaper(), TimeValue.timeValueMinutes(30),
-                ThreadPool.Names.GENERIC);
+        taskReaperScheduledFuture = threadPool.scheduleWithFixedDelay(new TaskReaper(), TimeValue.timeValueMinutes(30), ThreadPool.Names.GENERIC);
     }
 
     @Override
@@ -84,14 +85,11 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
         @Override
         public void run() {
-            asyncSearchService.getOverRunningTasks(ActionListener.wrap(toCancel -> {
-                toCancel.forEach(
-                        task -> client.admin().cluster()
-                                .prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(), task.getId()))
-                                .execute());
-            }, e -> {
-            }));
-
+            Set<SearchTask> toCancel = asyncSearchService.getOverRunningTasks();
+            toCancel.forEach(
+                     task -> client.admin().cluster()
+                    .prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(), task.getId()))
+                    .execute());
         }
     }
 

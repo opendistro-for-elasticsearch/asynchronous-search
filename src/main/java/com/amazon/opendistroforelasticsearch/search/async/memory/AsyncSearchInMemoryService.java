@@ -2,12 +2,10 @@ package com.amazon.opendistroforelasticsearch.search.async.memory;
 
 import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextMissingException;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.settings.Setting;
@@ -57,46 +55,34 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
     /**
      * @param asyncSearchContextId New Key being inserted into active context map
      * @param asyncSearchContext   New Value being insert into active context map
-     * @param listener handle context post insertion into map
      */
-    public void putContext(AsyncSearchContextId asyncSearchContextId, ActiveAsyncSearchContext asyncSearchContext,
-                           ActionListener<ActiveAsyncSearchContext> listener) {
+    public void putContext(AsyncSearchContextId asyncSearchContextId, ActiveAsyncSearchContext asyncSearchContext) {
         activeContexts.put(asyncSearchContextId.getId(), asyncSearchContext);
         asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).increment();
-        listener.onResponse(asyncSearchContext);
     }
 
-    public void getContext(AsyncSearchContextId contextId, ActionListener<ActiveAsyncSearchContext> listener) {
-        ActiveAsyncSearchContext context = activeContexts.get(contextId.getId());
-        if (context == null) {
-            listener.onFailure(new AsyncSearchContextMissingException(contextId));
-        } else {
-            listener.onResponse(context);
-        }
-
+    public ActiveAsyncSearchContext getContext(AsyncSearchContextId contextId) {
+        return activeContexts.get(contextId.getId());
     }
+
 
     /**
      * Returns a copy of all active contexts
+     *
+     * @return
      */
-    public void getAllContexts(ActionListener<Map<Long, ActiveAsyncSearchContext>> listener) {
-        listener.onResponse(CollectionUtils.copyMap(activeContexts));
+    public Map<Long, ActiveAsyncSearchContext> getAllContexts() {
+        return CollectionUtils.copyMap(activeContexts);
     }
 
     /**
      * Removes an active context
      *
-     * @param asyncSearchContextId key to remove
+     * @param asyncSearchContextId
+     * @return
      */
-    public void removeContext(AsyncSearchContextId asyncSearchContextId, ActionListener<Boolean> listener) {
-        ActiveAsyncSearchContext remove = activeContexts.remove(asyncSearchContextId.getId());
-        if (remove != null) {
-            asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).decrement();
-            listener.onResponse(true);
-        } else {
-            listener.onResponse(false);
-        }
-
+    public ActiveAsyncSearchContext removeContext(AsyncSearchContextId asyncSearchContextId) {
+        return activeContexts.remove(asyncSearchContextId.getId());
     }
 
     /**
@@ -115,7 +101,7 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
 
     /**
      * Frees the active context
-     * @param asyncSearchContextId key for context map
+     * @param asyncSearchContextId
      * @return acknowledgement of context removal
      */
     private boolean freeContext(AsyncSearchContextId asyncSearchContextId) {

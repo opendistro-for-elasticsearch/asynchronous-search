@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.search.async;
 
 
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import org.elasticsearch.action.search.SearchProgressActionListener;
+
+import java.util.Optional;
 
 public abstract class AbstractAsyncSearchContext {
 
@@ -30,6 +33,8 @@ public abstract class AbstractAsyncSearchContext {
     public AbstractAsyncSearchContext(AsyncSearchId asyncSearchId) {
         this.asyncSearchId = asyncSearchId;
     }
+
+    public Optional<SearchProgressActionListener> getSearchProgressActionListener() { return Optional.empty(); }
 
     public AsyncSearchContextId getContextId() {
         return asyncSearchId.getAsyncSearchContextId();

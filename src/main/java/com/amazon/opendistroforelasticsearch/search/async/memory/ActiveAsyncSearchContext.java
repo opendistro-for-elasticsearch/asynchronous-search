@@ -17,6 +17,7 @@ import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -84,18 +85,27 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         this.progressActionListener = progressActionListener;
     }
 
-    public AsyncSearchProgressListener getProgressActionListener() {
-        return progressActionListener;
+    @Override
+    public Optional<SearchProgressActionListener> getSearchProgressActionListener() {
+        return Optional.of(progressActionListener);
     }
 
-    public void prepareSearch(SearchTask searchTask) {
+    public void initializeTask(SearchTask searchTask) {
         this.searchTask.set(searchTask);
-        this.setExpirationMillis(searchTask.getStartTime() + keepAlive.getMillis());
-        this.stage = Stage.INIT;
+        this.searchTask.get().setProgressListener(progressActionListener);
     }
+
+    public TimeValue getKeepAlive() {
+        return keepAlive;
+    }
+
 
     public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
         asyncSearchContextPermit.asyncAcquirePermit(onPermitAcquired, timeout, reason);
+    }
+
+    public void acquireAllContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
+        asyncSearchContextPermit.asyncAcquireALLPermits(onPermitAcquired, timeout, reason);
     }
 
     public SearchTask getTask() {

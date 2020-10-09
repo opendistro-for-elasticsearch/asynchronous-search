@@ -17,7 +17,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class AsyncSearchContextPermit {
 
-    private final Semaphore mutex = new Semaphore(1, true);
+    private static final int TOTAL_PERMITS = Integer.MAX_VALUE;
+    private final Semaphore mutex = new Semaphore(TOTAL_PERMITS, true);
     private final AsyncSearchContextId asyncSearchContextId;
     private final ThreadPool threadPool;
     private static final Logger logger = LogManager.getLogger(AsyncSearchContextPermit.class);
@@ -27,10 +28,9 @@ public class AsyncSearchContextPermit {
         this.threadPool = threadPool;
     }
 
-
-    private Releasable acquireContextLock(TimeValue timeout, final String details) throws RuntimeException {
+    private Releasable acquirePermits(int permits, TimeValue timeout, final String details) throws RuntimeException {
         try {
-            if (mutex.tryAcquire(timeout.getMillis(), TimeUnit.MILLISECONDS)) {
+            if (mutex.tryAcquire(permits, timeout.getMillis(), TimeUnit.MILLISECONDS)) {
                 final RunOnce release = new RunOnce(() -> {
                     mutex.release(1);
                 });
@@ -46,6 +46,23 @@ public class AsyncSearchContextPermit {
         }
     }
 
+    private void asyncAcquirePermit(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
+        threadPool.executor(ThreadPool.Names.GENERIC).execute(new AbstractRunnable() {
+
+            @Override
+            public void onFailure(final Exception e) {
+               onAcquired.onFailure(e);
+            }
+
+            @Override
+            protected void doRun()  {
+                final Releasable releasable = acquirePermits(permits, timeout, reason);
+                logger.info("Successfully acquired permit for {}", reason);
+                onAcquired.onResponse(() -> releasable.close());
+            }
+        });
+    }
+
     /***
      * Acquire the permit in an async fashion so as to not block the thread while acquiring. The {@link ActionListener} is invoked if
      * the mutex was successfully acquired within the timeout. The caller has a responsibility of executing the {@link Releasable}
@@ -56,19 +73,19 @@ public class AsyncSearchContextPermit {
      * @param reason the reason for acquiring the permit
      */
     public void asyncAcquirePermit(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
-        threadPool.executor(ThreadPool.Names.GENERIC).execute(new AbstractRunnable() {
+        asyncAcquirePermit(1, onAcquired, timeout, reason);
+    }
 
-            @Override
-            public void onFailure(final Exception e) {
-               onAcquired.onFailure(e);
-            }
-
-            @Override
-            protected void doRun()  {
-                final Releasable releasable = acquireContextLock(timeout, reason);
-                logger.info("Successfully acquired permit for {}", reason);
-                onAcquired.onResponse(() -> releasable.close());
-            }
-        });
+    /***
+     * Acquire all the permits in an async fashion so as to not block the thread while acquiring. The {@link ActionListener} is invoked if
+     * the mutex was successfully acquired within the timeout. The caller has a responsibility of executing the {@link Releasable}
+     * on completion or failure of the operation run within the permit
+     *
+     * @param onAcquired the releasable that must be invoked
+     * @param timeout the timeout within which the permit must be acquired or deemed failed
+     * @param reason the reason for acquiring the permit
+     */
+    public void asyncAcquireALLPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
+        asyncAcquirePermit(TOTAL_PERMITS, onAcquired, timeout, reason);
     }
 }
