@@ -14,7 +14,6 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
@@ -111,23 +110,21 @@ public class AsyncSearchPersistenceService {
         if (!indexExists()) {
             listener.onFailure(new ResourceNotFoundException(id));
         }
-        client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id), new ActionListener<DeleteResponse>() {
-            @Override
-            public void onResponse(DeleteResponse deleteResponse) {
-                if (deleteResponse.getResult() == DocWriteResponse.Result.NOT_FOUND) {
-                    listener.onFailure(new ResourceNotFoundException(id));
-                } else {
-                    logger.debug("Deleted async search {}", id);
-                    listener.onResponse(true);
-                }
-            }
 
-            @Override
-            public void onFailure(Exception e) {
-                logger.error("Failed to delete async search " + id, e);
-                listener.onFailure(e);
-            }
-        });
+        client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id), ActionListener.wrap(
+                deleteResponse -> {
+                    if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED) {
+                        listener.onResponse(true);
+                        logger.debug("Deleted async search {}", id);
+                    } else {
+                        logger.debug("Delete async search {} unsuccessful. Returned result {}", id, deleteResponse.getResult());
+                        listener.onResponse(false);
+                    }
+                }, e -> {
+                    logger.error("Failed to delete async search " + id, e);
+                    listener.onFailure(e);
+                }
+        ));
     }
 
     /**

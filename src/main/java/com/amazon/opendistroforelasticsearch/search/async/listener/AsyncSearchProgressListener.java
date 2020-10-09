@@ -19,10 +19,10 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchRe
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.ShardSearchFailure;
-import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.common.util.concurrent.AtomicArray;
 import org.elasticsearch.search.SearchHits;
@@ -35,6 +35,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /***
@@ -47,9 +48,9 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
 
     private PartialResultsHolder partialResultsHolder;
 
-    public AsyncSearchProgressListener(long relativeStartMillis, CheckedFunction<SearchResponse, AsyncSearchResponse, Exception> function,
+    public AsyncSearchProgressListener(long relativeStartMillis, BiConsumer<SearchResponse, ActionListener<AsyncSearchResponse>> consumer,
                                        Consumer<Exception> onFailure, Executor executor) {
-        super(function, onFailure, executor);
+        super(consumer, onFailure, executor);
         this.partialResultsHolder = new PartialResultsHolder(relativeStartMillis);
     }
 

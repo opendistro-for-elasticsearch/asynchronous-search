@@ -171,7 +171,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
     /**
      * Atomically validates and updates the state of the search
-     * @param stage
+     * @param stage stage to set
      */
     public synchronized void setStage(Stage stage) {
         switch (stage) {

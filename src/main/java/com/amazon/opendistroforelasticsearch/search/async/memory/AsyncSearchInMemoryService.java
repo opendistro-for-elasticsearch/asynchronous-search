@@ -2,10 +2,12 @@ package com.amazon.opendistroforelasticsearch.search.async.memory;
 
 import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextMissingException;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames;
+import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.settings.Setting;
@@ -18,7 +20,6 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -26,8 +27,9 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
 
 /**
- *  Once the response have been persisted or otherwise ready to be expunged, the {@link AsyncSearchInMemoryService.Reaper} frees up the in-memory contexts maintained
- *  on the coordinator node
+ * Once the response have been persisted or otherwise ready to be expunged, the {@link AsyncSearchInMemoryService.Reaper} frees up the
+ * in-memory contexts maintained
+ * on the coordinator node
  */
 public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
 
@@ -47,78 +49,79 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         Settings settings = clusterService.getSettings();
-        this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new Reaper(), KEEPALIVE_INTERVAL_SETTING.get(settings), ThreadPool.Names.GENERIC);
+        this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new Reaper(), KEEPALIVE_INTERVAL_SETTING.get(settings),
+                ThreadPool.Names.GENERIC);
         this.asyncSearchStats = asyncSearchStats;
     }
 
     /**
-     * Finds an active context if one is present
-     * @param asyncSearchContextId
-     * @return
+     * @param asyncSearchContextId New Key being inserted into active context map
+     * @param asyncSearchContext   New Value being insert into active context map
+     * @param listener
      */
-    public Optional<ActiveAsyncSearchContext> findActiveContext(AsyncSearchContextId asyncSearchContextId) {
-        final ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
-        return Optional.ofNullable(asyncSearchContext);
+    public void putContext(AsyncSearchContextId asyncSearchContextId, ActiveAsyncSearchContext asyncSearchContext,
+                           ActionListener<ActiveAsyncSearchContext> listener) {
+        activeContexts.put(asyncSearchContextId.getId(), asyncSearchContext);
+        asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).increment();
+        listener.onResponse(asyncSearchContext);
     }
 
-    public ActiveAsyncSearchContext getContext(AsyncSearchContextId contextId) {
-        final ActiveAsyncSearchContext context = activeContexts.get(contextId.getId());
+    public void getContext(AsyncSearchContextId contextId, ActionListener<ActiveAsyncSearchContext> listener) {
+        ActiveAsyncSearchContext context = activeContexts.get(contextId.getId());
         if (context == null) {
-            return null;
+            listener.onFailure(new AsyncSearchContextMissingException(contextId));
+        } else {
+            listener.onResponse(context);
         }
-        if (context.getContextId().getContextId().equals(contextId.getContextId())) {
-            return context;
-        }
-        return null;
+
+    }
+
+
+    /**
+     * Returns a copy of all active contexts
+     *
+     * @return
+     */
+    public void getAllContexts(ActionListener<Map<Long, ActiveAsyncSearchContext>> listener) {
+        listener.onResponse(CollectionUtils.copyMap(activeContexts));
     }
 
     /**
-     * AsyncSearchStats are updated from here. hence to maintain stat correctness, we can't put new context in map from elsewhere.
+     * Removes an active context
+     *
+     * @param asyncSearchContextId
      */
-    public void putContext(AsyncSearchContextId asyncSearchContextId, ActiveAsyncSearchContext asyncSearchContext) {
-        activeContexts.putIfAbsent(asyncSearchContextId.getId(), asyncSearchContext);
-        asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).increment();
+    public void removeContext(AsyncSearchContextId asyncSearchContextId, ActionListener<Boolean> listener) {
+        ActiveAsyncSearchContext remove = activeContexts.remove(asyncSearchContextId.getId());
+        if (remove != null) {
+            asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).decrement();
+            listener.onResponse(true);
+        } else {
+            listener.onResponse(false);
+        }
+
     }
 
     /**
      * Updates the context if one exists.
-     * @param asyncSearchContextId
-     * @param expirationTimeMillis
-     * @return
+     *
+     * @param asyncSearchContextId key of context to update
+     * @param expirationTimeMillis new expiration
      */
     public boolean updateContext(AsyncSearchContextId asyncSearchContextId, long expirationTimeMillis) {
         ActiveAsyncSearchContext activeAsyncSearchContext = activeContexts.computeIfPresent(asyncSearchContextId.getId(), (k, v) -> {
             v.setExpirationMillis(expirationTimeMillis);
             return v;
         });
-        asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).increment();
         return Objects.nonNull(activeAsyncSearchContext);
-    }
-
-    /**
-     * Returns a copy of all active contexts
-     * @return
-     */
-    public Map<Long, ActiveAsyncSearchContext> getAllContexts() {
-        return CollectionUtils.copyMap(activeContexts);
-    }
-
-
-    /**
-     * Removes an ctive context
-     * @param asyncSearchContextId
-     */
-    public void removeContext(AsyncSearchContextId asyncSearchContextId) {
-        activeContexts.remove(asyncSearchContextId.getId());
-        asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).decrement();
     }
 
     /**
      * Frees the active context
      * @param asyncSearchContextId
-     * @return
+     * @return acknowledgement of context removal
      */
-    public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
+    private boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
         AbstractAsyncSearchContext abstractAsyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
         if (abstractAsyncSearchContext != null) {
             logger.debug("Removing {} from context map", asyncSearchContextId);
