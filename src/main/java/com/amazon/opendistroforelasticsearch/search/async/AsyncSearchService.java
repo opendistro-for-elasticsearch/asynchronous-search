@@ -128,6 +128,7 @@ public class AsyncSearchService implements ClusterStateListener {
     /**
      * Creates a new context and attaches a listener for the changes as they progress on the search. The context after being created
      * is saved in a in-memory store
+     *
      * @param submitAsyncSearchRequest the request for submitting the async search
      * @param relativeStartMillis      the start time of the async search
      * @param listener                 handle AsyncSearchContext creation result
@@ -166,16 +167,24 @@ public class AsyncSearchService implements ClusterStateListener {
      * Returns the set of tasks running beyond the allowed keep alive. Such tasks are eventually sweeped and are cancelled
      * by the maintenance service
      *
-     * @return underlying search tasks
      */
-    public Set<SearchTask> getOverRunningTasks() {
-        Map<Long, ActiveAsyncSearchContext> allContexts = asyncSearchInMemoryService.getAllContexts();
-        return Collections.unmodifiableSet(allContexts.values().stream()
-                .filter(Objects::nonNull)
-                .filter(context -> context.isExpired())
-                .filter(context -> context.getTask().isCancelled() == false)
-                .map(context -> context.getTask())
-                .collect(Collectors.toSet()));
+    public void getOverRunningTasks(ActionListener<Set<SearchTask>> listener) {
+        asyncSearchInMemoryService.getAllContexts(new ActionListener<Map<Long, ActiveAsyncSearchContext>>() {
+            @Override
+            public void onResponse(Map<Long, ActiveAsyncSearchContext> allContexts) {
+
+                listener.onResponse(Collections.unmodifiableSet(allContexts.values().stream()
+                        .filter(Objects::nonNull)
+                        .filter(context -> context.isExpired())
+                        .filter(context -> context.getTask().isCancelled() == false)
+                        .map(context -> context.getTask())
+                        .collect(Collectors.toSet())));
+            }
+
+            @Override
+            public void onFailure(Exception e) { }
+        });
+
     }
 
     /**

@@ -57,7 +57,7 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
     /**
      * @param asyncSearchContextId New Key being inserted into active context map
      * @param asyncSearchContext   New Value being insert into active context map
-     * @param listener
+     * @param listener handle context post insertion into map
      */
     public void putContext(AsyncSearchContextId asyncSearchContextId, ActiveAsyncSearchContext asyncSearchContext,
                            ActionListener<ActiveAsyncSearchContext> listener) {
@@ -76,11 +76,8 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
 
     }
 
-
     /**
      * Returns a copy of all active contexts
-     *
-     * @return
      */
     public void getAllContexts(ActionListener<Map<Long, ActiveAsyncSearchContext>> listener) {
         listener.onResponse(CollectionUtils.copyMap(activeContexts));
@@ -89,7 +86,7 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
     /**
      * Removes an active context
      *
-     * @param asyncSearchContextId
+     * @param asyncSearchContextId key to remove
      */
     public void removeContext(AsyncSearchContextId asyncSearchContextId, ActionListener<Boolean> listener) {
         ActiveAsyncSearchContext remove = activeContexts.remove(asyncSearchContextId.getId());
@@ -118,7 +115,7 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
 
     /**
      * Frees the active context
-     * @param asyncSearchContextId
+     * @param asyncSearchContextId key for context map
      * @return acknowledgement of context removal
      */
     private boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
