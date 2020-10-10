@@ -3,15 +3,28 @@ package com.amazon.opendistroforelasticsearch.search.async.listener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchShard;
+import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.CheckedFunction;
+import org.elasticsearch.common.io.stream.DelayableWriteable;
+import org.elasticsearch.common.util.concurrent.AtomicArray;
+import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.aggregations.InternalAggregations;
+import org.elasticsearch.search.internal.InternalSearchResponse;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
 /***
  * The implementation of {@link SearchProgressActionListener} responsible for maintaining a list of {@link PrioritizedActionListener}
@@ -26,14 +39,17 @@ public class CompositeSearchResponseActionListener<T> extends SearchProgressActi
     private final Consumer<Exception> onFailure;
     private final Executor executor;
     private boolean complete;
+    protected final PartialResultsHolder partialResultsHolder;
 
     private final Logger logger = LogManager.getLogger(getClass());
 
-    CompositeSearchResponseActionListener(CheckedFunction<SearchResponse, T, Exception> function, Consumer<Exception> onFailure, Executor executor) {
+    CompositeSearchResponseActionListener(CheckedFunction<SearchResponse, T, Exception> function, Consumer<Exception> onFailure,
+                                          Executor executor, long relativeStartMillis, LongSupplier currentTimeSupplier) {
         this.function = function;
         this.executor = executor;
         this.onFailure = onFailure;
         this.actionListeners = new ArrayList<>(1);
+        this.partialResultsHolder = new PartialResultsHolder(relativeStartMillis, currentTimeSupplier);
     }
 
     /***
@@ -61,6 +77,17 @@ public class CompositeSearchResponseActionListener<T> extends SearchProgressActi
 
     @Override
     public void onResponse(SearchResponse searchResponse) {
+        //assert partial results match actual results on search completion
+        assert partialResultsHolder.successfulShards.get() == searchResponse.getSuccessfulShards();
+        assert partialResultsHolder.reducePhase.get() == searchResponse.getNumReducePhases();
+        assert partialResultsHolder.clusters.get() == searchResponse.getClusters();
+        assert partialResultsHolder.shardSearchFailures.toArray(
+                new ShardSearchFailure[partialResultsHolder.failurePos.get()]) == searchResponse.getShardFailures();
+        assert partialResultsHolder.skippedShards.get() == searchResponse.getSkippedShards();
+        assert partialResultsHolder.totalShards.get() == searchResponse.getTotalShards();
+        assert partialResultsHolder.internalAggregations.get() == searchResponse.getAggregations();
+        assert partialResultsHolder.totalHits.get() == searchResponse.getHits().getTotalHits();
+
         //immediately fork to a separate thread pool
         executor.execute(() -> {
             T result;
@@ -70,16 +97,15 @@ public class CompositeSearchResponseActionListener<T> extends SearchProgressActi
                 if (actionListenersToBeInvoked != null) {
                     for (ActionListener<T> listener : actionListenersToBeInvoked) {
                         try {
-                            logger.debug("Search response completed");
                             listener.onResponse(result);
                         } catch (Exception e) {
-                            logger.warn(() -> new ParameterizedMessage("onResponse listener [{}] failed", listener), e);
+                            logger.error(() -> new ParameterizedMessage("onResponse listener [{}] failed", listener), e);
                             listener.onFailure(e);
                         }
                     }
                 }
             } catch (Exception ex) {
-                logger.warn(() -> new ParameterizedMessage("onResponse listener [{}] failed"), ex);
+                logger.error(() -> new ParameterizedMessage("onResponse listener [{}] failed"), ex);
             }
         });
     }
@@ -97,10 +123,9 @@ public class CompositeSearchResponseActionListener<T> extends SearchProgressActi
                 if (actionListenersToBeInvoked != null) {
                     for (ActionListener<T> listener : actionListenersToBeInvoked) {
                         try {
-                            logger.info("Search response failure", e);
                             listener.onFailure(e);
                         } catch (Exception ex) {
-                            logger.warn(() -> new ParameterizedMessage("onFailure listener [{}] failed", listener), e);
+                            logger.error(() -> new ParameterizedMessage("onFailure listener [{}] failed", listener), e);
                         }
                     }
                 }
@@ -118,5 +143,57 @@ public class CompositeSearchResponseActionListener<T> extends SearchProgressActi
             }
         }
         return actionListenersToBeInvoked;
+    }
+
+     static class PartialResultsHolder {
+        final AtomicInteger reducePhase;
+        final AtomicReference<TotalHits> totalHits;
+        final AtomicReference<InternalAggregations> internalAggregations;
+        final AtomicReference<DelayableWriteable.Serialized<InternalAggregations>> delayedInternalAggregations;
+        final AtomicBoolean isInitialized;
+        final AtomicInteger totalShards;
+        final AtomicInteger successfulShards;
+        final AtomicInteger skippedShards;
+        final AtomicReference<SearchResponse.Clusters> clusters;
+        final AtomicReference<List<SearchShard>> shards;
+        final AtomicArray<ShardSearchFailure> shardSearchFailures;
+        final AtomicInteger failurePos;
+        final AtomicBoolean hasFetchPhase;
+        final long relativeStartMillis;
+        final LongSupplier currentTimeSupplier;
+
+
+        PartialResultsHolder(long relativeStartMillis, LongSupplier currentTimeSupplier) {
+            this.internalAggregations = new AtomicReference<>();
+            this.shardSearchFailures = new AtomicArray<>(1);
+            this.totalShards = new AtomicInteger();
+            this.successfulShards = new AtomicInteger();
+            this.skippedShards = new AtomicInteger();
+            this.reducePhase = new AtomicInteger();
+            this.isInitialized = new AtomicBoolean(false);
+            this.failurePos = new AtomicInteger(0);
+            this.hasFetchPhase = new AtomicBoolean(false);
+            this.totalHits = new AtomicReference<>();
+            this.clusters = new AtomicReference<>();
+            this.delayedInternalAggregations = new AtomicReference<>();
+            this.relativeStartMillis = relativeStartMillis;
+            this.shards = new AtomicReference<>();
+            this.currentTimeSupplier = currentTimeSupplier;
+        }
+
+        SearchResponse partialResponse() {
+            if (this.isInitialized.get()) {
+                SearchHits searchHits = new SearchHits(SearchHits.EMPTY, this.totalHits.get(), 0);
+                InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits,
+                        this.internalAggregations.get() == null ? this.delayedInternalAggregations.get().expand() : this.internalAggregations.get(),
+                        null, null, false, false, this.reducePhase.get());
+                ShardSearchFailure[] shardSearchFailures = this.shardSearchFailures.toArray(new ShardSearchFailure[failurePos.get()]);
+                long tookInMillis = currentTimeSupplier.getAsLong() - relativeStartMillis;
+                return new SearchResponse(internalSearchResponse, null, this.totalShards.get(), this.successfulShards.get(),
+                        this.skippedShards.get(), tookInMillis, shardSearchFailures, this.clusters.get());
+            } else {
+                return null;
+            }
+        }
     }
 }

@@ -30,8 +30,6 @@ import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
@@ -114,22 +112,13 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
         return CollectionUtils.copyMap(activeContexts);
     }
 
-    /**
-     * Removes an active context
-     *
-     * @param asyncSearchContextId
-     * @return
-     */
-    public ActiveAsyncSearchContext removeContext(AsyncSearchContextId asyncSearchContextId) {
-        return activeContexts.remove(asyncSearchContextId.getId());
-    }
 
     /**
      * Frees the active context
      * @param asyncSearchContextId
      * @return acknowledgement of context removal
      */
-    private boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
+    public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
         AbstractAsyncSearchContext abstractAsyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
         if (abstractAsyncSearchContext != null) {
             logger.debug("Removing {} from context map", asyncSearchContextId);
@@ -168,12 +157,15 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
         @Override
         public void run() {
             try {
-                Set<ActiveAsyncSearchContext> toReap = activeContexts.values().stream()
-                        .filter(a -> a.getStage().equals(ActiveAsyncSearchContext.Stage.ABORTED) || a.getStage().equals(ActiveAsyncSearchContext.Stage.PERSISTED))
-                        .collect(Collectors.toSet());
-                toReap.forEach(a -> freeContext(a.getAsyncSearchContextId()));
+                activeContexts.values().stream()
+                    .filter(context -> context.getStage().equals(ActiveAsyncSearchContext.Stage.ABORTED)
+                            || context.getStage().equals(ActiveAsyncSearchContext.Stage.FAILED)
+                            || context.getStage().equals(ActiveAsyncSearchContext.Stage.PERSIST_FAILED)
+                            || context.getStage().equals(ActiveAsyncSearchContext.Stage.PERSISTED))
+                    .map(context -> freeContext(context.getAsyncSearchContextId()));
+
             } catch (Exception e) {
-                logger.error("Exception while reaping contexts");
+                logger.error("Exception while reaping contexts", e);
             }
         }
     }

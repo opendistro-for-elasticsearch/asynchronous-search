@@ -48,6 +48,10 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
          */
         PERSISTED,
         /**
+         * The context has failed to persist to system index
+         */
+        PERSIST_FAILED,
+        /**
          * The search execution has failed
          */
         FAILED
@@ -163,17 +167,19 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         this.isCompleted.set(true);
         this.isPartial.set(false);
         this.isRunning.set(false);
+        this.searchTask = null;
         error.set(new ElasticsearchException(e));
         setStage(Stage.FAILED);
     }
 
 
     public void processFinalResponse(SearchResponse response) {
-        setStage(Stage.COMPLETED);
         this.searchResponse.compareAndSet(null, response);
         this.isCompleted.set(true);
         this.isRunning.set(false);
         this.isPartial.set(false);
+        this.searchTask = null;
+        setStage(Stage.COMPLETED);
     }
 
 
