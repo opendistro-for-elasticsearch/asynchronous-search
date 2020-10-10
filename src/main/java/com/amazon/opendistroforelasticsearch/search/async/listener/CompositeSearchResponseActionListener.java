@@ -6,11 +6,11 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.CheckedFunction;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /***
@@ -22,16 +22,15 @@ import java.util.function.Consumer;
 public class CompositeSearchResponseActionListener<T> extends SearchProgressActionListener {
 
     private final List<ActionListener<T>> actionListeners;
-    private final BiConsumer<SearchResponse, ActionListener<T>> consumer;
+    private final CheckedFunction<SearchResponse, T, Exception> function;
     private final Consumer<Exception> onFailure;
     private final Executor executor;
     private boolean complete;
 
     private final Logger logger = LogManager.getLogger(getClass());
 
-    CompositeSearchResponseActionListener(BiConsumer<SearchResponse, ActionListener<T>> consumer, Consumer<Exception> onFailure,
-                                          Executor executor) {
-        this.consumer = consumer;
+    CompositeSearchResponseActionListener(CheckedFunction<SearchResponse, T, Exception> function, Consumer<Exception> onFailure, Executor executor) {
+        this.function = function;
         this.executor = executor;
         this.onFailure = onFailure;
         this.actionListeners = new ArrayList<>(1);
@@ -64,24 +63,24 @@ public class CompositeSearchResponseActionListener<T> extends SearchProgressActi
     public void onResponse(SearchResponse searchResponse) {
         //immediately fork to a separate thread pool
         executor.execute(() -> {
-            List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
-            consumer.accept(searchResponse, ActionListener.wrap((T result) -> {
+            T result;
+            try {
+                result = function.apply(searchResponse);
+                List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
                 if (actionListenersToBeInvoked != null) {
                     for (ActionListener<T> listener : actionListenersToBeInvoked) {
-                        logger.debug("Search response completed");
-                        listener.onResponse(result);
+                        try {
+                            logger.debug("Search response completed");
+                            listener.onResponse(result);
+                        } catch (Exception e) {
+                            logger.warn(() -> new ParameterizedMessage("onResponse listener [{}] failed", listener), e);
+                            listener.onFailure(e);
+                        }
                     }
                 }
-            }, e -> {
-                if (actionListenersToBeInvoked != null) {
-                    for (ActionListener<T> listener : actionListenersToBeInvoked) {
-                        logger.debug("Search response failed");
-                        listener.onFailure(e);
-                    }
-                }
-            }));
-
-
+            } catch (Exception ex) {
+                logger.warn(() -> new ParameterizedMessage("onResponse listener [{}] failed"), ex);
+            }
         });
     }
 

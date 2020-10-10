@@ -36,7 +36,7 @@ public abstract class AbstractAsyncSearchContext {
 
     public Optional<SearchProgressActionListener> getSearchProgressActionListener() { return Optional.empty(); }
 
-    public AsyncSearchContextId getContextId() {
+    public AsyncSearchContextId getAsyncSearchContextId() {
         return asyncSearchId.getAsyncSearchContextId();
     }
 

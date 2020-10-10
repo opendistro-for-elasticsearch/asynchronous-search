@@ -20,7 +20,6 @@ import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStat
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.memory.AsyncSearchInMemoryService;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchReaperPersistentTaskExecutor;
@@ -88,7 +87,6 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
     public static final String OPEN_DISTRO_ASYNC_SEARCH_MANAGEMENT_THREAD_POOL_NAME = "open_distro_async_search_management";
     public static final String OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME = "open_distro_async_search_generic";
     private AsyncSearchPersistenceService persistenceService;
-    private AsyncSearchInMemoryService inMemoryService;
     private AsyncSearchStats asyncSearchStats;
 
     @Override
@@ -128,8 +126,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
 
         asyncSearchStats = new AsyncSearchStats(stats);
         this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool, namedWriteableRegistry);
-        this.inMemoryService = new AsyncSearchInMemoryService(threadPool, clusterService, asyncSearchStats);
-        return Arrays.asList(new AsyncSearchService(persistenceService, inMemoryService, client, clusterService, threadPool,
+        return Arrays.asList(new AsyncSearchService(persistenceService, client, clusterService, threadPool,
                 namedWriteableRegistry, asyncSearchStats), asyncSearchStats);
 
     }

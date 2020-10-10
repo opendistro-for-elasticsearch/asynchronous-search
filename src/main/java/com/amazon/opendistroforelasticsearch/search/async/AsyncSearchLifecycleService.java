@@ -1,11 +1,24 @@
-package com.amazon.opendistroforelasticsearch.search.async.memory;
+/*
+ *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   or in the "license" file accompanying this file. This file is distributed
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *   express or implied. See the License for the specific language governing
+ *   permissions and limitations under the License.
+ */
+package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.settings.Setting;
@@ -17,7 +30,6 @@ import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -25,31 +37,40 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
 
 /**
- * Once the response have been persisted or otherwise ready to be expunged, the {@link AsyncSearchInMemoryService.Reaper} frees up the
- * in-memory contexts maintained
- * on the coordinator node
+ * Once the response have been persisted or otherwise ready to be expunged, the {@link AsyncSearchLifecycleService.Reaper} frees up the
+ * in-memory contexts maintained on the coordinator node
  */
-public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
+public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
 
-    private static Logger logger = LogManager.getLogger(AsyncSearchInMemoryService.class);
+    private static Logger logger = LogManager.getLogger(AsyncSearchLifecycleService.class);
 
     private final Scheduler.Cancellable keepAliveReaper;
     private final ThreadPool threadPool;
     private final ClusterService clusterService;
     private final AsyncSearchStats asyncSearchStats;
+    private volatile int maxRunningContext;
 
     public static final Setting<TimeValue> KEEPALIVE_INTERVAL_SETTING =
             Setting.positiveTimeSetting("async_search.keep_alive_interval", timeValueMinutes(1), Setting.Property.NodeScope);
 
+    public static final Setting<Integer> MAX_RUNNING_CONTEXT =
+            Setting.intSetting("async_search.max_running_context", 500, 0, Setting.Property.Dynamic, Setting.Property.NodeScope);
+
     private final ConcurrentMapLong<ActiveAsyncSearchContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
 
-    public AsyncSearchInMemoryService(ThreadPool threadPool, ClusterService clusterService, AsyncSearchStats asyncSearchStats) {
+    public AsyncSearchLifecycleService(ThreadPool threadPool, ClusterService clusterService, AsyncSearchStats asyncSearchStats) {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         Settings settings = clusterService.getSettings();
         this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new Reaper(), KEEPALIVE_INTERVAL_SETTING.get(settings),
                 ThreadPool.Names.GENERIC);
         this.asyncSearchStats = asyncSearchStats;
+        maxRunningContext = MAX_RUNNING_CONTEXT.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_RUNNING_CONTEXT, this::setMaxRunningContext);
+    }
+
+    private void setMaxRunningContext(int maxRunningContext) {
+        this.maxRunningContext = maxRunningContext;
     }
 
     /**
@@ -57,12 +78,30 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
      * @param asyncSearchContext   New Value being insert into active context map
      */
     public void putContext(AsyncSearchContextId asyncSearchContextId, ActiveAsyncSearchContext asyncSearchContext) {
+        if (activeContexts.values().stream().filter(context -> context.isRunning()).distinct().count() > maxRunningContext) {
+            throw new ElasticsearchException(
+                    "Trying to create too many running contexts. Must be less than or equal to: [" +
+                            maxRunningContext + "]. " + "This limit can be set by changing the ["
+                            + MAX_RUNNING_CONTEXT.getKey() + "] setting.");
+        }
         activeContexts.put(asyncSearchContextId.getId(), asyncSearchContext);
         asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).increment();
     }
 
+    /**
+     * Returns the context id if present
+     * @param contextId
+     * @return
+     */
     public ActiveAsyncSearchContext getContext(AsyncSearchContextId contextId) {
-        return activeContexts.get(contextId.getId());
+        ActiveAsyncSearchContext context = activeContexts.get(contextId.getId());
+        if (context == null) {
+            return null;
+        }
+        if (context.getAsyncSearchContextId().getContextId().equals(contextId.getContextId())) {
+            return context;
+        }
+        return null;
     }
 
 
@@ -86,20 +125,6 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
     }
 
     /**
-     * Updates the context if one exists.
-     *
-     * @param asyncSearchContextId key of context to update
-     * @param expirationTimeMillis new expiration
-     */
-    public boolean updateContext(AsyncSearchContextId asyncSearchContextId, long expirationTimeMillis) {
-        ActiveAsyncSearchContext activeAsyncSearchContext = activeContexts.computeIfPresent(asyncSearchContextId.getId(), (k, v) -> {
-            v.setExpirationMillis(expirationTimeMillis);
-            return v;
-        });
-        return Objects.nonNull(activeAsyncSearchContext);
-    }
-
-    /**
      * Frees the active context
      * @param asyncSearchContextId
      * @return acknowledgement of context removal
@@ -120,8 +145,12 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
 
     @Override
     protected void doStop() {
+        freeAllContexts();
+    }
+
+    public void freeAllContexts() {
         for (final AbstractAsyncSearchContext context : activeContexts.values()) {
-            freeContext(context.getContextId());
+            freeContext(context.getAsyncSearchContextId());
         }
     }
 
@@ -142,7 +171,7 @@ public class AsyncSearchInMemoryService extends AbstractLifecycleComponent {
                 Set<ActiveAsyncSearchContext> toReap = activeContexts.values().stream()
                         .filter(a -> a.getStage().equals(ActiveAsyncSearchContext.Stage.ABORTED) || a.getStage().equals(ActiveAsyncSearchContext.Stage.PERSISTED))
                         .collect(Collectors.toSet());
-                toReap.forEach(a -> freeContext(a.getContextId()));
+                toReap.forEach(a -> freeContext(a.getAsyncSearchContextId()));
             } catch (Exception e) {
                 logger.error("Exception while reaping contexts");
             }

@@ -1,9 +1,5 @@
-package com.amazon.opendistroforelasticsearch.search.async.memory;
+package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextPermit;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
@@ -17,6 +13,7 @@ import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -160,6 +157,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     public Stage getStage() {
         return stage;
     }
+
 
     public void processFailure(Exception e) {
         this.isCompleted.set(true);
