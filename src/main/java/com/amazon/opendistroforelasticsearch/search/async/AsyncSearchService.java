@@ -173,7 +173,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         Map<Long, ActiveAsyncSearchContext> allContexts = getAllContexts();
         return Collections.unmodifiableSet(allContexts.values().stream()
                 .filter(Objects::nonNull)
-                .filter(context -> context.isExpired())
+                .filter(context -> threadPool.relativeTimeInMillis() < context.getExpirationTimeMillis())
                 .filter(context -> context.getTask().isCancelled() == false)
                 .map(context -> context.getTask())
                 .collect(Collectors.toSet()));

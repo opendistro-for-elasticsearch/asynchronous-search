@@ -50,8 +50,4 @@ public abstract class AbstractAsyncSearchContext {
 
     public abstract Source getSource();
 
-    public boolean isExpired() {
-        return System.currentTimeMillis() > getExpirationTimeMillis();
-    }
-
 }

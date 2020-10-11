@@ -88,8 +88,8 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
 
     /**
      * Returns the context id if present
-     * @param contextId
-     * @return
+     * @param contextId AsyncSearchContextId
+     * @return ActiveAsyncSearchContext
      */
     public ActiveAsyncSearchContext getContext(AsyncSearchContextId contextId) {
         ActiveAsyncSearchContext context = activeContexts.get(contextId.getId());
@@ -106,7 +106,7 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
     /**
      * Returns a copy of all active contexts
      *
-     * @return
+     * @return all context
      */
     public Map<Long, ActiveAsyncSearchContext> getAllContexts() {
         return CollectionUtils.copyMap(activeContexts);
@@ -115,7 +115,7 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
 
     /**
      * Frees the active context
-     * @param asyncSearchContextId
+     * @param asyncSearchContextId asyncSearchContextId
      * @return acknowledgement of context removal
      */
     public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {

@@ -32,7 +32,7 @@ import java.util.function.Supplier;
  * invoked once. If the search completes before the listener was added,
  **/
 
-public class CompositeSearchResponseActionListener<T> extends SearchProgressActionListener {
+public abstract class CompositeSearchResponseActionListener<T> extends SearchProgressActionListener {
 
     private final List<ActionListener<T>> actionListeners;
     private final CheckedFunction<SearchResponse, T, Exception> function;
@@ -145,6 +145,8 @@ public class CompositeSearchResponseActionListener<T> extends SearchProgressActi
         return actionListenersToBeInvoked;
     }
 
+    public abstract SearchResponse partialResponse();
+
      static class PartialResultsHolder {
         final AtomicInteger reducePhase;
         final AtomicReference<TotalHits> totalHits;
@@ -179,21 +181,6 @@ public class CompositeSearchResponseActionListener<T> extends SearchProgressActi
             this.relativeStartMillis = relativeStartMillis;
             this.shards = new AtomicReference<>();
             this.currentTimeSupplier = currentTimeSupplier;
-        }
-
-        SearchResponse partialResponse() {
-            if (this.isInitialized.get()) {
-                SearchHits searchHits = new SearchHits(SearchHits.EMPTY, this.totalHits.get(), 0);
-                InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits,
-                        this.internalAggregations.get() == null ? this.delayedInternalAggregations.get().expand() : this.internalAggregations.get(),
-                        null, null, false, false, this.reducePhase.get());
-                ShardSearchFailure[] shardSearchFailures = this.shardSearchFailures.toArray(new ShardSearchFailure[failurePos.get()]);
-                long tookInMillis = currentTimeSupplier.getAsLong() - relativeStartMillis;
-                return new SearchResponse(internalSearchResponse, null, this.totalShards.get(), this.successfulShards.get(),
-                        this.skippedShards.get(), tookInMillis, shardSearchFailures, this.clusters.get());
-            } else {
-                return null;
-            }
         }
     }
 }

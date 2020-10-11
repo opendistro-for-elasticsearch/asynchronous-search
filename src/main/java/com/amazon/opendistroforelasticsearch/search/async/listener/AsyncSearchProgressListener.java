@@ -22,8 +22,10 @@ import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.io.stream.DelayableWriteable;
+import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
+import org.elasticsearch.search.internal.InternalSearchResponse;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -47,8 +49,21 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
      * Returns the partial response for the search response.
      * @return the partial search response
      */
+    @Override
     public SearchResponse partialResponse() {
-        return this.partialResultsHolder.partialResponse();
+        if (partialResultsHolder.isInitialized.get()) {
+            SearchHits searchHits = new SearchHits(SearchHits.EMPTY, partialResultsHolder.totalHits.get(), 0);
+            InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits,
+                    partialResultsHolder.internalAggregations.get() == null ? partialResultsHolder.delayedInternalAggregations.get().expand()
+                            : partialResultsHolder.internalAggregations.get(),
+                    null, null, false, false, partialResultsHolder.reducePhase.get());
+            ShardSearchFailure[] shardSearchFailures = partialResultsHolder.shardSearchFailures.toArray(new ShardSearchFailure[partialResultsHolder.failurePos.get()]);
+            long tookInMillis = partialResultsHolder.currentTimeSupplier.getAsLong() - partialResultsHolder.relativeStartMillis;
+            return new SearchResponse(internalSearchResponse, null, partialResultsHolder.totalShards.get(), partialResultsHolder.successfulShards.get(),
+                    partialResultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures, partialResultsHolder.clusters.get());
+        } else {
+            return null;
+        }
     }
 
     @Override

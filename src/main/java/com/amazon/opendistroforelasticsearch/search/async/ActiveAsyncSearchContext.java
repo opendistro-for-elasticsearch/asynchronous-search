@@ -13,7 +13,6 @@ import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.util.HashSet;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -62,7 +61,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     private final AtomicBoolean isPartial;
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
-    private SetOnce<SearchTask> searchTask = new SetOnce<>();
+    private volatile SetOnce<SearchTask> searchTask = new SetOnce<>();
     private volatile long expirationTimeMillis;
     private final Boolean keepOnCompletion;
     private final AsyncSearchContextId asyncSearchContextId;
