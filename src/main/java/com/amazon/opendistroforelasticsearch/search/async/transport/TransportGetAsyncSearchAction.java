@@ -43,7 +43,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
     public TransportGetAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
                                          ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
                                          AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction) {
-        super(transportService, clusterService, asyncSearchService, GetAsyncSearchAction.NAME, actionFilters, GetAsyncSearchRequest::new,
+        super(transportService, clusterService, threadPool, GetAsyncSearchAction.NAME, actionFilters, GetAsyncSearchRequest::new,
                 AsyncSearchResponse::new);
         this.threadPool = threadPool;
         this.transportService = transportService;

@@ -30,7 +30,7 @@ public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchA
                                             ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
                                             AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction,
                                             Client client) {
-        super(transportService, clusterService, asyncSearchService, DeleteAsyncSearchAction.NAME, actionFilters,
+        super(transportService, clusterService, threadPool, DeleteAsyncSearchAction.NAME, actionFilters,
                 DeleteAsyncSearchRequest::new, AcknowledgedResponse::new);
         this.threadPool = threadPool;
         this.transportService = transportService;
