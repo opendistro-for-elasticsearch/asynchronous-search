@@ -28,21 +28,19 @@ public abstract class AbstractAsyncSearchContext {
         STORE
     }
 
-    private final AsyncSearchId asyncSearchId;
+    private final AsyncSearchContextId AsyncSearchContextId;
 
-    public AbstractAsyncSearchContext(AsyncSearchId asyncSearchId) {
-        this.asyncSearchId = asyncSearchId;
+    public AbstractAsyncSearchContext(AsyncSearchContextId asyncSearchContextId) {
+        this.AsyncSearchContextId = asyncSearchContextId;
     }
 
     public Optional<SearchProgressActionListener> getSearchProgressActionListener() { return Optional.empty(); }
 
     public AsyncSearchContextId getAsyncSearchContextId() {
-        return asyncSearchId.getAsyncSearchContextId();
+        return getAsyncSearchContextId();
     }
 
-    public AsyncSearchId getAsyncSearchId() {
-        return asyncSearchId;
-    }
+    public abstract AsyncSearchId getAsyncSearchId();
 
     public abstract AsyncSearchResponse getAsyncSearchResponse();
 

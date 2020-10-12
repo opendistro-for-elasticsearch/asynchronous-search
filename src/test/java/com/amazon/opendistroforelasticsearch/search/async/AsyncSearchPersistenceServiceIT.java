@@ -39,7 +39,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         AsyncSearchResponse asyncSearchResponse = getAsyncSearchResponse();
 
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), randomInt(100));
-        AsyncSearchId newAsyncSearchId = new AsyncSearchId(transportService.getLocalNode().getId(),
+        AsyncSearchId newAsyncSearchId = new AsyncSearchId(transportService.getLocalNode().getId(), randomLong(),
                 asyncSearchContextId);
         String id = AsyncSearchId.buildAsyncId(newAsyncSearchId);
         AsyncSearchResponse newAsyncSearchResponse = new AsyncSearchResponse(id,
@@ -78,7 +78,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         TransportService transportService = getInstanceFromNode(TransportService.class);
         NamedWriteableRegistry namedWriteableRegistry = writableRegistry();
         AsyncSearchId asyncSearchId = generateNewAsynSearchId(transportService);
-        AsyncSearchPersistenceContext model1 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId,
+        AsyncSearchPersistenceContext model1 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId.getAsyncSearchContextId(),
                 System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(),
                 "responseString");
         CountDownLatch createLatch = new CountDownLatch(1);
@@ -109,9 +109,9 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
 
         AsyncSearchId asyncSearchId1 = generateNewAsynSearchId(transportService);
         AsyncSearchId asyncSearchId2 = generateNewAsynSearchId(transportService);
-        AsyncSearchPersistenceContext model1 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId1,
+        AsyncSearchPersistenceContext model1 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId1.getAsyncSearchContextId(),
                 System.currentTimeMillis() + new TimeValue(5, TimeUnit.DAYS).getMillis(), "responseString");
-        AsyncSearchPersistenceContext model2 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId2,
+        AsyncSearchPersistenceContext model2 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId2.getAsyncSearchContextId(),
                 System.currentTimeMillis() + new TimeValue(5, TimeUnit.DAYS).getMillis(), "responseString");
         CountDownLatch createLatch = new CountDownLatch(2);
         threadPool.generic().execute(() -> persistenceService.createResponse(model1, ActionListener.wrap(
@@ -211,7 +211,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
 
     private AsyncSearchId generateNewAsynSearchId(TransportService transportService) {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), randomInt(100));
-        return new AsyncSearchId(transportService.getLocalNode().getId(),
+        return new AsyncSearchId(transportService.getLocalNode().getId(), randomLong(),
                 asyncSearchContextId);
 
     }

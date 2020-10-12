@@ -26,9 +26,12 @@ public class AsyncSearchId {
     private final AsyncSearchContextId asyncSearchContextId;
     // coordinator node id
     private final String node;
+    // the search task id
+    private final long taskId;
 
-    public AsyncSearchId(String node, AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchId(String node, long taskId, AsyncSearchContextId asyncSearchContextId) {
         this.node = node;
+        this.taskId = taskId;
         this.asyncSearchContextId = asyncSearchContextId;
     }
 
@@ -40,6 +43,10 @@ public class AsyncSearchId {
         return node;
     }
 
+    public long getTaskId() {
+        return taskId;
+    }
+
     @Override
     public String toString() {
         return "[" + node + "][" + asyncSearchContextId + "]";
@@ -48,6 +55,7 @@ public class AsyncSearchId {
     public static String buildAsyncId(AsyncSearchId asyncSearchId) {
         try (RAMOutputStream out = new RAMOutputStream()) {
             out.writeString(asyncSearchId.getNode());
+            out.writeLong(asyncSearchId.getTaskId());
             out.writeString(asyncSearchId.getAsyncSearchContextId().getContextId());
             out.writeLong(asyncSearchId.getAsyncSearchContextId().getId());
             byte[] bytes = new byte[(int) out.getFilePointer()];
@@ -63,12 +71,13 @@ public class AsyncSearchId {
             byte[] bytes = Base64.getUrlDecoder().decode(asyncSearchId);
             ByteArrayDataInput in = new ByteArrayDataInput(bytes);
             String node = in.readString();
+            long taskId = in.readLong();
             String contextId = in.readString();
             long id = in.readLong();
             if (in.getPosition() != bytes.length) {
                 throw new IllegalArgumentException("Not all bytes were read");
             }
-            return new AsyncSearchId(node, new AsyncSearchContextId(contextId, id));
+            return new AsyncSearchId(node, taskId, new AsyncSearchContextId(contextId, id));
         } catch (Exception e) {
             throw new IllegalArgumentException("Cannot parse async search id", e);
         }

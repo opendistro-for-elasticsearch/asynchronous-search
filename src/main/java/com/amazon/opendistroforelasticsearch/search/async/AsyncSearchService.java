@@ -129,8 +129,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
                 (response) -> onSearchResponse(response, asyncSearchContextId),
                 (e) -> onSearchFailure(e, asyncSearchContextId), threadPool.executor(ThreadPool.Names.GENERIC),
                 System::currentTimeMillis);
-        ActiveAsyncSearchContext asyncSearchContext = new ActiveAsyncSearchContext(new AsyncSearchId(clusterService.localNode().getId(),
-                asyncSearchContextId),
+        ActiveAsyncSearchContext asyncSearchContext = new ActiveAsyncSearchContext(asyncSearchContextId, clusterService.localNode().getId(),
                 submitAsyncSearchRequest.getKeepAlive(),
                 submitAsyncSearchRequest.keepOnCompletion(), threadPool, progressActionListener);
         putContext(asyncSearchContextId, asyncSearchContext);
@@ -195,13 +194,13 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
      */
     public void freeContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<Boolean> listener) {
         GroupedActionListener<Boolean> groupedDeletionListener = new GroupedActionListener<>(
-                ActionListener.wrap((responses) -> {
-                    if (responses.stream().anyMatch(r -> r)) {
-                        listener.onResponse(true);
-                    } else {
-                        listener.onFailure(new ResourceNotFoundException(id));
-                    }
-                }, listener::onFailure), 2);
+            ActionListener.wrap((responses) -> {
+                if (responses.stream().anyMatch(r -> r)) {
+                    listener.onResponse(true);
+                } else {
+                    listener.onFailure(new ResourceNotFoundException(id));
+                }
+            }, listener::onFailure), 2);
 
         //delete active context
         //TODO do we need to wait on the task canncellation to succeed
@@ -227,26 +226,26 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         AsyncSearchResponse asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
         completedAsyncSearchCount.inc();
         if (asyncSearchContext.needsPersistence()) {
-            AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchResponse);
             asyncSearchContext.acquireAllContextPermit(ActionListener.wrap(releasable -> {
-                        persistenceService.createResponse(model, ActionListener.wrap(
-                                (indexResponse) -> {
-                                    asyncSearchContext.performPostPersistenceCleanup();
-                                    asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
-                                    persistedAsyncSearchCount.inc();
-                                    freeContext(asyncSearchContextId);
-                                    releasable.close();
-                                },
+                AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchResponse);
+                persistenceService.createResponse(model, ActionListener.wrap(
+                    (indexResponse) -> {
+                        asyncSearchContext.performPostPersistenceCleanup();
+                        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
+                        persistedAsyncSearchCount.inc();
+                        freeContext(asyncSearchContextId);
+                        releasable.close();
+                    },
 
-                                (e) -> {
-                                    asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSIST_FAILED);
-                                    logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
-                                    releasable.close();
-                                }
-                        ));
+                    (e) -> {
+                        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSIST_FAILED);
+                        logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
+                        releasable.close();
+                    }
+                ));
 
-                    }, (e) -> logger.error("Exception while acquiring the permit due to ", e)),
-                    TimeValue.timeValueSeconds(30), "persisting response");
+            }, (e) -> logger.error("Exception while acquiring the permit due to ", e)),
+            TimeValue.timeValueSeconds(30), "persisting response");
         }
         return asyncSearchResponse;
     }

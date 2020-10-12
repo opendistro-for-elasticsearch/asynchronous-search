@@ -1,9 +1,9 @@
 package com.amazon.opendistroforelasticsearch.search.async.persistence;
 
 import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
-import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
@@ -33,16 +33,16 @@ public class AsyncSearchPersistenceContext extends AbstractAsyncSearchContext im
     private final String response;
 
     public AsyncSearchPersistenceContext(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchResponse asyncSearchResponse) {
-        super(AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()));
+        super(AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()).getAsyncSearchContextId());
         this.expirationTimeMillis = asyncSearchResponse.getExpirationTimeMillis();
         this.namedWriteableRegistry = namedWriteableRegistry;
         this.response = encodeResponse(asyncSearchResponse);
     }
 
 
-    public AsyncSearchPersistenceContext(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchId asyncSearchId,
+    public AsyncSearchPersistenceContext(NamedWriteableRegistry namedWriteableRegistry, AsyncSearchContextId asyncSearchContextId,
                                        long expirationTimeMillis, String response) {
-        super(asyncSearchId);
+        super(asyncSearchContextId);
         this.expirationTimeMillis = expirationTimeMillis;
         this.namedWriteableRegistry = namedWriteableRegistry;
         this.response = response;
@@ -50,6 +50,11 @@ public class AsyncSearchPersistenceContext extends AbstractAsyncSearchContext im
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) {
+        return null;
+    }
+
+    @Override
+    public AsyncSearchId getAsyncSearchId() {
         return null;
     }
 

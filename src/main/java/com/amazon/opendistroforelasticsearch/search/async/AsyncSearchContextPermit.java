@@ -85,7 +85,7 @@ public class AsyncSearchContextPermit {
      * @param timeout the timeout within which the permit must be acquired or deemed failed
      * @param reason the reason for acquiring the permit
      */
-    public void asyncAcquireALLPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
+    public void asyncAcquireAllPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
         asyncAcquirePermit(TOTAL_PERMITS, onAcquired, timeout, reason);
     }
 }

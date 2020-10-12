@@ -9,6 +9,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
+import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -63,21 +64,23 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     private volatile long expirationTimeMillis;
     private volatile long startTimeMillis;
     private final Boolean keepOnCompletion;
-    private final AsyncSearchContextId asyncSearchContextId;
     private volatile TimeValue keepAlive;
     private volatile Stage stage;
     private final AsyncSearchContextPermit asyncSearchContextPermit;
     private AsyncSearchProgressListener progressActionListener;
+    private String nodeId;
+    @Nullable
+    private AsyncSearchId asyncSearchId;
 
-    public ActiveAsyncSearchContext(AsyncSearchId asyncSearchId, TimeValue keepAlive, boolean keepOnCompletion,
+    public ActiveAsyncSearchContext(AsyncSearchContextId asyncSearchContextId, String nodeId, TimeValue keepAlive, boolean keepOnCompletion,
                                     ThreadPool threadPool, AsyncSearchProgressListener progressActionListener) {
-        super(asyncSearchId);
-        this.asyncSearchContextId = asyncSearchId.getAsyncSearchContextId();
+        super(asyncSearchContextId);
         this.keepOnCompletion = keepOnCompletion;
         this.isCompleted = new AtomicBoolean(false);
         this.error = new AtomicReference<>();
         this.searchResponse = new AtomicReference<>();
         this.keepAlive = keepAlive;
+        this.nodeId = nodeId;
         this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId, threadPool);
         this.progressActionListener = progressActionListener;
         this.startTimeMillis = System.currentTimeMillis();
@@ -88,10 +91,16 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         return Optional.of(progressActionListener);
     }
 
+    @Override
+    public AsyncSearchId getAsyncSearchId() {
+        return asyncSearchId;
+    }
+
     public void initializeTask(SearchTask searchTask) {
         this.searchTask.set(searchTask);
         this.searchTask.get().setProgressListener(progressActionListener);
         this.startTimeMillis = searchTask.getStartTime();
+        this.asyncSearchId = new AsyncSearchId(nodeId, searchTask.getId(), getAsyncSearchContextId());
     }
 
     public TimeValue getKeepAlive() {
@@ -104,7 +113,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     }
 
     public void acquireAllContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
-        asyncSearchContextPermit.asyncAcquireALLPermits(onPermitAcquired, timeout, reason);
+        asyncSearchContextPermit.asyncAcquireAllPermits(onPermitAcquired, timeout, reason);
     }
 
     public SearchTask getTask() {
@@ -222,7 +231,6 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
                 ", searchTask=" + searchTask +
                 ", expirationTimeNanos=" + expirationTimeMillis +
                 ", keepOnCompletion=" + keepOnCompletion +
-                ", asyncSearchContextId=" + asyncSearchContextId +
                 ", keepAlive=" + keepAlive +
                 ", stage=" + stage +
                 ", asyncSearchContextPermit=" + asyncSearchContextPermit +

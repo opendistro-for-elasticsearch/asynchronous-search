@@ -15,6 +15,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.GroupedActionListener;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
@@ -42,8 +43,8 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
     @Inject
     public TransportGetAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
                                          ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
-                                         AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction) {
-        super(transportService, clusterService, threadPool, GetAsyncSearchAction.NAME, actionFilters, GetAsyncSearchRequest::new,
+                                         AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction, Client client) {
+        super(transportService, clusterService, threadPool, client, GetAsyncSearchAction.NAME, actionFilters, GetAsyncSearchRequest::new,
                 AsyncSearchResponse::new);
         this.threadPool = threadPool;
         this.transportService = transportService;

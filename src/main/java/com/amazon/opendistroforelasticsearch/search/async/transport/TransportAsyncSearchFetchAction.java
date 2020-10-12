@@ -6,8 +6,10 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
 import org.elasticsearch.action.ActionResponse;
+import org.elasticsearch.action.admin.cluster.node.tasks.get.GetTaskResponse;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.ClusterStateObserver;
 import org.elasticsearch.cluster.node.DiscoveryNode;
@@ -17,6 +19,7 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.AbstractRunnable;
 import org.elasticsearch.node.NodeClosedException;
 import org.elasticsearch.tasks.Task;
+import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.ConnectTransportException;
 import org.elasticsearch.transport.RemoteTransportException;
@@ -41,9 +44,10 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
     private Writeable.Reader<Response> responseReader;
     private String actionName;
     private ThreadPool threadPool;
+    private Client client;
 
     public TransportAsyncSearchFetchAction(TransportService transportService, ClusterService clusterService, ThreadPool threadPool,
-                                           String actionName, ActionFilters actionFilters,
+                                           Client client, String actionName, ActionFilters actionFilters,
                                            Writeable.Reader<Request> requestReader, Writeable.Reader<Response> responseReader) {
         super(actionName, transportService, actionFilters, requestReader);
         this.transportService = transportService;
@@ -51,6 +55,7 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
         this.responseReader = responseReader;
         this.actionName = actionName;
         this.threadPool = threadPool;
+        this.client = client;
     }
 
     @Override
@@ -70,6 +75,7 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
         private final Request request;
         private volatile ClusterStateObserver observer;
         private DiscoveryNode targetNode;
+        private TaskId taskId;
         private AsyncSearchId asyncSearchId;
         private final AtomicBoolean finished = new AtomicBoolean();
 
@@ -101,7 +107,7 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
                                             actionName, targetNode, exp.getDetailedMessage());
                                     retry(cause);
                                 } else {
-                                    listener.onFailure(exp);
+                                    handleRequest(asyncSearchId, request, listener);
                                 }
                             }
                         });

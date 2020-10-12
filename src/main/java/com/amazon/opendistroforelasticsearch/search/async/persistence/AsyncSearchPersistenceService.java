@@ -216,7 +216,7 @@ public class AsyncSearchPersistenceService {
             long expirationTimeMillis =
                     (long) getResponse.getSource().get(EXPIRATION_TIME);
             if (System.currentTimeMillis() < expirationTimeMillis) {
-                listener.onResponse(new AsyncSearchPersistenceContext(namedWriteableRegistry, AsyncSearchId.parseAsyncId(id),
+                listener.onResponse(new AsyncSearchPersistenceContext(namedWriteableRegistry, AsyncSearchId.parseAsyncId(id).getAsyncSearchContextId(),
                         expirationTimeMillis,
                         (String) getResponse.getSource().get(RESPONSE)));
             } else {
