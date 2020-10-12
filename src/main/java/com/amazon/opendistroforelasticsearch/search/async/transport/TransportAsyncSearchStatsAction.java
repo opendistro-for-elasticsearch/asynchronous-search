@@ -1,32 +1,28 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
-import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchStatsNodeRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchStatsRequest;
-import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchStatsNodeResponse;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchStatsResponse;
+import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import org.elasticsearch.action.FailedNodeException;
 import org.elasticsearch.action.support.ActionFilters;
+import org.elasticsearch.action.support.nodes.BaseNodeRequest;
 import org.elasticsearch.action.support.nodes.TransportNodesAction;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 public class TransportAsyncSearchStatsAction extends TransportNodesAction<AsyncSearchStatsRequest, AsyncSearchStatsResponse,
-        AsyncSearchStatsNodeRequest, AsyncSearchStatsNodeResponse> {
+        TransportAsyncSearchStatsAction.AsyncSearchStatsNodeRequest, AsyncSearchStats> {
 
     private final AsyncSearchService asyncSearchService;
-    private AsyncSearchStats asyncSearchStats;
 
     @Inject
     public TransportAsyncSearchStatsAction(
@@ -34,29 +30,19 @@ public class TransportAsyncSearchStatsAction extends TransportNodesAction<AsyncS
             ClusterService clusterService,
             TransportService transportService,
             ActionFilters actionFilters,
-            AsyncSearchService asyncSearchService,
-            AsyncSearchStats asyncSearchStats
+            AsyncSearchService asyncSearchService
     ) {
         super(AsyncSearchStatsAction.NAME, threadPool, clusterService, transportService, actionFilters, AsyncSearchStatsRequest::new,
-                AsyncSearchStatsNodeRequest::new, ThreadPool.Names.MANAGEMENT, AsyncSearchStatsNodeResponse.class);
+                AsyncSearchStatsNodeRequest::new, ThreadPool.Names.MANAGEMENT, AsyncSearchStats.class);
         this.asyncSearchService = asyncSearchService;
-        this.asyncSearchStats = asyncSearchStats;
 
     }
 
     @Override
     protected AsyncSearchStatsResponse newResponse(
-            AsyncSearchStatsRequest request, List<AsyncSearchStatsNodeResponse> asyncSearchStatsNodeResponses,
+            AsyncSearchStatsRequest request, List<AsyncSearchStats> responses,
             List<FailedNodeException> failures) {
-        Map<String, Object> clusterStats = new HashMap<>();
-        Set<String> statsToBeRetrieved = request.getStatsToBeRetrieved();
-
-        for (String statName : asyncSearchStats.getClusterStats().keySet()) {
-            if (statsToBeRetrieved.contains(statName)) {
-                clusterStats.put(statName, asyncSearchStats.getStats().get(statName).getValue());
-            }
-        }
-        return new AsyncSearchStatsResponse(clusterService.getClusterName(), asyncSearchStatsNodeResponses, failures, clusterStats);
+        return new AsyncSearchStatsResponse(clusterService.getClusterName(), responses, failures);
     }
 
     @Override
@@ -65,25 +51,33 @@ public class TransportAsyncSearchStatsAction extends TransportNodesAction<AsyncS
     }
 
     @Override
-    protected AsyncSearchStatsNodeResponse newNodeResponse(StreamInput in) throws IOException {
-        return new AsyncSearchStatsNodeResponse(in);
+    protected AsyncSearchStats newNodeResponse(StreamInput in) throws IOException {
+        return new AsyncSearchStats(in);
     }
 
     @Override
-    protected AsyncSearchStatsNodeResponse nodeOperation(AsyncSearchStatsNodeRequest request) {
-        return createAsyncSearchStatsNodeResponse(request.getAsyncSearchStatsRequest());
+    protected AsyncSearchStats nodeOperation(AsyncSearchStatsNodeRequest asyncSearchStatsNodeRequest) {
+        return asyncSearchService.stats(true);
+
     }
 
-    private AsyncSearchStatsNodeResponse createAsyncSearchStatsNodeResponse(AsyncSearchStatsRequest request) {
-        Map<String, Object> statValues = new HashMap<>();
-        Set<String> statsToBeRetrieved = request.getStatsToBeRetrieved();
+    public static class AsyncSearchStatsNodeRequest extends BaseNodeRequest {
 
-        for (String statName : asyncSearchStats.getNodeStats().keySet()) {
-            if (statsToBeRetrieved.contains(statName)) {
-                statValues.put(statName, asyncSearchStats.getStats().get(statName).getValue());
-            }
+        AsyncSearchStatsRequest request;
+
+        public AsyncSearchStatsNodeRequest(StreamInput in) throws IOException {
+            super(in);
+            request = new AsyncSearchStatsRequest(in);
         }
 
-        return new AsyncSearchStatsNodeResponse(clusterService.localNode(), statValues);
+        AsyncSearchStatsNodeRequest(AsyncSearchStatsRequest request) {
+            this.request = request;
+        }
+
+        @Override
+        public void writeTo(StreamOutput out) throws IOException {
+            super.writeTo(out);
+            request.writeTo(out);
+        }
     }
 }

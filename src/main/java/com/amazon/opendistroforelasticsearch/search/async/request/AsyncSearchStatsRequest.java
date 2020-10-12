@@ -5,6 +5,7 @@ import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -20,6 +21,8 @@ public class AsyncSearchStatsRequest extends BaseNodesRequest<AsyncSearchStatsRe
      */
     public AsyncSearchStatsRequest() {
         super((String[]) null);
+        statsToBeRetrieved = Collections.emptySet();
+        validStats = Collections.emptySet();
     }
 
     /**

@@ -20,8 +20,8 @@ import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearc
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchCountStats;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
-import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,6 +36,7 @@ import org.elasticsearch.cluster.ClusterStateListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
+import org.elasticsearch.common.metrics.CounterMetric;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -51,11 +52,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext.Stage.ABORTED;
-import static com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames.ABORTED_ASYNC_SEARCH_COUNT;
-import static com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames.COMPLETED_ASYNC_SEARCH_COUNT;
-import static com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames.FAILED_ASYNC_SEARCH_COUNT;
-import static com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames.PERSISTED_ASYNC_SEARCH_COUNT;
-import static org.elasticsearch.common.unit.TimeValue.*;
+import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
+import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 
 /***
  * Manages the lifetime of {@link AbstractAsyncSearchContext} for all the async searches running on the coordinator node.
@@ -65,14 +63,14 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
 
     private static final Logger logger = LogManager.getLogger(SearchService.class);
 
-    private volatile long maxKeepAlive;
-
     public static final Setting<TimeValue> DEFAULT_KEEPALIVE_SETTING =
             Setting.positiveTimeSetting("async_search.default_keep_alive", timeValueHours(2), Setting.Property.NodeScope,
                     Setting.Property.Dynamic);
     public static final Setting<TimeValue> MAX_KEEPALIVE_SETTING =
             Setting.positiveTimeSetting("async_search.max_keep_alive", timeValueDays(1), Setting.Property.NodeScope,
                     Setting.Property.Dynamic);
+
+    private volatile long maxKeepAlive;
 
     private final AtomicLong idGenerator = new AtomicLong();
 
@@ -86,12 +84,17 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
 
     private final NamedWriteableRegistry namedWriteableRegistry;
 
-    private final AsyncSearchStats asyncSearchStats;
+    private final CounterMetric runningAsyncSearchCount = new CounterMetric();
+    private final CounterMetric persistedAsyncSearchCount = new CounterMetric();
+    private final CounterMetric abortedAsyncSearchCount = new CounterMetric();
+    private final CounterMetric failedAsyncSearchCount = new CounterMetric();
+    private final CounterMetric completedAsyncSearchCount = new CounterMetric();
+
 
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService,
                               Client client, ClusterService clusterService,
-                              ThreadPool threadPool, NamedWriteableRegistry namedWriteableRegistry, AsyncSearchStats asyncSearchStats) {
-        super(threadPool, clusterService, asyncSearchStats);
+                              ThreadPool threadPool, NamedWriteableRegistry namedWriteableRegistry) {
+        super(threadPool, clusterService);
         this.client = client;
         Settings settings = clusterService.getSettings();
         setKeepAlive(MAX_KEEPALIVE_SETTING.get(settings));
@@ -100,7 +103,6 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
         this.namedWriteableRegistry = namedWriteableRegistry;
-        this.asyncSearchStats = asyncSearchStats;
     }
 
     private void setKeepAlive(TimeValue maxKeepAlive) {
@@ -110,25 +112,29 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
     /**
      * Creates a new context and attaches a listener for the changes as they progress on the search. The context after being created
      * is saved in a in-memory store
+     *
      * @param submitAsyncSearchRequest the request for submitting the async search
      * @param relativeStartMillis      the start time of the async search
      */
     public AbstractAsyncSearchContext prepareContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, long relativeStartMillis) {
         if (submitAsyncSearchRequest.getKeepAlive().getMillis() > maxKeepAlive) {
             throw new IllegalArgumentException(
-                "Keep alive for async searcg (" + TimeValue.timeValueMillis(submitAsyncSearchRequest.getKeepAlive().getMillis()) + ") is too large. " +
-                        "It must be less than (" + TimeValue.timeValueMillis(maxKeepAlive) + "). " +
-                        "This limit can be set by changing the [" + MAX_KEEPALIVE_SETTING.getKey() + "] cluster level setting.");
+                    "Keep alive for async searcg (" + TimeValue.timeValueMillis(submitAsyncSearchRequest.getKeepAlive().getMillis()) + ")" +
+                            " is too large. " +
+                            "It must be less than (" + TimeValue.timeValueMillis(maxKeepAlive) + "). " +
+                            "This limit can be set by changing the [" + MAX_KEEPALIVE_SETTING.getKey() + "] cluster level setting.");
         }
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartMillis,
                 (response) -> onSearchResponse(response, asyncSearchContextId),
-                (e) -> onSearchFailure(e, asyncSearchContextId), threadPool.executor(ThreadPool.Names.GENERIC), threadPool::relativeTimeInMillis);
+                (e) -> onSearchFailure(e, asyncSearchContextId), threadPool.executor(ThreadPool.Names.GENERIC),
+                threadPool::relativeTimeInMillis);
         ActiveAsyncSearchContext asyncSearchContext = new ActiveAsyncSearchContext(new AsyncSearchId(clusterService.localNode().getId(),
                 asyncSearchContextId),
                 submitAsyncSearchRequest.getKeepAlive(),
                 submitAsyncSearchRequest.keepOnCompletion(), threadPool, progressActionListener);
         putContext(asyncSearchContextId, asyncSearchContext);
+        runningAsyncSearchCount.inc();
         return asyncSearchContext;
     }
 
@@ -156,8 +162,8 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
             listener.onResponse(activeAsyncSearchContext);
         } else {
             persistenceService.getResponse(AsyncSearchId.buildAsyncId(asyncSearchId), ActionListener.wrap(
-                 asyncSearchPersistenceContext -> listener.onResponse(asyncSearchPersistenceContext),
-                  ex -> listener.onFailure(new AsyncSearchContextMissingException(asyncSearchContextId))
+                    asyncSearchPersistenceContext -> listener.onResponse(asyncSearchPersistenceContext),
+                    ex -> listener.onFailure(new AsyncSearchContextMissingException(asyncSearchContextId))
             ));
         }
     }
@@ -204,10 +210,10 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         if (asyncSearchContext != null && asyncSearchContext.getTask().isCancelled() == false) {
             client.admin().cluster()
                     .prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(), asyncSearchContext.getTask().getId()))
-                    .execute(ActionListener.wrap(() -> {}));
+                    .execute(ActionListener.wrap(() -> {
+                    }));
         }
         if (freeContext(asyncSearchContextId)) {
-            asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).decrement();
             groupedDeletionListener.onResponse(true);
         } else {
             groupedDeletionListener.onResponse(false);
@@ -220,28 +226,28 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         asyncSearchContext.processFinalResponse(searchResponse);
         AsyncSearchResponse asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
-        asyncSearchStats.getStat(COMPLETED_ASYNC_SEARCH_COUNT.getName()).increment();
+        completedAsyncSearchCount.inc();
         if (asyncSearchContext.needsPersistence()) {
             AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchResponse);
             asyncSearchContext.acquireAllContextPermit(ActionListener.wrap(releasable -> {
-                persistenceService.createResponse(model, ActionListener.wrap(
-                    (indexResponse) -> {
-                        asyncSearchContext.performPostPersistenceCleanup();
-                        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
-                        asyncSearchStats.getStat(PERSISTED_ASYNC_SEARCH_COUNT.getName()).increment();
-                        freeContext(asyncSearchContextId);
-                        releasable.close();
-                    },
+                        persistenceService.createResponse(model, ActionListener.wrap(
+                                (indexResponse) -> {
+                                    asyncSearchContext.performPostPersistenceCleanup();
+                                    asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
+                                    persistedAsyncSearchCount.inc();
+                                    freeContext(asyncSearchContextId);
+                                    releasable.close();
+                                },
 
-                    (e) -> {
-                        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSIST_FAILED);
-                        logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
-                        releasable.close();
-                    }
-                ));
+                                (e) -> {
+                                    asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSIST_FAILED);
+                                    logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
+                                    releasable.close();
+                                }
+                        ));
 
-            }, (e) -> logger.error("Exception while acquiring the permit due to ", e)),
-                TimeValue.timeValueSeconds(30), "persisting response");
+                    }, (e) -> logger.error("Exception while acquiring the permit due to ", e)),
+                    TimeValue.timeValueSeconds(30), "persisting response");
         }
         return asyncSearchResponse;
     }
@@ -249,7 +255,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
     public void onSearchFailure(Exception e, AsyncSearchContextId asyncSearchContextId) {
         ActiveAsyncSearchContext activeContext = getContext(asyncSearchContextId);
         activeContext.processFailure(e);
-        asyncSearchStats.getStat(FAILED_ASYNC_SEARCH_COUNT.getName()).increment();
+        failedAsyncSearchCount.inc();
         freeContext(asyncSearchContextId);
     }
 
@@ -289,6 +295,12 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
      */
     public void onCancelled(AsyncSearchContextId contextId) {
         getContext(contextId).setStage(ABORTED);
-        asyncSearchStats.getStat(ABORTED_ASYNC_SEARCH_COUNT.getName()).increment();
+        abortedAsyncSearchCount.inc();
+    }
+
+    public AsyncSearchStats stats(boolean count) {
+        return new AsyncSearchStats(clusterService.localNode(), count ? new AsyncSearchCountStats(
+                runningAsyncSearchCount.count(), abortedAsyncSearchCount.count(),
+                persistedAsyncSearchCount.count(), completedAsyncSearchCount.count(), failedAsyncSearchCount.count()) : null);
     }
 }

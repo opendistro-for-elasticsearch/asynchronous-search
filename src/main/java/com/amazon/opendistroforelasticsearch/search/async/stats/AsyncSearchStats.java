@@ -1,72 +1,45 @@
 package com.amazon.opendistroforelasticsearch.search.async.stats;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchCountStats;
+import org.elasticsearch.action.support.nodes.BaseNodeResponse;
+import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.common.Nullable;
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.StreamOutput;
+import org.elasticsearch.common.xcontent.ToXContentFragment;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+
+import java.io.IOException;
 
 /**
  * Class represents all stats the plugin keeps track of
  */
-public class AsyncSearchStats {
+public class AsyncSearchStats extends BaseNodeResponse implements ToXContentFragment {
 
-    private Map<String, AsyncSearchStat<?>> asyncSearchStats;
+    private AsyncSearchCountStats asyncSearchCountStats;
 
-    /**
-     * Constructor
-     *
-     * @param asyncSearchStats Map that maps name of stat to AsyncSearchStat object
-     */
-    public AsyncSearchStats(Map<String, AsyncSearchStat<?>> asyncSearchStats) {
-        this.asyncSearchStats = asyncSearchStats;
+    public AsyncSearchStats(StreamInput in) throws IOException {
+        super(in);
+        asyncSearchCountStats = in.readOptionalWriteable(AsyncSearchCountStats::new);
     }
 
-    /**
-     * Get the stats
-     *
-     * @return all of the stats
-     */
-    public Map<String, AsyncSearchStat<?>> getStats() {
-        return asyncSearchStats;
+    public AsyncSearchStats(DiscoveryNode node, @Nullable AsyncSearchCountStats asyncSearchCountStats) {
+        super(node);
+        this.asyncSearchCountStats = asyncSearchCountStats;
     }
 
-    /**
-     * Get individual stat by stat name
-     *
-     * @param key Name of stat
-     * @throws IllegalArgumentException thrown on illegal statName
-     */
-    public AsyncSearchStat<?> getStat(String key) throws IllegalArgumentException {
-        if (!asyncSearchStats.keySet().contains(key)) {
-            throw new IllegalArgumentException("Stat=\"" + key + "\" does not exist");
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        super.writeTo(out);
+        out.writeOptionalWriteable(asyncSearchCountStats);
+    }
+
+    @Override
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        builder.field("name", getNode().getName());
+        if (asyncSearchCountStats != null) {
+            asyncSearchCountStats.toXContent(builder, params);
         }
-        return asyncSearchStats.get(key);
-    }
-
-    /**
-     * Get a map of the stats that are kept at the node level
-     *
-     * @return Map of stats kept at the node level
-     */
-    public Map<String, AsyncSearchStat<?>> getNodeStats() {
-        return getClusterOrNodeStats(false);
-    }
-
-    /**
-     * Get a map of the stats that are kept at the cluster level
-     *
-     * @return Map of stats kept at the cluster level
-     */
-    public Map<String, AsyncSearchStat<?>> getClusterStats() {
-        return getClusterOrNodeStats(true);
-    }
-
-    private Map<String, AsyncSearchStat<?>> getClusterOrNodeStats(Boolean getClusterStats) {
-        Map<String, AsyncSearchStat<?>> statsMap = new HashMap<>();
-
-        for (Map.Entry<String, AsyncSearchStat<?>> entry : asyncSearchStats.entrySet()) {
-            if (entry.getValue().isClusterLevel() == getClusterStats) {
-                statsMap.put(entry.getKey(), entry.getValue());
-            }
-        }
-        return statsMap;
+        return builder;
     }
 }

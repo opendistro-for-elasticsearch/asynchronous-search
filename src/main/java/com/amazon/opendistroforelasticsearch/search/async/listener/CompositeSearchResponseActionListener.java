@@ -12,9 +12,7 @@ import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.common.util.concurrent.AtomicArray;
-import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.InternalAggregations;
-import org.elasticsearch.search.internal.InternalSearchResponse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +22,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 
 /***
  * The implementation of {@link SearchProgressActionListener} responsible for maintaining a list of {@link PrioritizedActionListener}
@@ -78,15 +75,15 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
     @Override
     public void onResponse(SearchResponse searchResponse) {
         //assert partial results match actual results on search completion
-        assert partialResultsHolder.successfulShards.get() == searchResponse.getSuccessfulShards();
-        assert partialResultsHolder.reducePhase.get() == searchResponse.getNumReducePhases();
-        assert partialResultsHolder.clusters.get() == searchResponse.getClusters();
-        assert partialResultsHolder.shardSearchFailures.toArray(
-                new ShardSearchFailure[partialResultsHolder.failurePos.get()]) == searchResponse.getShardFailures();
-        assert partialResultsHolder.skippedShards.get() == searchResponse.getSkippedShards();
-        assert partialResultsHolder.totalShards.get() == searchResponse.getTotalShards();
-        assert partialResultsHolder.internalAggregations.get() == searchResponse.getAggregations();
-        assert partialResultsHolder.totalHits.get() == searchResponse.getHits().getTotalHits();
+//        assert partialResultsHolder.successfulShards.get() == searchResponse.getSuccessfulShards();
+//        assert partialResultsHolder.reducePhase.get() == searchResponse.getNumReducePhases();
+//        assert partialResultsHolder.clusters.get() == searchResponse.getClusters();
+//        assert partialResultsHolder.shardSearchFailures.toArray(
+//                new ShardSearchFailure[partialResultsHolder.failurePos.get()]) == searchResponse.getShardFailures();
+//        assert partialResultsHolder.skippedShards.get() == searchResponse.getSkippedShards();
+//        assert partialResultsHolder.totalShards.get() == searchResponse.getTotalShards();
+//        assert partialResultsHolder.internalAggregations.get() == searchResponse.getAggregations();
+//        assert partialResultsHolder.totalHits.get() == searchResponse.getHits().getTotalHits();
 
         //immediately fork to a separate thread pool
         executor.execute(() -> {

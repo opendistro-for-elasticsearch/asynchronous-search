@@ -2,7 +2,6 @@ package com.amazon.opendistroforelasticsearch.search.async.rest;
 
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchStatsRequest;
-import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.client.node.NodeClient;
@@ -23,10 +22,8 @@ public class RestAsyncSearchStatsAction extends BaseRestHandler {
 
     private static final Logger LOG = LogManager.getLogger(RestAsyncSearchStatsAction.class);
     private static final String NAME = "async_search_stats_action";
-    private AsyncSearchStats asyncSearchStats;
 
-    public RestAsyncSearchStatsAction(AsyncSearchStats asyncSearchStats) {
-        this.asyncSearchStats = asyncSearchStats;
+    public RestAsyncSearchStatsAction() {
     }
 
     @Override
@@ -61,7 +58,7 @@ public class RestAsyncSearchStatsAction extends BaseRestHandler {
             nodeIdsArr = nodesIdsStr.split(",");
         }
 
-        AsyncSearchStatsRequest asyncSearchStatsRequest = new AsyncSearchStatsRequest(asyncSearchStats.getStats().keySet(), nodeIdsArr);
+        AsyncSearchStatsRequest asyncSearchStatsRequest = new AsyncSearchStatsRequest();
         asyncSearchStatsRequest.timeout(request.param("timeout"));
 
         // parse the stats the customer wants to see

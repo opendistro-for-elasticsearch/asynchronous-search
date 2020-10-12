@@ -6,8 +6,8 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchRe
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchProgressActionListener;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
@@ -63,6 +63,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     private final AtomicReference<SearchResponse> searchResponse;
     private volatile SetOnce<SearchTask> searchTask = new SetOnce<>();
     private volatile long expirationTimeMillis;
+    private volatile long startTimeMillis;
     private final Boolean keepOnCompletion;
     private final AsyncSearchContextId asyncSearchContextId;
     private volatile TimeValue keepAlive;
@@ -83,6 +84,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         this.keepAlive = keepAlive;
         this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId, threadPool);
         this.progressActionListener = progressActionListener;
+        this.startTimeMillis = System.currentTimeMillis();
     }
 
     @Override
@@ -93,6 +95,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     public void initializeTask(SearchTask searchTask) {
         this.searchTask.set(searchTask);
         this.searchTask.get().setProgressListener(progressActionListener);
+        this.startTimeMillis = searchTask.getStartTime();
     }
 
     public TimeValue getKeepAlive() {
@@ -126,7 +129,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
     @Override
     public AsyncSearchResponse getAsyncSearchResponse() {
-        return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isPartial(), isRunning(), searchTask.get().getStartTime(),
+        return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isPartial(), isRunning(), startTimeMillis,
                 getExpirationTimeMillis(),
                 isRunning() ? progressActionListener.partialResponse() : getFinalSearchResponse(), error.get());
     }
@@ -140,7 +143,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     }
 
     public boolean isCancelled() {
-        return searchTask.get().isCancelled();
+        return searchTask == null || searchTask.get() == null || searchTask.get().isCancelled();
     }
 
     public boolean isPartial() {
@@ -184,10 +187,14 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
     /**
      * Atomically validates and updates the state of the search
+     *
      * @param stage stage to set
      */
     public synchronized void setStage(Stage stage) {
         switch (stage) {
+            case INIT:
+                validateAndSetStage(null, stage);
+                break;
             case RUNNING:
                 validateAndSetStage(Stage.INIT, stage);
                 break;

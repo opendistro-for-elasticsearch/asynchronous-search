@@ -14,8 +14,6 @@
  */
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatNames;
-import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchException;
@@ -45,7 +43,6 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
     private final Scheduler.Cancellable keepAliveReaper;
     private final ThreadPool threadPool;
     private final ClusterService clusterService;
-    private final AsyncSearchStats asyncSearchStats;
     private volatile int maxRunningContext;
 
     public static final Setting<TimeValue> KEEPALIVE_INTERVAL_SETTING =
@@ -56,13 +53,12 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
 
     private final ConcurrentMapLong<ActiveAsyncSearchContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
 
-    public AsyncSearchLifecycleService(ThreadPool threadPool, ClusterService clusterService, AsyncSearchStats asyncSearchStats) {
+    public AsyncSearchLifecycleService(ThreadPool threadPool, ClusterService clusterService) {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         Settings settings = clusterService.getSettings();
         this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new Reaper(), KEEPALIVE_INTERVAL_SETTING.get(settings),
                 ThreadPool.Names.GENERIC);
-        this.asyncSearchStats = asyncSearchStats;
         maxRunningContext = MAX_RUNNING_CONTEXT.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_RUNNING_CONTEXT, this::setMaxRunningContext);
     }
@@ -83,7 +79,6 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
                             + MAX_RUNNING_CONTEXT.getKey() + "] setting.");
         }
         activeContexts.put(asyncSearchContextId.getId(), asyncSearchContext);
-        asyncSearchStats.getStat(AsyncSearchStatNames.RUNNING_ASYNC_SEARCH_COUNT.getName()).increment();
     }
 
     /**

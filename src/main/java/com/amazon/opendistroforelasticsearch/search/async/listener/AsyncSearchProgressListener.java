@@ -54,12 +54,16 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
         if (partialResultsHolder.isInitialized.get()) {
             SearchHits searchHits = new SearchHits(SearchHits.EMPTY, partialResultsHolder.totalHits.get(), 0);
             InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits,
-                    partialResultsHolder.internalAggregations.get() == null ? partialResultsHolder.delayedInternalAggregations.get().expand()
+                    partialResultsHolder.internalAggregations.get() == null ?
+                            (partialResultsHolder.delayedInternalAggregations.get() != null ?
+                                    partialResultsHolder.delayedInternalAggregations.get().expand() : null)
                             : partialResultsHolder.internalAggregations.get(),
                     null, null, false, false, partialResultsHolder.reducePhase.get());
-            ShardSearchFailure[] shardSearchFailures = partialResultsHolder.shardSearchFailures.toArray(new ShardSearchFailure[partialResultsHolder.failurePos.get()]);
+            ShardSearchFailure[] shardSearchFailures =
+                    partialResultsHolder.shardSearchFailures.toArray(new ShardSearchFailure[partialResultsHolder.failurePos.get()]);
             long tookInMillis = partialResultsHolder.currentTimeSupplier.getAsLong() - partialResultsHolder.relativeStartMillis;
-            return new SearchResponse(internalSearchResponse, null, partialResultsHolder.totalShards.get(), partialResultsHolder.successfulShards.get(),
+            return new SearchResponse(internalSearchResponse, null, partialResultsHolder.totalShards.get(),
+                    partialResultsHolder.successfulShards.get(),
                     partialResultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures, partialResultsHolder.clusters.get());
         } else {
             return null;
@@ -87,7 +91,7 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
 
     @Override
     protected void onFinalReduce(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
-        assert partialResultsHolder.shards.get() == shards;
+        assert partialResultsHolder.shards.get().equals(shards);
         partialResultsHolder.internalAggregations.set(aggs);
         partialResultsHolder.reducePhase.set(reducePhase);
         partialResultsHolder.totalHits.set(totalHits);

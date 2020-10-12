@@ -7,7 +7,7 @@ import java.util.function.Supplier;
 /**
  * Class represents a stat the plugin keeps track of
  */
-public class AsyncSearchStat<T> {
+public class ppp<T> {
 
 
     private Boolean clusterLevel;
@@ -20,7 +20,7 @@ public class AsyncSearchStat<T> {
      * @param clusterLevel the scope of the stat
      * @param supplier     supplier that returns the stat's value
      */
-    public AsyncSearchStat(Boolean clusterLevel, Supplier<T> supplier) {
+    public ppp(Boolean clusterLevel, Supplier<T> supplier) {
         this.clusterLevel = clusterLevel;
         this.supplier = supplier;
     }
