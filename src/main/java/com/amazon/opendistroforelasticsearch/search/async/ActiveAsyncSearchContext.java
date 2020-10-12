@@ -56,9 +56,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         FAILED
     }
 
-    private final AtomicBoolean isRunning;
     private final AtomicBoolean isCompleted;
-    private final AtomicBoolean isPartial;
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
     private volatile SetOnce<SearchTask> searchTask = new SetOnce<>();
@@ -76,8 +74,6 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         super(asyncSearchId);
         this.asyncSearchContextId = asyncSearchId.getAsyncSearchContextId();
         this.keepOnCompletion = keepOnCompletion;
-        this.isRunning = new AtomicBoolean(true);
-        this.isPartial = new AtomicBoolean(true);
         this.isCompleted = new AtomicBoolean(false);
         this.error = new AtomicReference<>();
         this.searchResponse = new AtomicReference<>();
@@ -139,15 +135,15 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     }
 
     public boolean isRunning() {
-        return isCancelled() == false && isRunning.get();
+        return isCompleted.get() == false;
+    }
+
+    public boolean isPartial() {
+        return isCompleted.get() == false || isCancelled();
     }
 
     public boolean isCancelled() {
         return searchTask == null || searchTask.get() == null || searchTask.get().isCancelled();
-    }
-
-    public boolean isPartial() {
-        return isPartial.get();
     }
 
     @Override
@@ -166,22 +162,20 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
 
     public void processFailure(Exception e) {
-        this.isCompleted.set(true);
-        this.isPartial.set(false);
-        this.isRunning.set(false);
-        this.searchTask = null;
-        error.set(new ElasticsearchException(e));
-        setStage(Stage.FAILED);
+        if (isCompleted.compareAndSet(false, true)) {
+            this.searchTask = null;
+            error.set(new ElasticsearchException(e));
+            setStage(Stage.FAILED);
+        }
     }
 
 
     public void processFinalResponse(SearchResponse response) {
-        this.searchResponse.compareAndSet(null, response);
-        this.isCompleted.set(true);
-        this.isRunning.set(false);
-        this.isPartial.set(false);
-        this.searchTask = null;
-        setStage(Stage.COMPLETED);
+        if (isCompleted.compareAndSet(false, true)) {
+            this.searchResponse.compareAndSet(null, response);
+            this.searchTask = null;
+            setStage(Stage.COMPLETED);
+        }
     }
 
 
@@ -222,9 +216,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     @Override
     public String toString() {
         return "ActiveAsyncSearchContext{" +
-                "isRunning=" + isRunning +
                 ", isCompleted=" + isCompleted +
-                ", isPartial=" + isPartial +
                 ", error=" + error +
                 ", searchResponse=" + searchResponse +
                 ", searchTask=" + searchTask +

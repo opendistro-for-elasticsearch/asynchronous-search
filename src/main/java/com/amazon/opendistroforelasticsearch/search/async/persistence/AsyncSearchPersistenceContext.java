@@ -3,12 +3,17 @@ package com.amazon.opendistroforelasticsearch.search.async.persistence;
 import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.common.xcontent.XContentType;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -84,4 +89,12 @@ public class AsyncSearchPersistenceContext extends AbstractAsyncSearchContext im
         }
     }
 
+    private void test(BytesReference originalBytes) {
+        try (XContentParser parser = XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY,
+                LoggingDeprecationHandler.INSTANCE, originalBytes.streamInput())) {
+            AsyncSearchResponse parsed = AsyncSearchResponse.fromXContent(parser);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 }
