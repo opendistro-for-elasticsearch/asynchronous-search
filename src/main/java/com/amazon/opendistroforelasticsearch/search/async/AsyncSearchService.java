@@ -146,7 +146,6 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         asyncSearchContext.initializeTask(searchTask);
         asyncSearchContext.setExpirationMillis(searchTask.getStartTime() + asyncSearchContext.getKeepAlive().getMillis());
-        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.INIT);
     }
 
     /***

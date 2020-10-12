@@ -85,7 +85,9 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
         protected void doRun() {
             try {
                 ClusterState state = observer.setAndGetObservedState();
-                if (state.nodes().getLocalNode().equals(targetNode) == false) {
+                // forward request only if the local node isn't the node coordinating the search and the node coordinating
+                // the search exists in the cluster
+                if (state.nodes().getLocalNode().equals(targetNode) == false && state.nodes().nodeExists(targetNode)) {
                     transportService.sendRequest(targetNode, actionName, request,
                         new ActionListenerResponseHandler<Response>(listener, responseReader) {
                             @Override
