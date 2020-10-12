@@ -120,8 +120,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         if (submitAsyncSearchRequest.getKeepAlive().getMillis() > maxKeepAlive) {
             throw new IllegalArgumentException(
                     "Keep alive for async searcg (" + TimeValue.timeValueMillis(submitAsyncSearchRequest.getKeepAlive().getMillis()) + ")" +
-                            " is too large. " +
-                            "It must be less than (" + TimeValue.timeValueMillis(maxKeepAlive) + "). " +
+                            " is too large It must be less than (" + TimeValue.timeValueMillis(maxKeepAlive) + "). " +
                             "This limit can be set by changing the [" + MAX_KEEPALIVE_SETTING.getKey() + "] cluster level setting.");
         }
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
@@ -159,9 +158,8 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         if (activeAsyncSearchContext != null) {
             listener.onResponse(activeAsyncSearchContext);
         } else {
-            persistenceService.getResponse(AsyncSearchId.buildAsyncId(asyncSearchId), ActionListener.wrap(
-                    asyncSearchPersistenceContext -> listener.onResponse(asyncSearchPersistenceContext),
-                    ex -> listener.onFailure(new AsyncSearchContextMissingException(asyncSearchContextId))
+            persistenceService.getResponse(AsyncSearchId.buildAsyncId(asyncSearchId), ActionListener.wrap(listener::onResponse,
+                ex -> listener.onFailure(new AsyncSearchContextMissingException(asyncSearchContextId))
             ));
         }
     }
@@ -179,7 +177,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
                 .filter(Objects::nonNull)
                 .filter(context -> threadPool.relativeTimeInMillis() < context.getExpirationTimeMillis())
                 .filter(context -> context.getTask().isCancelled() == false)
-                .map(context -> context.getTask())
+                .map(ActiveAsyncSearchContext::getTask)
                 .collect(Collectors.toSet()));
     }
 
@@ -203,19 +201,18 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
             }, listener::onFailure), 2);
 
         //delete active context
-        //TODO do we need to wait on the task canncellation to succeed
         ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         if (asyncSearchContext != null && asyncSearchContext.getTask().isCancelled() == false) {
-            client.admin().cluster()
-                    .prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(), asyncSearchContext.getTask().getId()))
-                    .execute(ActionListener.wrap(() -> {
-                    }));
+            client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(), asyncSearchContext.getTask().getId()))
+                .execute(ActionListener.wrap((response) ->
+                     groupedDeletionListener.onResponse(response.getTaskFailures().isEmpty() && freeContext(asyncSearchContextId)),
+                    (e) -> {
+                        freeContext(asyncSearchContextId);
+                        groupedDeletionListener.onResponse(false);
+                    }
+                ));
         }
-        if (freeContext(asyncSearchContextId)) {
-            groupedDeletionListener.onResponse(true);
-        } else {
-            groupedDeletionListener.onResponse(false);
-        }
+
         //deleted persisted context
         persistenceService.deleteResponse(id, groupedDeletionListener);
     }
@@ -230,7 +227,6 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
                 AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchResponse);
                 persistenceService.createResponse(model, ActionListener.wrap(
                     (indexResponse) -> {
-                        asyncSearchContext.performPostPersistenceCleanup();
                         asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
                         persistedAsyncSearchCount.inc();
                         freeContext(asyncSearchContextId);

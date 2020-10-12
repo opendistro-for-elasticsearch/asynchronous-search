@@ -9,14 +9,10 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchPr
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.GroupedActionListener;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -32,26 +28,16 @@ import java.util.Objects;
  */
 public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchAction<GetAsyncSearchRequest, AsyncSearchResponse> {
 
-    private ThreadPool threadPool;
-    private TransportService transportService;
-    private ClusterService clusterService;
-    private IndexNameExpressionResolver indexNameExpressionResolver;
-    private final TransportSearchAction transportSearchAction;
+    private final ThreadPool threadPool;
     private final AsyncSearchService asyncSearchService;
-    private static final Logger logger = LogManager.getLogger(TransportGetAsyncSearchAction.class);
 
     @Inject
     public TransportGetAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
-                                         ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver,
-                                         AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction, Client client) {
+                                         ActionFilters actionFilters, AsyncSearchService asyncSearchService, Client client) {
         super(transportService, clusterService, threadPool, client, GetAsyncSearchAction.NAME, actionFilters, GetAsyncSearchRequest::new,
                 AsyncSearchResponse::new);
         this.threadPool = threadPool;
-        this.transportService = transportService;
-        this.clusterService = clusterService;
-        this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.asyncSearchService = asyncSearchService;
-        this.transportSearchAction = transportSearchAction;
     }
 
     @Override
@@ -68,11 +54,9 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                 ActionListener<AsyncSearchResponse> groupedListener = new GroupedActionListener<>(
                                     ActionListener.wrap(
                                             //TODO replace findFirst with the latest response received. Add TS to AsyncSearchResponse and compare
-                                            (responses) -> {
-                                                listener.onResponse(responses.stream()
-                                                        .filter(Objects::nonNull)
-                                                        .findFirst().get());
-                                            },
+                                            (responses) -> listener.onResponse(responses.stream()
+                                                    .filter(Objects::nonNull)
+                                                    .findFirst().get()),
                                             listener::onFailure), 2);
                                 PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                                         request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, groupedListener,

@@ -120,10 +120,6 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
         return searchTask.get();
     }
 
-    public void performPostPersistenceCleanup() {
-        searchResponse.set(null);
-    }
-
     public void setExpirationMillis(long expirationTimeMillis) {
         this.expirationTimeMillis = expirationTimeMillis;
     }
@@ -135,8 +131,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     @Override
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isPartial(), isRunning(), startTimeMillis,
-                getExpirationTimeMillis(),
-                isRunning() ? progressActionListener.partialResponse() : getFinalSearchResponse(), error.get());
+                getExpirationTimeMillis(), isRunning() ? progressActionListener.partialResponse() : getFinalSearchResponse(), error.get());
     }
 
     public SearchResponse getFinalSearchResponse() {
@@ -152,7 +147,7 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     }
 
     public boolean isCancelled() {
-        return searchTask == null || searchTask.get() == null || searchTask.get().isCancelled();
+        return searchTask.get() != null && searchTask.get().isCancelled();
     }
 
     @Override
@@ -172,9 +167,9 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
 
     public void processFailure(Exception e) {
         if (isCompleted.compareAndSet(false, true)) {
-            this.searchTask = null;
             error.set(new ElasticsearchException(e));
             setStage(Stage.FAILED);
+            this.searchTask = null;
         }
     }
 
@@ -182,8 +177,8 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
     public void processFinalResponse(SearchResponse response) {
         if (isCompleted.compareAndSet(false, true)) {
             this.searchResponse.compareAndSet(null, response);
-            this.searchTask = null;
             setStage(Stage.COMPLETED);
+            this.searchTask = null;
         }
     }
 
@@ -199,10 +194,13 @@ public class ActiveAsyncSearchContext extends AbstractAsyncSearchContext {
                 validateAndSetStage(null, stage);
                 break;
             case RUNNING:
+                assert searchTask.get() != null : "search task cannot be null";
                 validateAndSetStage(Stage.INIT, stage);
                 break;
             case COMPLETED:
+                assert searchTask.get() == null || searchTask.get().isCancelled() == false : "search task is cancelled";
             case ABORTED:
+                assert searchTask.get() == null || searchTask.get().isCancelled() : "search task should be cancelled";
             case FAILED:
                 validateAndSetStage(Stage.RUNNING, stage);
                 break;
