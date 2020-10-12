@@ -15,6 +15,7 @@ import org.elasticsearch.common.util.concurrent.AtomicArray;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -75,15 +76,16 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
     @Override
     public void onResponse(SearchResponse searchResponse) {
         //assert partial results match actual results on search completion
-//        assert partialResultsHolder.successfulShards.get() == searchResponse.getSuccessfulShards();
-//        assert partialResultsHolder.reducePhase.get() == searchResponse.getNumReducePhases();
-//        assert partialResultsHolder.clusters.get() == searchResponse.getClusters();
-//        assert partialResultsHolder.shardSearchFailures.toArray(
-//                new ShardSearchFailure[partialResultsHolder.failurePos.get()]) == searchResponse.getShardFailures();
-//        assert partialResultsHolder.skippedShards.get() == searchResponse.getSkippedShards();
-//        assert partialResultsHolder.totalShards.get() == searchResponse.getTotalShards();
-//        assert partialResultsHolder.internalAggregations.get() == searchResponse.getAggregations();
-//        assert partialResultsHolder.totalHits.get() == searchResponse.getHits().getTotalHits();
+        assert partialResultsHolder.successfulShards.get() == searchResponse.getSuccessfulShards() : "successful shards mismatch";
+        assert partialResultsHolder.reducePhase.get() == searchResponse.getNumReducePhases() : "reduce phase number mismatch";
+        assert partialResultsHolder.clusters.get() == searchResponse.getClusters(): "clusters mismatch";
+        assert Arrays.equals(partialResultsHolder.shardSearchFailures.toArray(
+                new ShardSearchFailure[partialResultsHolder.failurePos.get()]), searchResponse.getShardFailures())
+                : "shard failures mismatch";
+        assert partialResultsHolder.skippedShards.get() == searchResponse.getSkippedShards(): "skipped shards mismatch";
+        assert partialResultsHolder.totalShards.get() == searchResponse.getTotalShards(): "total shards mismatch";
+        assert partialResultsHolder.internalAggregations.get() == searchResponse.getAggregations();
+        assert partialResultsHolder.totalHits.get() == searchResponse.getHits().getTotalHits();
 
         //immediately fork to a separate thread pool
         executor.execute(() -> {
@@ -164,7 +166,7 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
 
         PartialResultsHolder(long relativeStartMillis, LongSupplier currentTimeSupplier) {
             this.internalAggregations = new AtomicReference<>();
-            this.shardSearchFailures = new AtomicArray<>(1);
+            this.shardSearchFailures = new AtomicArray<>(0);
             this.totalShards = new AtomicInteger();
             this.successfulShards = new AtomicInteger();
             this.skippedShards = new AtomicInteger();

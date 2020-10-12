@@ -67,7 +67,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
             Setting.positiveTimeSetting("async_search.default_keep_alive", timeValueHours(2), Setting.Property.NodeScope,
                     Setting.Property.Dynamic);
     public static final Setting<TimeValue> MAX_KEEPALIVE_SETTING =
-            Setting.positiveTimeSetting("async_search.max_keep_alive", timeValueDays(1), Setting.Property.NodeScope,
+            Setting.positiveTimeSetting("async_search.max_keep_alive", timeValueDays(10), Setting.Property.NodeScope,
                     Setting.Property.Dynamic);
 
     private volatile long maxKeepAlive;
@@ -128,7 +128,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartMillis,
                 (response) -> onSearchResponse(response, asyncSearchContextId),
                 (e) -> onSearchFailure(e, asyncSearchContextId), threadPool.executor(ThreadPool.Names.GENERIC),
-                threadPool::relativeTimeInMillis);
+                System::currentTimeMillis);
         ActiveAsyncSearchContext asyncSearchContext = new ActiveAsyncSearchContext(new AsyncSearchId(clusterService.localNode().getId(),
                 asyncSearchContextId),
                 submitAsyncSearchRequest.getKeepAlive(),

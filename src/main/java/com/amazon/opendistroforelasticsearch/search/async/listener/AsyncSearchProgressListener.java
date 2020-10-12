@@ -109,8 +109,9 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
     protected void onFetchResult(int shardIndex) {
         assert partialResultsHolder.hasFetchPhase.get() : "Fetch result without fetch phase";
         assert shardIndex < partialResultsHolder.totalShards.get();
-        partialResultsHolder.successfulShards.updateAndGet((val) -> partialResultsHolder.hasFetchPhase.get() ?
-                partialResultsHolder.successfulShards.incrementAndGet() : partialResultsHolder.successfulShards.get());
+//        partialResultsHolder.successfulShards.updateAndGet((val) -> partialResultsHolder.hasFetchPhase.get() ?
+//                partialResultsHolder.successfulShards.incrementAndGet() : partialResultsHolder.successfulShards.get());
+        partialResultsHolder.successfulShards.incrementAndGet();
     }
 
     @Override
@@ -123,7 +124,10 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
     @Override
     protected void onQueryResult(int shardIndex) {
         assert shardIndex < partialResultsHolder.totalShards.get();
-        partialResultsHolder.successfulShards.updateAndGet((val) -> partialResultsHolder.hasFetchPhase.get() ?
-                partialResultsHolder.successfulShards.get() : partialResultsHolder.successfulShards.incrementAndGet());
+//        partialResultsHolder.successfulShards.updateAndGet((val) -> partialResultsHolder.hasFetchPhase.get() ?
+//                partialResultsHolder.successfulShards.get() : partialResultsHolder.successfulShards.incrementAndGet());
+        if(partialResultsHolder.hasFetchPhase.get()==false || partialResultsHolder.totalShards.get() <= 1) {
+            partialResultsHolder.successfulShards.incrementAndGet();
+        }
     }
 }
