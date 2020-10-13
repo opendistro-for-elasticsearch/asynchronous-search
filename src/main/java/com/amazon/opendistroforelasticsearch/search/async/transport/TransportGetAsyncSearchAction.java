@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
@@ -45,7 +45,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
         try {
             asyncSearchService.findContext(asyncSearchId, ActionListener.wrap(
                 (asyncSearchContext) -> {
-                    AbstractAsyncSearchContext.Source source = asyncSearchContext.getSource();
+                    AsyncSearchContext.Source source = asyncSearchContext.getSource();
                     boolean updateNeeded = request.getKeepAlive() != null;
                     switch (source) {
                         case IN_MEMORY:

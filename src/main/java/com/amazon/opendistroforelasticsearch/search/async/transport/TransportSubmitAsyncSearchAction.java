@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
@@ -68,7 +68,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
             final long relativeStartMillis = System.currentTimeMillis();
-            AbstractAsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartMillis);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartMillis);
             AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener) asyncSearchContext.getSearchProgressActionListener().get();
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {

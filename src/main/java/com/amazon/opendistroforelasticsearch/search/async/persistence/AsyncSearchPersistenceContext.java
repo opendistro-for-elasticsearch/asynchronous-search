@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.persistence;
 
-import com.amazon.opendistroforelasticsearch.search.async.AbstractAsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Base64;
 
-public class AsyncSearchPersistenceContext extends AbstractAsyncSearchContext implements ToXContentObject {
+public class AsyncSearchPersistenceContext extends AsyncSearchContext implements ToXContentObject {
 
     public static final String EXPIRATION_TIME = "expiration_time";
     public static final String RESPONSE = "response";

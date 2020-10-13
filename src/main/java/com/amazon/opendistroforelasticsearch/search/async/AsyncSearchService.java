@@ -56,16 +56,13 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 
 /***
- * Manages the lifetime of {@link AbstractAsyncSearchContext} for all the async searches running on the coordinator node.
+ * Manages the lifetime of {@link AsyncSearchContext} for all the async searches running on the coordinator node.
  */
 
 public class AsyncSearchService extends AsyncSearchLifecycleService implements ClusterStateListener {
 
     private static final Logger logger = LogManager.getLogger(SearchService.class);
 
-    public static final Setting<TimeValue> DEFAULT_KEEPALIVE_SETTING =
-            Setting.positiveTimeSetting("async_search.default_keep_alive", timeValueHours(2), Setting.Property.NodeScope,
-                    Setting.Property.Dynamic);
     public static final Setting<TimeValue> MAX_KEEPALIVE_SETTING =
             Setting.positiveTimeSetting("async_search.max_keep_alive", timeValueDays(10), Setting.Property.NodeScope,
                     Setting.Property.Dynamic);
@@ -116,7 +113,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
      * @param submitAsyncSearchRequest the request for submitting the async search
      * @param relativeStartMillis      the start time of the async search
      */
-    public AbstractAsyncSearchContext prepareContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, long relativeStartMillis) {
+    public AsyncSearchContext prepareContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, long relativeStartMillis) {
         if (submitAsyncSearchRequest.getKeepAlive().getMillis() > maxKeepAlive) {
             throw new IllegalArgumentException(
                     "Keep alive for async searcg (" + TimeValue.timeValueMillis(submitAsyncSearchRequest.getKeepAlive().getMillis()) + ")" +
@@ -152,7 +149,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
      * is thrown
      * @param listener The listener to be invoked once the context is available
      */
-    public void findContext(AsyncSearchId asyncSearchId, ActionListener<AbstractAsyncSearchContext> listener) {
+    public void findContext(AsyncSearchId asyncSearchId, ActionListener<AsyncSearchContext> listener) {
         AsyncSearchContextId asyncSearchContextId = asyncSearchId.getAsyncSearchContextId();
         ActiveAsyncSearchContext activeAsyncSearchContext = getContext(asyncSearchContextId);
         if (activeAsyncSearchContext != null) {
@@ -243,29 +240,35 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
             }, (e) -> logger.error("Exception while acquiring the permit due to ", e)),
             TimeValue.timeValueSeconds(30), "persisting response");
         }
+        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.COMPLETED);
         return asyncSearchResponse;
     }
 
     public void onSearchFailure(Exception e, AsyncSearchContextId asyncSearchContextId) {
-        ActiveAsyncSearchContext activeContext = getContext(asyncSearchContextId);
-        activeContext.processFailure(e);
-        failedAsyncSearchCount.inc();
-        freeContext(asyncSearchContextId);
+        ActiveAsyncSearchContext activeContext = null;
+        try {
+            activeContext = getContext(asyncSearchContextId);
+            activeContext.processFailure(e);
+            failedAsyncSearchCount.inc();
+            freeContext(asyncSearchContextId);
+        } finally {
+            activeContext.setStage(ActiveAsyncSearchContext.Stage.FAILED);
+        }
     }
 
 
-    public void updateKeepAlive(GetAsyncSearchRequest request, AbstractAsyncSearchContext abstractAsyncSearchContext,
+    public void updateKeepAlive(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext,
                                 ActionListener<AsyncSearchResponse> listener) {
-        AbstractAsyncSearchContext.Source source = abstractAsyncSearchContext.getSource();
+        AsyncSearchContext.Source source = asyncSearchContext.getSource();
         long requestedExpirationTime = System.currentTimeMillis() + request.getKeepAlive().getMillis();
-        if (source.equals(AbstractAsyncSearchContext.Source.STORE)) {
+        if (source.equals(AsyncSearchContext.Source.STORE)) {
             persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime,
                     ActionListener.wrap((actionResponse) -> {
-                        listener.onResponse(new AsyncSearchResponse(abstractAsyncSearchContext.getAsyncSearchResponse(),
+                        listener.onResponse(new AsyncSearchResponse(asyncSearchContext.getAsyncSearchResponse(),
                                 requestedExpirationTime));
                     }, listener::onFailure));
         } else {
-            ActiveAsyncSearchContext activeAsyncSearchContext = (ActiveAsyncSearchContext) abstractAsyncSearchContext;
+            ActiveAsyncSearchContext activeAsyncSearchContext = (ActiveAsyncSearchContext) asyncSearchContext;
             activeAsyncSearchContext.acquireContextPermit(ActionListener.wrap(
                     releasable -> {
                         activeAsyncSearchContext.setExpirationMillis(requestedExpirationTime);

@@ -73,10 +73,10 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
      */
     public void putContext(AsyncSearchContextId asyncSearchContextId, ActiveAsyncSearchContext asyncSearchContext) {
         if (activeContexts.values().stream().filter(context -> context.isRunning()).distinct().count() > maxRunningContext) {
-            throw new ElasticsearchException(
+            throw new AsyncSearchRejectedException(
                     "Trying to create too many running contexts. Must be less than or equal to: [" +
                             maxRunningContext + "]. " + "This limit can be set by changing the ["
-                            + MAX_RUNNING_CONTEXT.getKey() + "] setting.");
+                            + MAX_RUNNING_CONTEXT.getKey() + "] setting.", maxRunningContext);
         }
         activeContexts.put(asyncSearchContextId.getId(), asyncSearchContext);
     }
@@ -114,8 +114,8 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
      * @return acknowledgement of context removal
      */
     public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
-        AbstractAsyncSearchContext abstractAsyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
-        if (abstractAsyncSearchContext != null) {
+        AsyncSearchContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
+        if (asyncSearchContext != null) {
             logger.debug("Removing {} from context map", asyncSearchContextId);
             activeContexts.remove(asyncSearchContextId.getId());
             return true;
@@ -133,7 +133,7 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
     }
 
     public void freeAllContexts() {
-        for (final AbstractAsyncSearchContext context : activeContexts.values()) {
+        for (final AsyncSearchContext context : activeContexts.values()) {
             freeContext(context.getAsyncSearchContextId());
         }
     }

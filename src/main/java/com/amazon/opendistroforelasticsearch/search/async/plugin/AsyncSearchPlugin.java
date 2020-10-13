@@ -143,8 +143,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
 
     @Override
     public List<Setting<?>> getSettings() {
-        return Arrays.asList(AsyncSearchService.DEFAULT_KEEPALIVE_SETTING,
-                AsyncSearchLifecycleService.MAX_RUNNING_CONTEXT,
+        return Arrays.asList(AsyncSearchLifecycleService.MAX_RUNNING_CONTEXT,
                 AsyncSearchService.MAX_KEEPALIVE_SETTING);
     }
 

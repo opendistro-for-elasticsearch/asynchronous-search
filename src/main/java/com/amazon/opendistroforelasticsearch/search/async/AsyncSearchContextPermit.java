@@ -12,7 +12,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 /***
- * The permit needed by any mutating operation on {@link AbstractAsyncSearchContext} while it is being moved over to the
+ * The permit needed by any mutating operation on {@link AsyncSearchContext} while it is being moved over to the
  * persistence store
  */
 public class AsyncSearchContextPermit {

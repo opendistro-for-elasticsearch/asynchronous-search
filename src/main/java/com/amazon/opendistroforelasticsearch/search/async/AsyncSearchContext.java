@@ -21,7 +21,7 @@ import org.elasticsearch.action.search.SearchProgressActionListener;
 
 import java.util.Optional;
 
-public abstract class AbstractAsyncSearchContext {
+public abstract class AsyncSearchContext {
 
     public enum Source {
         IN_MEMORY,
@@ -30,7 +30,7 @@ public abstract class AbstractAsyncSearchContext {
 
     private final AsyncSearchContextId AsyncSearchContextId;
 
-    public AbstractAsyncSearchContext(AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchContext(AsyncSearchContextId asyncSearchContextId) {
         this.AsyncSearchContextId = asyncSearchContextId;
     }
 
