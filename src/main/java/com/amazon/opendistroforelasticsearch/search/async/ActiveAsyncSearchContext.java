@@ -74,7 +74,6 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     private final AsyncSearchProgressListener progressActionListener;
     private final String nodeId;
     private volatile SetOnce<AsyncSearchId> asyncSearchId;
-    private final AsyncSearchContextListener asyncSearchContextListener;
 
     private static  final Logger logger = LogManager.getLogger(ActiveAsyncSearchContext.class);
 
@@ -88,7 +87,6 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         this.keepAlive = keepAlive;
         this.nodeId = nodeId;
         this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId, threadPool);
-        this.asyncSearchContextListener = new AsyncSearchContextListener.CompositeListener(Arrays.asList(new AsyncSearchStatsListener()), logger);
         this.progressActionListener = progressActionListener;
         this.startTimeMillis = System.currentTimeMillis();
         this.searchTask = new AtomicReference<>();
@@ -98,10 +96,6 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     @Override
     public Optional<SearchProgressActionListener> getSearchProgressActionListener() {
         return Optional.of(progressActionListener);
-    }
-
-    public AsyncSearchContextListener getAsyncSearchContextListener() {
-        return asyncSearchContextListener;
     }
 
     @Override

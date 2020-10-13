@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 
@@ -15,7 +15,7 @@ public interface AsyncSearchContextListener {
      * Executed when a new async search context was created
      * @param context the created context
      */
-    default void onNewContext(AsyncSearchContext context) {}
+    default void onNewContext(AsyncSearchContextId context) {}
 
     /**
      * Executed when a previously created async search context is freed.
@@ -24,19 +24,19 @@ public interface AsyncSearchContextListener {
      * cleaned up.
      * @param context the freed search context
      */
-    default void onFreeContext(AsyncSearchContext context) {}
+    default void onFreeContext(AsyncSearchContextId context) {}
 
     /**
      * Executed when a previously created async search context is running.
      * @param context the freed search context
      */
-    default void onContextRunning(AsyncSearchContext context) {}
+    default void onContextRunning(AsyncSearchContextId context) {}
 
     /**
      * Executed when a previously created async search context is cancelled.
      * @param context the freed search context
      */
-    default void onContextCancelled(AsyncSearchContext context) {}
+    default void onContextCancelled(AsyncSearchContextId context) {}
 
 
 
@@ -58,7 +58,7 @@ public interface AsyncSearchContextListener {
 
 
         @Override
-        public void onNewContext(AsyncSearchContext context) {
+        public void onNewContext(AsyncSearchContextId context) {
             for (AsyncSearchContextListener listener : listeners) {
                 try {
                     listener.onNewContext(context);
@@ -69,7 +69,7 @@ public interface AsyncSearchContextListener {
         }
 
         @Override
-        public void onFreeContext(AsyncSearchContext context) {
+        public void onFreeContext(AsyncSearchContextId context) {
             for (AsyncSearchContextListener listener : listeners) {
                 try {
                     listener.onFreeContext(context);
@@ -80,7 +80,7 @@ public interface AsyncSearchContextListener {
         }
 
         @Override
-        public void onContextRunning(AsyncSearchContext context) {
+        public void onContextRunning(AsyncSearchContextId context) {
             for (AsyncSearchContextListener listener : listeners) {
                 try {
                     listener.onContextRunning(context);
@@ -91,7 +91,7 @@ public interface AsyncSearchContextListener {
         }
 
         @Override
-        public void onContextCancelled(AsyncSearchContext context) {
+        public void onContextCancelled(AsyncSearchContextId context) {
             for (AsyncSearchContextListener listener : listeners) {
                 try {
                     listener.onContextCancelled(context);

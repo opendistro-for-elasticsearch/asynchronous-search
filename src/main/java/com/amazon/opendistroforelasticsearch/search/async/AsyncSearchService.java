@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceContext;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
@@ -23,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchCountStats;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
+import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatsListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
@@ -44,10 +46,7 @@ import org.elasticsearch.search.SearchService;
 import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -80,6 +79,8 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
 
     private final NamedWriteableRegistry namedWriteableRegistry;
 
+    private final AsyncSearchContextListener asyncSearchContextListener;
+
     private final CounterMetric runningAsyncSearchCount = new CounterMetric();
     private final CounterMetric persistedAsyncSearchCount = new CounterMetric();
     private final CounterMetric abortedAsyncSearchCount = new CounterMetric();
@@ -99,6 +100,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
         this.namedWriteableRegistry = namedWriteableRegistry;
+        this.asyncSearchContextListener = new AsyncSearchContextListener.CompositeListener(Arrays.asList(new AsyncSearchStatsListener()), logger);
     }
 
     private void setKeepAlive(TimeValue maxKeepAlive) {
@@ -135,7 +137,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
     public void onRunning(AsyncSearchContextId asyncSearchContextId) {
         ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.RUNNING);
-        asyncSearchContext.getAsyncSearchContextListener().onContextRunning(asyncSearchContext);
+        asyncSearchContextListener.onContextRunning(asyncSearchContextId);
     }
 
     public void prepareSearch(SearchTask searchTask, AsyncSearchContextId asyncSearchContextId) {
@@ -204,7 +206,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
             client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(), asyncSearchContext.getTask().getId()))
                 .execute(ActionListener.wrap((response) -> {
                             freeContext(asyncSearchContextId);
-                            asyncSearchContext.getAsyncSearchContextListener().onFreeContext(asyncSearchContext);
+                            asyncSearchContextListener.onFreeContext(asyncSearchContextId);
                             groupedDeletionListener.onResponse(response.getTaskFailures().isEmpty() && freeContext(asyncSearchContextId));
                         },
                     (e) -> {
@@ -301,7 +303,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         ActiveAsyncSearchContext activeAsyncSearchContext = getContext(contextId);
         activeAsyncSearchContext.setStage(ABORTED);
         abortedAsyncSearchCount.inc();
-        activeAsyncSearchContext.getAsyncSearchContextListener().onContextCancelled(activeAsyncSearchContext);
+        asyncSearchContextListener.onContextCancelled(activeAsyncSearchContext.getAsyncSearchContextId());
     }
 
     public AsyncSearchStats stats(boolean count) {
