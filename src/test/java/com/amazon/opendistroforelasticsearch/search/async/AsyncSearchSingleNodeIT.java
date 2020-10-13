@@ -22,6 +22,7 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         searchRequest.source(new SearchSourceBuilder());
         searchRequest.indices("index");
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        submitAsyncSearchRequest.keepOnCompletion(true);
         AsyncSearchResponse submitResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), submitAsyncSearchRequest);
         TestClientUtils.assertResponsePersistence(client(), submitResponse.getId());
         GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());

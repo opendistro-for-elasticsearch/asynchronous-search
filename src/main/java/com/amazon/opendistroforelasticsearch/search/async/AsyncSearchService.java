@@ -202,18 +202,23 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         if (asyncSearchContext != null && asyncSearchContext.getTask().isCancelled() == false) {
             client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(), asyncSearchContext.getTask().getId()))
-                .execute(ActionListener.wrap((response) ->
-                     groupedDeletionListener.onResponse(response.getTaskFailures().isEmpty() && freeContext(asyncSearchContextId)),
+                .execute(ActionListener.wrap((response) -> {
+                            freeContext(asyncSearchContextId);
+                            asyncSearchContext.getAsyncSearchContextListener().onFreeContext(asyncSearchContext);
+                            groupedDeletionListener.onResponse(response.getTaskFailures().isEmpty() && freeContext(asyncSearchContextId));
+                        },
                     (e) -> {
                         freeContext(asyncSearchContextId);
                         groupedDeletionListener.onResponse(false);
                     }
                 ));
+        } else {
+            groupedDeletionListener.onResponse(false);
         }
 
         //deleted persisted context
         persistenceService.deleteResponse(id, groupedDeletionListener);
-        asyncSearchContext.getAsyncSearchContextListener().onFreeContext(asyncSearchContext);
+
     }
 
     public AsyncSearchResponse onSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {

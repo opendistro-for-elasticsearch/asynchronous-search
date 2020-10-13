@@ -114,13 +114,14 @@ public class AsyncSearchPersistenceService {
     public void deleteResponse(String id, ActionListener<Boolean> listener) {
         if (!indexExists()) {
             listener.onResponse(false);
+            return;
         }
 
         client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id), ActionListener.wrap(
                 deleteResponse -> {
                     if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED) {
-                        listener.onResponse(true);
                         logger.debug("Deleted async search {}", id);
+                        listener.onResponse(true);
                     } else {
                         logger.debug("Delete async search {} unsuccessful. Returned result {}", id, deleteResponse.getResult());
                         listener.onResponse(false);
