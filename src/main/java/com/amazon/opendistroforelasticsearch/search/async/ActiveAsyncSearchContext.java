@@ -1,8 +1,12 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatsListener;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
@@ -11,8 +15,12 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.CollectionUtils;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -69,6 +77,9 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     private final AsyncSearchProgressListener progressActionListener;
     private final String nodeId;
     private volatile SetOnce<AsyncSearchId> asyncSearchId;
+    private final AsyncSearchContextListener asyncSearchContextListener;
+
+    private static  final Logger logger = LogManager.getLogger(ActiveAsyncSearchContext.class);
 
     public ActiveAsyncSearchContext(AsyncSearchContextId asyncSearchContextId, String nodeId, TimeValue keepAlive, boolean keepOnCompletion,
                                     ThreadPool threadPool, AsyncSearchProgressListener progressActionListener) {
@@ -80,6 +91,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         this.keepAlive = keepAlive;
         this.nodeId = nodeId;
         this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId, threadPool);
+        this.asyncSearchContextListener = new AsyncSearchContextListener.CompositeListener(Arrays.asList(new AsyncSearchStatsListener()), logger);
         this.progressActionListener = progressActionListener;
         this.startTimeMillis = System.currentTimeMillis();
         this.searchTask = new SetOnce<>();
@@ -89,6 +101,10 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     @Override
     public Optional<SearchProgressActionListener> getSearchProgressActionListener() {
         return Optional.of(progressActionListener);
+    }
+
+    public AsyncSearchContextListener getAsyncSearchContextListener() {
+        return asyncSearchContextListener;
     }
 
     @Override

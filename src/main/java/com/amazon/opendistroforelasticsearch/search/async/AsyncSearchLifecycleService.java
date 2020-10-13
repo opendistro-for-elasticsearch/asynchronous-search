@@ -49,7 +49,7 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
             Setting.positiveTimeSetting("async_search.keep_alive_interval", timeValueMinutes(1), Setting.Property.NodeScope);
 
     public static final Setting<Integer> MAX_RUNNING_CONTEXT =
-            Setting.intSetting("async_search.max_running_context", 500, 0, Setting.Property.Dynamic, Setting.Property.NodeScope);
+            Setting.intSetting("async_search.max_running_context", 100, 0, Setting.Property.Dynamic, Setting.Property.NodeScope);
 
     private final ConcurrentMapLong<ActiveAsyncSearchContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
 

@@ -134,7 +134,9 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
     }
 
     public void onRunning(AsyncSearchContextId asyncSearchContextId) {
-        getContext(asyncSearchContextId).setStage(ActiveAsyncSearchContext.Stage.RUNNING);
+        ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
+        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.RUNNING);
+        asyncSearchContext.getAsyncSearchContextListener().onContextRunning(asyncSearchContext);
     }
 
     public void prepareSearch(SearchTask searchTask, AsyncSearchContextId asyncSearchContextId) {
@@ -212,6 +214,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
 
         //deleted persisted context
         persistenceService.deleteResponse(id, groupedDeletionListener);
+        asyncSearchContext.getAsyncSearchContextListener().onFreeContext(asyncSearchContext);
     }
 
     public AsyncSearchResponse onSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
@@ -291,8 +294,10 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
      * @param contextId the AsyncSearchContextId
      */
     public void onCancelled(AsyncSearchContextId contextId) {
-        getContext(contextId).setStage(ABORTED);
+        ActiveAsyncSearchContext activeAsyncSearchContext = getContext(contextId);
+        activeAsyncSearchContext.setStage(ABORTED);
         abortedAsyncSearchCount.inc();
+        activeAsyncSearchContext.getAsyncSearchContextListener().onContextCancelled(activeAsyncSearchContext);
     }
 
     public AsyncSearchStats stats(boolean count) {
