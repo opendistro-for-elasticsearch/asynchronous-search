@@ -15,12 +15,9 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.CollectionUtils;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -67,7 +64,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     private final AtomicBoolean isCompleted;
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
-    private volatile SetOnce<SearchTask> searchTask;
+    private volatile AtomicReference<SearchTask> searchTask;
     private volatile long expirationTimeMillis;
     private volatile long startTimeMillis;
     private final Boolean keepOnCompletion;
@@ -94,7 +91,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         this.asyncSearchContextListener = new AsyncSearchContextListener.CompositeListener(Arrays.asList(new AsyncSearchStatsListener()), logger);
         this.progressActionListener = progressActionListener;
         this.startTimeMillis = System.currentTimeMillis();
-        this.searchTask = new SetOnce<>();
+        this.searchTask = new AtomicReference<>();
         this.asyncSearchId = new SetOnce<>();
     }
 
@@ -117,6 +114,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         this.searchTask.get().setProgressListener(progressActionListener);
         this.startTimeMillis = searchTask.getStartTime();
         this.asyncSearchId.set(new AsyncSearchId(nodeId, searchTask.getId(), getAsyncSearchContextId()));
+        this.setStage(Stage.INIT);
     }
 
     public TimeValue getKeepAlive() {
@@ -163,7 +161,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     }
 
     public boolean isCancelled() {
-        return searchTask.get() != null && searchTask.get().isCancelled();
+        return searchTask == null && searchTask.get() != null && searchTask.get().isCancelled();
     }
 
     @Override
@@ -184,7 +182,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     public void processFailure(Exception e) {
         if (isCompleted.compareAndSet(false, true)) {
             error.set(new ElasticsearchException(e));
-            this.searchTask = null;
+            this.searchTask.set(null);
         }
     }
 
@@ -192,7 +190,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     public void processFinalResponse(SearchResponse response) {
         if (isCompleted.compareAndSet(false, true)) {
             this.searchResponse.compareAndSet(null, response);
-            this.searchTask = null;
+            this.searchTask.set(null);
         }
     }
 
@@ -213,8 +211,12 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
                 break;
             case COMPLETED:
                 assert searchTask.get() == null || searchTask.get().isCancelled() == false : "search task is cancelled";
+                validateAndSetStage(Stage.RUNNING, stage);
+                break;
             case ABORTED:
                 assert searchTask.get() == null || searchTask.get().isCancelled() : "search task should be cancelled";
+                validateAndSetStage(Stage.RUNNING, stage);
+                break;
             case FAILED:
                 validateAndSetStage(Stage.RUNNING, stage);
                 break;

@@ -102,7 +102,8 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
                                                IndexNameExpressionResolver indexNameExpressionResolver,
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
 
-        this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool, namedWriteableRegistry);
+        this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool,
+                xContentRegistry);
         return Collections.singletonList(new AsyncSearchService(persistenceService, client, clusterService, threadPool,
                 namedWriteableRegistry));
 

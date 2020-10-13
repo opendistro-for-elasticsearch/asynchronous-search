@@ -53,7 +53,6 @@ import java.util.stream.Collectors;
 
 import static com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext.Stage.ABORTED;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
-import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 
 /***
  * Manages the lifetime of {@link AsyncSearchContext} for all the async searches running on the coordinator node.
@@ -224,7 +223,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         completedAsyncSearchCount.inc();
         if (asyncSearchContext.needsPersistence()) {
             asyncSearchContext.acquireAllContextPermit(ActionListener.wrap(releasable -> {
-                AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchResponse);
+                AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(asyncSearchResponse);
                 persistenceService.createResponse(model, ActionListener.wrap(
                     (indexResponse) -> {
                         asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);

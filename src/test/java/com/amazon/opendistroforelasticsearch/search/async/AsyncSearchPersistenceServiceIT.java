@@ -8,9 +8,12 @@ import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.UUIDs;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.threadpool.TestThreadPool;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -39,7 +42,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         AsyncSearchResponse asyncSearchResponse = getAsyncSearchResponse();
 
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), randomInt(100));
-        AsyncSearchId newAsyncSearchId = new AsyncSearchId(transportService.getLocalNode().getId(), randomLong(),
+        AsyncSearchId newAsyncSearchId = new AsyncSearchId(transportService.getLocalNode().getId(), 1,
                 asyncSearchContextId);
         String id = AsyncSearchId.buildAsyncId(newAsyncSearchId);
         AsyncSearchResponse newAsyncSearchResponse = new AsyncSearchResponse(id,
@@ -48,7 +51,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
                 asyncSearchResponse.getStartTimeMillis(), asyncSearchResponse.getExpirationTimeMillis(),
                 asyncSearchResponse.getSearchResponse(),
                 asyncSearchResponse.getError());
-        createDoc(persistenceService, namedWriteableRegistry, newAsyncSearchResponse);
+        createDoc(persistenceService, newAsyncSearchResponse);
 
         CountDownLatch getLatch = new CountDownLatch(1);
         persistenceService.getResponse(newAsyncSearchResponse.getId(), ActionListener.wrap(
@@ -73,14 +76,14 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
 
     }
 
-    public void testGetAndDeleteNonExistentId() throws InterruptedException {
+    public void testGetAndDeleteNonExistentId() throws InterruptedException, IOException {
         AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
         TransportService transportService = getInstanceFromNode(TransportService.class);
         NamedWriteableRegistry namedWriteableRegistry = writableRegistry();
         AsyncSearchId asyncSearchId = generateNewAsynSearchId(transportService);
-        AsyncSearchPersistenceContext model1 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId.getAsyncSearchContextId(),
+        AsyncSearchPersistenceContext model1 = new AsyncSearchPersistenceContext(AsyncSearchId.buildAsyncId(asyncSearchId),
                 System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(),
-                "responseString");
+                getBytesReferenceObject(asyncSearchId));
         CountDownLatch createLatch = new CountDownLatch(1);
         persistenceService.createResponse(model1, ActionListener.wrap(
                 response -> createLatch.countDown(), ex -> failure(createLatch)));
@@ -94,25 +97,32 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
                 }));
         //assert failure
         persistenceService.deleteResponse("id", ActionListener.wrap(
-                (r) -> failure(latch),
+                (r) -> {
+                    assert !r;
+                    latch.countDown();
+                },
                 exception -> {
-                    assertRnf(latch, exception);
+                    failure(latch);
                 }));
         latch.await();
 
     }
 
-    public void testCreateConcurrentDocsWhenIndexNotExists() throws InterruptedException {
+
+    public void testCreateConcurrentDocsWhenIndexNotExists() throws InterruptedException, IOException {
         AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
         TransportService transportService = getInstanceFromNode(TransportService.class);
         NamedWriteableRegistry namedWriteableRegistry = writableRegistry();
 
         AsyncSearchId asyncSearchId1 = generateNewAsynSearchId(transportService);
         AsyncSearchId asyncSearchId2 = generateNewAsynSearchId(transportService);
-        AsyncSearchPersistenceContext model1 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId1.getAsyncSearchContextId(),
-                System.currentTimeMillis() + new TimeValue(5, TimeUnit.DAYS).getMillis(), "responseString");
-        AsyncSearchPersistenceContext model2 = new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchId2.getAsyncSearchContextId(),
-                System.currentTimeMillis() + new TimeValue(5, TimeUnit.DAYS).getMillis(), "responseString");
+        AsyncSearchPersistenceContext model1 = new AsyncSearchPersistenceContext(AsyncSearchId.buildAsyncId(asyncSearchId1),
+                System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(),
+                getBytesReferenceObject(asyncSearchId1));
+
+        AsyncSearchPersistenceContext model2 = new AsyncSearchPersistenceContext(AsyncSearchId.buildAsyncId(asyncSearchId2),
+                System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(),
+                getBytesReferenceObject(asyncSearchId1));
         CountDownLatch createLatch = new CountDownLatch(2);
         threadPool.generic().execute(() -> persistenceService.createResponse(model1, ActionListener.wrap(
                 response -> createLatch.countDown(), ex -> failure(createLatch))));
@@ -132,6 +142,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
                 (AsyncSearchPersistenceContext r) -> getLatch2.countDown(), exception -> failure(getLatch2)));
         getLatch2.await();
     }
+
 
     public void testUpdateExpiration() throws InterruptedException, IOException {
         AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
@@ -167,7 +178,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
                 asyncSearchResponse.getStartTimeMillis(), System.currentTimeMillis(),
                 asyncSearchResponse.getSearchResponse(),
                 asyncSearchResponse.getError());
-        createDoc(persistenceService, namedWriteableRegistry, newAsyncSearchResponse);
+        createDoc(persistenceService, newAsyncSearchResponse);
         CountDownLatch getLatch = new CountDownLatch(1);
         persistenceService.getResponse(newAsyncSearchResponse.getId(), ActionListener.wrap(r -> failure(getLatch),
                 e -> assertRnf(getLatch, e)));
@@ -192,10 +203,10 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         latch.countDown();
     }
 
-    private void createDoc(AsyncSearchPersistenceService persistenceService, NamedWriteableRegistry namedWriteableRegistry,
+    private void createDoc(AsyncSearchPersistenceService persistenceService,
                            AsyncSearchResponse asyncSearchResponse) throws IOException, InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        persistenceService.createResponse(new AsyncSearchPersistenceContext(namedWriteableRegistry, asyncSearchResponse),
+        persistenceService.createResponse(new AsyncSearchPersistenceContext(asyncSearchResponse),
                 ActionListener.wrap(r -> latch.countDown(), e -> failure(latch)));
         latch.await();
     }
@@ -204,14 +215,24 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
     private AsyncSearchResponse getAsyncSearchResponse() throws InterruptedException {
         SearchRequest searchRequest = new SearchRequest().indices("index").source(new SearchSourceBuilder());
         SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
+        request.waitForCompletionTimeout(new TimeValue(4, TimeUnit.SECONDS));
+        request.keepOnCompletion(true);
         AsyncSearchResponse asyncSearchResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), request);
         TestClientUtils.assertResponsePersistence(client(), asyncSearchResponse.getId());
         return asyncSearchResponse;
     }
 
+    private BytesReference getBytesReferenceObject(AsyncSearchId asyncSearchId) throws IOException {
+        return XContentHelper.toXContent(new AsyncSearchResponse(AsyncSearchId.buildAsyncId(asyncSearchId), false, false,
+                        System.currentTimeMillis(), System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(),
+                        null, null),
+                Requests.INDEX_CONTENT_TYPE,
+                true);
+    }
+
     private AsyncSearchId generateNewAsynSearchId(TransportService transportService) {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), randomInt(100));
-        return new AsyncSearchId(transportService.getLocalNode().getId(), randomLong(),
+        return new AsyncSearchId(transportService.getLocalNode().getId(), 1,
                 asyncSearchContextId);
 
     }
