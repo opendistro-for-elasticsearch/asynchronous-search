@@ -4,8 +4,6 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchCo
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
@@ -74,8 +72,6 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     private volatile SetOnce<AsyncSearchId> asyncSearchId;
     private final AsyncSearchContextListener contextListener;
 
-    private static  final Logger logger = LogManager.getLogger(ActiveAsyncSearchContext.class);
-
     public ActiveAsyncSearchContext(AsyncSearchContextId asyncSearchContextId, String nodeId, TimeValue keepAlive, boolean keepOnCompletion,
                                     ThreadPool threadPool, AsyncSearchProgressListener progressActionListener,
                                     AsyncSearchContextListener contextListener) {
@@ -92,7 +88,6 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         this.searchTask = new AtomicReference<>();
         this.asyncSearchId = new SetOnce<>();
         this.contextListener = contextListener;
-        contextListener.onNewContext(asyncSearchContextId);
     }
 
     @Override
@@ -200,6 +195,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         switch (stage) {
             case INIT:
                 validateAndSetStage(null, stage);
+                contextListener.onNewContext(getAsyncSearchContextId());
                 break;
             case RUNNING:
                 assert searchTask.get() != null : "search task cannot be null";
@@ -208,20 +204,20 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
             case COMPLETED:
                 assert searchTask.get() == null || searchTask.get().isCancelled() == false : "search task is cancelled";
                 validateAndSetStage(Stage.RUNNING, stage);
-                contextListener.onContextCompleted(asyncSearchId.get().getAsyncSearchContextId());
+                contextListener.onContextCompleted(getAsyncSearchContextId());
                 break;
             case ABORTED:
                 assert searchTask.get() == null || searchTask.get().isCancelled() : "search task should be cancelled";
                 validateAndSetStage(Stage.RUNNING, stage);
-                contextListener.onContextCancelled(asyncSearchId.get().getAsyncSearchContextId());
+                contextListener.onContextCancelled(getAsyncSearchContextId());
                 break;
             case FAILED:
                 validateAndSetStage(Stage.RUNNING, stage);
-                contextListener.onContextFailed(asyncSearchId.get().getAsyncSearchContextId());
+                contextListener.onContextFailed(getAsyncSearchContextId());
                 break;
             case PERSISTED:
                 validateAndSetStage(Stage.COMPLETED, stage);
-                contextListener.onContextPersisted(asyncSearchId.get().getAsyncSearchContextId());
+                contextListener.onContextPersisted(getAsyncSearchContextId());
                 break;
             default:
                 throw new IllegalArgumentException("unknown AsyncSearchContext.Stage [" + stage + "]");

@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
+import com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
@@ -68,7 +69,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         try {
             final long relativeStartMillis = System.currentTimeMillis();
-            AsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartMillis);
+            ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartMillis);
+            assert asyncSearchContext.getSearchProgressActionListener().isPresent() : "missing progress listener for an active context";
             AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener) asyncSearchContext.getSearchProgressActionListener().get();
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
@@ -86,7 +88,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     return asyncSearchTask;
                 }
             }, progressActionListener);
-            asyncSearchService.onRunning(asyncSearchContext.getAsyncSearchContextId());
+            asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.RUNNING);
         } catch (Exception e) {
             logger.warn("Failed to submit async search request {}", request);
             listener.onFailure(e);

@@ -53,10 +53,16 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                             if (updateNeeded) {
                                 ActionListener<AsyncSearchResponse> groupedListener = new GroupedActionListener<>(
                                     ActionListener.wrap(
-                                            //TODO replace findFirst with the latest response received. Add TS to AsyncSearchResponse and compare
-                                            (responses) -> listener.onResponse(responses.stream()
-                                                    .filter(Objects::nonNull)
-                                                    .findFirst().get()),
+                                            (responses) ->
+                                            {
+                                                //The grouped listener atomically updates the pos, the one arriving last be also be last in the
+                                                // response array
+                                                assert responses.stream().count() == 2;
+                                                listener.onResponse(responses.stream()
+                                                        .filter(Objects::nonNull)
+                                                        .skip(1)
+                                                        .findFirst().get());
+                                            },
                                             listener::onFailure), 2);
                                 PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                                         request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, groupedListener,

@@ -108,7 +108,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
      * @param submitAsyncSearchRequest the request for submitting the async search
      * @param relativeStartMillis      the start time of the async search
      */
-    public AsyncSearchContext prepareContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, long relativeStartMillis) {
+    public ActiveAsyncSearchContext prepareContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, long relativeStartMillis) {
         if (submitAsyncSearchRequest.getKeepAlive().getMillis() > maxKeepAlive) {
             throw new IllegalArgumentException(
                     "Keep alive for async searcg (" + TimeValue.timeValueMillis(submitAsyncSearchRequest.getKeepAlive().getMillis()) + ")" +
@@ -127,11 +127,11 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         return asyncSearchContext;
     }
 
-    public void onRunning(AsyncSearchContextId asyncSearchContextId) {
-        ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
-        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.RUNNING);
-    }
-
+    /**
+     *
+     * @param searchTask
+     * @param asyncSearchContextId
+     */
     public void prepareSearch(SearchTask searchTask, AsyncSearchContextId asyncSearchContextId) {
         ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         asyncSearchContext.initializeTask(searchTask);
@@ -255,6 +255,12 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
     }
 
 
+    /**
+     * Updates the keep alive for the context
+     * @param request
+     * @param asyncSearchContext
+     * @param listener
+     */
     public void updateKeepAlive(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext,
                                 ActionListener<AsyncSearchResponse> listener) {
         AsyncSearchContext.Source source = asyncSearchContext.getSource();
@@ -291,6 +297,8 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
     public void onCancelled(AsyncSearchContextId contextId) {
         ActiveAsyncSearchContext activeAsyncSearchContext = getContext(contextId);
         activeAsyncSearchContext.setStage(ABORTED);
+        // TODO should we let the partial response stay if the cancellation was done due to tasks overrunning
+        freeContext(activeAsyncSearchContext.getAsyncSearchContextId());
     }
 
     public AsyncSearchStats stats(boolean count) {
