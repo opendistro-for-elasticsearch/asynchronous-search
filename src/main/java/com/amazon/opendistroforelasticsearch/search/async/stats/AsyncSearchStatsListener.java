@@ -13,9 +13,7 @@ public class AsyncSearchStatsListener implements AsyncSearchContextListener {
     @Override
     public void onContextFailed(AsyncSearchContextId contextId) {
         countStatsHolder.failedAsyncSearchCount.inc();
-        if(countStatsHolder.runningAsyncSearchCount.count()>0) {
-            countStatsHolder.runningAsyncSearchCount.dec();
-        }
+        countStatsHolder.runningAsyncSearchCount.dec();
     }
 
     @Override
@@ -24,29 +22,19 @@ public class AsyncSearchStatsListener implements AsyncSearchContextListener {
     }
 
     @Override
-    public void onNewContext(AsyncSearchContextId context) {
+    public void onContextRunning(AsyncSearchContextId context) {
         countStatsHolder.runningAsyncSearchCount.inc();
-    }
-
-    @Override
-    public void onFreeContext(AsyncSearchContextId context) {
-
     }
 
     @Override
     public void onContextCompleted(AsyncSearchContextId context) {
         countStatsHolder.completedAsyncSearchCount.inc();
-        if(countStatsHolder.runningAsyncSearchCount.count()>0) {
-            countStatsHolder.runningAsyncSearchCount.dec();
-        }
+        countStatsHolder.runningAsyncSearchCount.dec();
     }
 
     @Override
     public void onContextCancelled(AsyncSearchContextId context) {
         countStatsHolder.abortedAsyncSearchCount.inc();
-        if(countStatsHolder.runningAsyncSearchCount.count()>0) {
-            countStatsHolder.runningAsyncSearchCount.dec();
-        }
     }
 
     public AsyncSearchStats stats(boolean count, DiscoveryNode node) {

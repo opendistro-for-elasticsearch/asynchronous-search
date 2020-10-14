@@ -16,17 +16,6 @@ public interface AsyncSearchContextListener {
     }
 
     /**
-     * Executed when a previously created async search context is freed.
-     * This happens either when the async search execution finishes, if the
-     * execution failed or if the search context as idle for and needs to be
-     * cleaned up.
-     *
-     * @param context the freed search context
-     */
-    default void onFreeContext(AsyncSearchContextId context) {
-    }
-
-    /**
      * Executed when a previously created async search context is running.
      *
      * @param context the freed search context
@@ -42,9 +31,25 @@ public interface AsyncSearchContextListener {
     default void onContextCancelled(AsyncSearchContextId context) {
     }
 
+    /**
+     *
+     * @param contextId
+     */
     default void onContextFailed(AsyncSearchContextId contextId) {
     }
 
+    /**
+     *
+     * @param asyncSearchContextId
+     */
     default void onContextPersisted(AsyncSearchContextId asyncSearchContextId) {
+    }
+
+    /**
+     *
+     * @param asyncSearchContextId
+     */
+    default void onContextRunning(AsyncSearchContextId asyncSearchContextId) {
+
     }
 }

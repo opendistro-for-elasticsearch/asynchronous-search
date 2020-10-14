@@ -117,8 +117,8 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         }
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartMillis,
-                (response) -> onSearchResponse(response, asyncSearchContextId),
-                (e) -> onSearchFailure(e, asyncSearchContextId), threadPool.executor(ThreadPool.Names.GENERIC),
+                (response) -> postProcessSearchResponse(response, asyncSearchContextId),
+                (e) -> postProcessSearchFailure(e, asyncSearchContextId), threadPool.executor(ThreadPool.Names.GENERIC),
                 System::currentTimeMillis);
         ActiveAsyncSearchContext asyncSearchContext = new ActiveAsyncSearchContext(asyncSearchContextId, clusterService.localNode().getId(),
                 submitAsyncSearchRequest.getKeepAlive(),
@@ -128,11 +128,11 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
     }
 
     /**
-     *
-     * @param searchTask
-     * @param asyncSearchContextId
+     * Initializes the search task and bind the progress listener to the search task
+     * @param searchTask the search task
+     * @param asyncSearchContextId the async search context id
      */
-    public void prepareSearch(SearchTask searchTask, AsyncSearchContextId asyncSearchContextId) {
+    public void preProcessSearch(SearchTask searchTask, AsyncSearchContextId asyncSearchContextId) {
         ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         asyncSearchContext.initializeTask(searchTask);
         asyncSearchContext.setExpirationMillis(searchTask.getStartTime() + asyncSearchContext.getKeepAlive().getMillis());
@@ -215,35 +215,50 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
 
     }
 
-    public AsyncSearchResponse onSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
-        ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
-        asyncSearchContext.processFinalResponse(searchResponse);
-        AsyncSearchResponse asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
-        if (asyncSearchContext.needsPersistence()) {
-            asyncSearchContext.acquireAllContextPermit(ActionListener.wrap(releasable -> {
-                AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(asyncSearchResponse);
-                persistenceService.createResponse(model, ActionListener.wrap(
-                    (indexResponse) -> {
-                        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
-                        freeContext(asyncSearchContextId);
-                        releasable.close();
-                    },
+    /**
+     * Post processing on completion of an async search response
+     * @param searchResponse searchResponse
+     * @param asyncSearchContextId identifier of the async search context
+     * @return AsyncSearchResponse
+     */
+    public AsyncSearchResponse postProcessSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
+        final ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
+        final AsyncSearchResponse asyncSearchResponse;
+        try {
+            asyncSearchContext.processFinalResponse(searchResponse);
+            asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
+            if (asyncSearchContext.needsPersistence()) {
+                asyncSearchContext.acquireAllContextPermit(ActionListener.wrap(releasable -> {
+                    AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(asyncSearchResponse);
+                    persistenceService.createResponse(model, ActionListener.wrap(
+                        (indexResponse) -> {
+                            asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
+                            freeContext(asyncSearchContextId);
+                            releasable.close();
+                        },
 
-                    (e) -> {
-                        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSIST_FAILED);
-                        logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
-                        releasable.close();
-                    }
-                ));
+                        (e) -> {
+                            asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSIST_FAILED);
+                            logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
+                            releasable.close();
+                        }
+                    ));
 
-            }, (e) -> logger.error("Exception while acquiring the permit due to ", e)),
-            TimeValue.timeValueSeconds(30), "persisting response");
+                }, (e) -> logger.error("Exception while acquiring the permit due to ", e)),
+                TimeValue.timeValueSeconds(30), "persisting response");
+            }
+        } finally {
+            asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.COMPLETED);
         }
-        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.COMPLETED);
         return asyncSearchResponse;
     }
 
-    public void onSearchFailure(Exception e, AsyncSearchContextId asyncSearchContextId) {
+    /**
+     * Post processing search failure
+     * @param e the exception
+     * @param asyncSearchContextId the identifier of the search context
+     */
+    public void postProcessSearchFailure(Exception e, AsyncSearchContextId asyncSearchContextId) {
         ActiveAsyncSearchContext activeContext = null;
         try {
             activeContext = getContext(asyncSearchContextId);
@@ -302,6 +317,6 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
     }
 
     public AsyncSearchStats stats(boolean count) {
-        return statsListener.stats(count,clusterService.localNode());
+        return statsListener.stats(count, clusterService.localNode());
     }
 }

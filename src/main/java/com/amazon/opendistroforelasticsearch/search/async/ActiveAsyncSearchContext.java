@@ -152,7 +152,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     }
 
     public boolean isCancelled() {
-        return searchTask == null && searchTask.get() != null && searchTask.get().isCancelled();
+        return searchTask == null || (searchTask.get() != null && searchTask.get().isCancelled());
     }
 
     @Override
@@ -199,6 +199,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
                 break;
             case RUNNING:
                 assert searchTask.get() != null : "search task cannot be null";
+                contextListener.onContextRunning(getAsyncSearchContextId());
                 validateAndSetStage(Stage.INIT, stage);
                 break;
             case COMPLETED:

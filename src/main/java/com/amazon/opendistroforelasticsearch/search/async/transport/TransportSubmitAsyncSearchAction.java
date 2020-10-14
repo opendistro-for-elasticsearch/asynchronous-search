@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
 import com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
@@ -84,7 +83,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                                 progressActionListener.removeListener(actionListener);
                                 listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                             });
-                    asyncSearchService.prepareSearch(asyncSearchTask, asyncSearchContext.getAsyncSearchContextId());
+                    asyncSearchService.preProcessSearch(asyncSearchTask, asyncSearchContext.getAsyncSearchContextId());
                     return asyncSearchTask;
                 }
             }, progressActionListener);
