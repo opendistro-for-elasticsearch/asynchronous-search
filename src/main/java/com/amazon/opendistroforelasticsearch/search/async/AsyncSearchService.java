@@ -15,13 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceContext;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
-import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchCountStats;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatsListener;
@@ -38,7 +36,6 @@ import org.elasticsearch.cluster.ClusterStateListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
-import org.elasticsearch.common.metrics.CounterMetric;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -46,7 +43,10 @@ import org.elasticsearch.search.SearchService;
 import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -79,13 +79,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
 
     private final NamedWriteableRegistry namedWriteableRegistry;
 
-    private final AsyncSearchContextListener asyncSearchContextListener;
-
-    private final CounterMetric runningAsyncSearchCount = new CounterMetric();
-    private final CounterMetric persistedAsyncSearchCount = new CounterMetric();
-    private final CounterMetric abortedAsyncSearchCount = new CounterMetric();
-    private final CounterMetric failedAsyncSearchCount = new CounterMetric();
-    private final CounterMetric completedAsyncSearchCount = new CounterMetric();
+    private final AsyncSearchStatsListener statsListener;
 
 
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService,
@@ -100,7 +94,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
         this.namedWriteableRegistry = namedWriteableRegistry;
-        this.asyncSearchContextListener = new AsyncSearchContextListener.CompositeListener(Arrays.asList(new AsyncSearchStatsListener()), logger);
+        this.statsListener = new AsyncSearchStatsListener();
     }
 
     private void setKeepAlive(TimeValue maxKeepAlive) {
@@ -128,16 +122,14 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
                 System::currentTimeMillis);
         ActiveAsyncSearchContext asyncSearchContext = new ActiveAsyncSearchContext(asyncSearchContextId, clusterService.localNode().getId(),
                 submitAsyncSearchRequest.getKeepAlive(),
-                submitAsyncSearchRequest.keepOnCompletion(), threadPool, progressActionListener);
+                submitAsyncSearchRequest.keepOnCompletion(), threadPool, progressActionListener, statsListener);
         putContext(asyncSearchContextId, asyncSearchContext);
-        runningAsyncSearchCount.inc();
         return asyncSearchContext;
     }
 
     public void onRunning(AsyncSearchContextId asyncSearchContextId) {
         ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.RUNNING);
-        asyncSearchContextListener.onContextRunning(asyncSearchContextId);
     }
 
     public void prepareSearch(SearchTask searchTask, AsyncSearchContextId asyncSearchContextId) {
@@ -159,7 +151,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
             listener.onResponse(activeAsyncSearchContext);
         } else {
             persistenceService.getResponse(AsyncSearchId.buildAsyncId(asyncSearchId), ActionListener.wrap(listener::onResponse,
-                ex -> listener.onFailure(new AsyncSearchContextMissingException(asyncSearchContextId))
+                    ex -> listener.onFailure(new AsyncSearchContextMissingException(asyncSearchContextId))
             ));
         }
     }
@@ -203,17 +195,17 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         //delete active context
         ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         if (asyncSearchContext != null && asyncSearchContext.getTask().isCancelled() == false) {
-            client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(), asyncSearchContext.getTask().getId()))
-                .execute(ActionListener.wrap((response) -> {
-                            freeContext(asyncSearchContextId);
-                            asyncSearchContextListener.onFreeContext(asyncSearchContextId);
-                            groupedDeletionListener.onResponse(response.getTaskFailures().isEmpty() && freeContext(asyncSearchContextId));
-                        },
-                    (e) -> {
-                        freeContext(asyncSearchContextId);
-                        groupedDeletionListener.onResponse(false);
-                    }
-                ));
+            client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(),
+                    asyncSearchContext.getTask().getId()))
+                    .execute(ActionListener.wrap((response) -> {
+                                freeContext(asyncSearchContextId);
+                                groupedDeletionListener.onResponse(response.getTaskFailures().isEmpty() && freeContext(asyncSearchContextId));
+                            },
+                            (e) -> {
+                                freeContext(asyncSearchContextId);
+                                groupedDeletionListener.onResponse(false);
+                            }
+                    ));
         } else {
             groupedDeletionListener.onResponse(false);
         }
@@ -227,14 +219,12 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         asyncSearchContext.processFinalResponse(searchResponse);
         AsyncSearchResponse asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
-        completedAsyncSearchCount.inc();
         if (asyncSearchContext.needsPersistence()) {
             asyncSearchContext.acquireAllContextPermit(ActionListener.wrap(releasable -> {
                 AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(asyncSearchResponse);
                 persistenceService.createResponse(model, ActionListener.wrap(
                     (indexResponse) -> {
                         asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
-                        persistedAsyncSearchCount.inc();
                         freeContext(asyncSearchContextId);
                         releasable.close();
                     },
@@ -258,7 +248,6 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         try {
             activeContext = getContext(asyncSearchContextId);
             activeContext.processFailure(e);
-            failedAsyncSearchCount.inc();
             freeContext(asyncSearchContextId);
         } finally {
             activeContext.setStage(ActiveAsyncSearchContext.Stage.FAILED);
@@ -302,13 +291,9 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
     public void onCancelled(AsyncSearchContextId contextId) {
         ActiveAsyncSearchContext activeAsyncSearchContext = getContext(contextId);
         activeAsyncSearchContext.setStage(ABORTED);
-        abortedAsyncSearchCount.inc();
-        asyncSearchContextListener.onContextCancelled(activeAsyncSearchContext.getAsyncSearchContextId());
     }
 
     public AsyncSearchStats stats(boolean count) {
-        return new AsyncSearchStats(clusterService.localNode(), count ? new AsyncSearchCountStats(
-                runningAsyncSearchCount.count(), abortedAsyncSearchCount.count(),
-                persistedAsyncSearchCount.count(), completedAsyncSearchCount.count(), failedAsyncSearchCount.count()) : null);
+        return statsListener.stats(count,clusterService.localNode());
     }
 }

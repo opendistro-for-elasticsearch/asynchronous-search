@@ -115,4 +115,8 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext implements
         }
         return null;
     }
+
+    public String getId() {
+        return id;
+    }
 }

@@ -4,7 +4,6 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchCo
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
-import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatsListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.SetOnce;
@@ -17,7 +16,6 @@ import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -74,11 +72,13 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     private final AsyncSearchProgressListener progressActionListener;
     private final String nodeId;
     private volatile SetOnce<AsyncSearchId> asyncSearchId;
+    private final AsyncSearchContextListener contextListener;
 
     private static  final Logger logger = LogManager.getLogger(ActiveAsyncSearchContext.class);
 
     public ActiveAsyncSearchContext(AsyncSearchContextId asyncSearchContextId, String nodeId, TimeValue keepAlive, boolean keepOnCompletion,
-                                    ThreadPool threadPool, AsyncSearchProgressListener progressActionListener) {
+                                    ThreadPool threadPool, AsyncSearchProgressListener progressActionListener,
+                                    AsyncSearchContextListener contextListener) {
         super(asyncSearchContextId);
         this.keepOnCompletion = keepOnCompletion;
         this.isCompleted = new AtomicBoolean(false);
@@ -91,6 +91,8 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         this.startTimeMillis = System.currentTimeMillis();
         this.searchTask = new AtomicReference<>();
         this.asyncSearchId = new SetOnce<>();
+        this.contextListener = contextListener;
+        contextListener.onNewContext(asyncSearchContextId);
     }
 
     @Override
@@ -206,16 +208,20 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
             case COMPLETED:
                 assert searchTask.get() == null || searchTask.get().isCancelled() == false : "search task is cancelled";
                 validateAndSetStage(Stage.RUNNING, stage);
+                contextListener.onContextCompleted(asyncSearchId.get().getAsyncSearchContextId());
                 break;
             case ABORTED:
                 assert searchTask.get() == null || searchTask.get().isCancelled() : "search task should be cancelled";
                 validateAndSetStage(Stage.RUNNING, stage);
+                contextListener.onContextCancelled(asyncSearchId.get().getAsyncSearchContextId());
                 break;
             case FAILED:
                 validateAndSetStage(Stage.RUNNING, stage);
+                contextListener.onContextFailed(asyncSearchId.get().getAsyncSearchContextId());
                 break;
             case PERSISTED:
                 validateAndSetStage(Stage.COMPLETED, stage);
+                contextListener.onContextPersisted(asyncSearchId.get().getAsyncSearchContextId());
                 break;
             default:
                 throw new IllegalArgumentException("unknown AsyncSearchContext.Stage [" + stage + "]");

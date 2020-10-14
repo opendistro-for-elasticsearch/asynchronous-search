@@ -1,6 +1,5 @@
 package com.amazon.opendistroforelasticsearch.search.async.persistence;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -217,7 +216,7 @@ public class AsyncSearchPersistenceService {
     private void doStoreResult(AsyncSearchPersistenceContext model, ActionListener<IndexResponse> listener) {
 
         IndexRequestBuilder index = client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX_NAME, MAPPING_TYPE,
-                AsyncSearchId.buildAsyncId(model.getAsyncSearchId()));
+                model.getId());
 
         try (XContentBuilder builder = XContentFactory.contentBuilder(Requests.INDEX_CONTENT_TYPE)) {
             model.toXContent(builder, ToXContent.EMPTY_PARAMS);
