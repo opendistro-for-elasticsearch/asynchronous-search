@@ -1,5 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
+import com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
@@ -49,37 +50,47 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                     boolean updateNeeded = request.getKeepAlive() != null;
                     switch (source) {
                         case IN_MEMORY:
-                            AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener)asyncSearchContext.getSearchProgressActionListener().get();
-                            if (updateNeeded) {
-                                ActionListener<AsyncSearchResponse> groupedListener = new GroupedActionListener<>(
-                                    ActionListener.wrap(
-                                            (responses) ->
-                                            {
-                                                //The grouped listener atomically updates the pos, the one arriving last be also be last in the
-                                                // response array
-                                                assert responses.stream().count() == 2;
-                                                listener.onResponse(responses.stream()
-                                                        .filter(Objects::nonNull)
-                                                        .skip(1)
-                                                        .findFirst().get());
-                                            },
-                                            listener::onFailure), 2);
-                                PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                                        request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, groupedListener,
-                                        (actionListener) -> {
-                                            progressActionListener.removeListener(actionListener);
-                                            groupedListener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                                        });
-                                progressActionListener.addOrExecuteListener(wrappedListener);
-                                asyncSearchService.updateKeepAlive(request, asyncSearchContext, groupedListener);
+                            ActiveAsyncSearchContext.Stage stage = asyncSearchContext.getSearchStage().orElse(ActiveAsyncSearchContext.Stage.INIT);
+                            if (stage == ActiveAsyncSearchContext.Stage.RUNNING) {
+                                AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener)asyncSearchContext.getSearchProgressActionListener().get();
+                                if (updateNeeded) {
+                                    ActionListener<AsyncSearchResponse> groupedListener = new GroupedActionListener<>(
+                                            ActionListener.wrap(
+                                                    (responses) ->
+                                                    {
+                                                        //The grouped listener atomically updates the pos, the one arriving last be also be last in the
+                                                        // response array
+                                                        assert responses.stream().count() == 2;
+                                                        listener.onResponse(responses.stream()
+                                                                .filter(Objects::nonNull)
+                                                                .skip(1)
+                                                                .findFirst().get());
+                                                    },
+                                                    listener::onFailure), 2);
+                                    PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+                                            request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, groupedListener,
+                                            (actionListener) -> {
+                                                progressActionListener.removeListener(actionListener);
+                                                groupedListener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                                            });
+                                    progressActionListener.addOrExecuteListener(wrappedListener);
+                                    asyncSearchService.updateKeepAlive(request, asyncSearchContext, groupedListener);
+                                } else {
+                                    PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
+                                            request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener,
+                                            (actionListener) -> {
+                                                progressActionListener.removeListener(actionListener);
+                                                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                                            });
+                                    progressActionListener.addOrExecuteListener(wrappedListener);
+                                }
                             } else {
-                                PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                                        request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener,
-                                        (actionListener) -> {
-                                            progressActionListener.removeListener(actionListener);
-                                            listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                                        });
-                                progressActionListener.addOrExecuteListener(wrappedListener);
+                                // async search is no more RUNNING so we don't need to wait on listeners for completion
+                                if (updateNeeded) {
+                                    asyncSearchService.updateKeepAlive(request, asyncSearchContext, listener);
+                                } else {
+                                    listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                                }
                             }
                             break;
                         case STORE:

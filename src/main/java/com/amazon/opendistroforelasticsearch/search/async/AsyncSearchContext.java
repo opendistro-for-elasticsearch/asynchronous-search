@@ -36,6 +36,8 @@ public abstract class AsyncSearchContext {
 
     public Optional<SearchProgressActionListener> getSearchProgressActionListener() { return Optional.empty(); }
 
+    public Optional<ActiveAsyncSearchContext.Stage> getSearchStage() { return Optional.empty(); }
+
     public AsyncSearchContextId getAsyncSearchContextId() {
         return asyncSearchContextId;
     }

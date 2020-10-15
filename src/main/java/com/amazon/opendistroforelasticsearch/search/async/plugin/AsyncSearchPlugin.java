@@ -75,6 +75,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
     public static final String OPEN_DISTRO_ASYNC_SEARCH_MANAGEMENT_THREAD_POOL_NAME = "open_distro_async_search_management";
     public static final String OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME = "open_distro_async_search_generic";
+
     private AsyncSearchPersistenceService persistenceService;
 
     @Override

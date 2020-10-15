@@ -96,6 +96,11 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     }
 
     @Override
+    public Optional<Stage> getSearchStage() {
+        return Optional.of(stage);
+    }
+
+    @Override
     public AsyncSearchId getAsyncSearchId() {
         return asyncSearchId.get();
     }
@@ -165,10 +170,6 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         return Source.IN_MEMORY;
     }
 
-    public Stage getStage() {
-        return stage;
-    }
-
 
     public void processFailure(Exception e) {
         if (isCompleted.compareAndSet(false, true)) {
@@ -176,7 +177,6 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
             this.searchTask.set(null);
         }
     }
-
 
     public void processFinalResponse(SearchResponse response) {
         if (isCompleted.compareAndSet(false, true)) {

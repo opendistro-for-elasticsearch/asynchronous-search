@@ -7,21 +7,21 @@ import org.elasticsearch.common.io.stream.StreamOutput;
 
 import java.io.IOException;
 
-public class DeleteExpiredAsyncSearchesRequest extends ActionRequest {
+public class AsyncSearchManagementRequest extends ActionRequest {
 
     public static final String DEFAULT_REASON = "scheduled job";
 
-    public DeleteExpiredAsyncSearchesRequest() {
+    public AsyncSearchManagementRequest() {
         this.reason = DEFAULT_REASON;
     }
 
-    public DeleteExpiredAsyncSearchesRequest(String reason) {
+    public AsyncSearchManagementRequest(String reason) {
         this.reason = reason;
     }
 
     private final String reason;
 
-    public DeleteExpiredAsyncSearchesRequest(StreamInput in) throws IOException {
+    public AsyncSearchManagementRequest(StreamInput in) throws IOException {
         super(in);
         this.reason = in.readString();
     }

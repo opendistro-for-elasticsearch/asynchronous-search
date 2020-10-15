@@ -28,6 +28,9 @@ import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
@@ -152,13 +155,15 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
         @Override
         public void run() {
             try {
-                activeContexts.values().stream()
-                    .filter(context -> context.getStage().equals(ActiveAsyncSearchContext.Stage.ABORTED)
-                            || context.getStage().equals(ActiveAsyncSearchContext.Stage.FAILED)
-                            || context.getStage().equals(ActiveAsyncSearchContext.Stage.PERSIST_FAILED)
-                            || context.getStage().equals(ActiveAsyncSearchContext.Stage.PERSISTED))
-                    .map(context -> freeContext(context.getAsyncSearchContextId()));
-
+                for (ActiveAsyncSearchContext activeAsyncSearchContext : activeContexts.values()) {
+                    Optional<ActiveAsyncSearchContext.Stage> stage = activeAsyncSearchContext.getSearchStage();
+                    if (stage.isPresent() && stage.get().equals(ActiveAsyncSearchContext.Stage.ABORTED)
+                            || stage.equals(ActiveAsyncSearchContext.Stage.FAILED)
+                            || stage.equals(ActiveAsyncSearchContext.Stage.PERSISTED)
+                            || stage.equals(ActiveAsyncSearchContext.Stage.PERSIST_FAILED)) {
+                        freeContext(activeAsyncSearchContext.getAsyncSearchContextId());
+                    }
+                }
             } catch (Exception e) {
                 logger.error("Exception while reaping contexts", e);
             }
