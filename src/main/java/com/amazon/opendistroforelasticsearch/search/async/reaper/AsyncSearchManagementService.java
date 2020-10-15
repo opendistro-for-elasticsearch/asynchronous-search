@@ -3,20 +3,34 @@ package com.amazon.opendistroforelasticsearch.search.async.reaper;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteExpiredAsyncSearchesAction;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteExpiredAsyncSearchesRequest;
+import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
+import com.carrotsearch.hppc.ObjectContainer;
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.ActionListenerResponseHandler;
+import org.elasticsearch.action.admin.cluster.node.tasks.get.GetTaskAction;
+import org.elasticsearch.action.admin.cluster.node.tasks.get.GetTaskResponse;
 import org.elasticsearch.action.search.SearchTask;
+import org.elasticsearch.action.search.SearchTransportService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.LocalNodeMasterListener;
+import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.transport.Transport;
+import org.elasticsearch.transport.TransportService;
 
+import java.util.Iterator;
+import java.util.Random;
 import java.util.Set;
 
 /**
@@ -31,17 +45,19 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
     private volatile Scheduler.Cancellable masterScheduledFuture;
     private volatile Scheduler.Cancellable taskReaperScheduledFuture;
     private AsyncSearchService asyncSearchService;
+    private TransportService transportService;
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchManagementService.class);
 
     @Inject
     public AsyncSearchManagementService(ClusterService clusterService, Client client, ThreadPool threadPool,
-                                        AsyncSearchService asyncSearchService) {
+                                        AsyncSearchService asyncSearchService, TransportService transportService) {
         this.client = client;
         this.clusterService = clusterService;
         this.threadPool = threadPool;
         this.clusterService.addLocalNodeMasterListener(this);
         this.asyncSearchService = asyncSearchService;
+        this.transportService = transportService;
     }
 
     @Override
@@ -91,13 +107,26 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
     }
 
     class RunnableReaper implements Runnable {
+
+        Random random;
+
+        RunnableReaper() {
+            random = new Random();
+        }
+
         @Override
         public void run() {
-            client.execute(DeleteExpiredAsyncSearchesAction.INSTANCE, new DeleteExpiredAsyncSearchesRequest("master scheduled job"),
-                    ActionListener.wrap(r -> {
-                        logger.debug("successfully deleted");
-                            },
-                            e -> logger.error("Failed to delete expired async search responses from index", e)));
+            DiscoveryNode[] nodes = clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class);
+            int pos = random.nextInt(nodes.length);
+            DiscoveryNode randomNode = nodes[pos];
+            transportService.sendRequest(randomNode, DeleteExpiredAsyncSearchesAction.NAME,
+                    new DeleteExpiredAsyncSearchesRequest("master scheduled job"), new ActionListenerResponseHandler<AcknowledgedResponse>(
+                            ActionListener.wrap((response) -> {
+                                logger.debug("Successfully executed", response.isAcknowledged());
+                                    },
+                                    (e)  -> { logger.error("Exception executing action", e);}
+
+                            ), AcknowledgedResponse::new));
         }
     }
 }
