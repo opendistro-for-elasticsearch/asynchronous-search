@@ -19,7 +19,7 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchLifecycleSe
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.action.DeleteExpiredAsyncSearchesAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchManagementAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
@@ -30,7 +30,7 @@ import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearc
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchReaperAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchManagementAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportSubmitAsyncSearchAction;
 import org.elasticsearch.action.ActionRequest;
@@ -117,7 +117,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays.asList(
                 new ActionHandler<>(AsyncSearchStatsAction.INSTANCE, TransportAsyncSearchStatsAction.class),
-                new ActionHandler<>(DeleteExpiredAsyncSearchesAction.INSTANCE, TransportAsyncSearchReaperAction.class),
+                new ActionHandler<>(AsyncSearchManagementAction.INSTANCE, TransportAsyncSearchManagementAction.class),
                 new ActionHandler<>(SubmitAsyncSearchAction.INSTANCE, TransportSubmitAsyncSearchAction.class),
                 new ActionHandler<>(GetAsyncSearchAction.INSTANCE, TransportGetAsyncSearchAction.class),
                 new ActionHandler<>(DeleteAsyncSearchAction.INSTANCE, TransportDeleteAsyncSearchAction.class));
