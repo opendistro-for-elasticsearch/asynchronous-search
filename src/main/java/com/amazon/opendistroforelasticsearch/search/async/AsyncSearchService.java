@@ -22,7 +22,7 @@ import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearch
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
-import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStatsListener;
+import com.amazon.opendistroforelasticsearch.search.async.stats.InternalAsyncSearchStats;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ResourceNotFoundException;
@@ -79,7 +79,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
 
     private final NamedWriteableRegistry namedWriteableRegistry;
 
-    private final AsyncSearchStatsListener statsListener;
+    private final InternalAsyncSearchStats statsListener;
 
 
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService,
@@ -94,7 +94,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
         this.namedWriteableRegistry = namedWriteableRegistry;
-        this.statsListener = new AsyncSearchStatsListener();
+        this.statsListener = new InternalAsyncSearchStats();
     }
 
     private void setKeepAlive(TimeValue maxKeepAlive) {

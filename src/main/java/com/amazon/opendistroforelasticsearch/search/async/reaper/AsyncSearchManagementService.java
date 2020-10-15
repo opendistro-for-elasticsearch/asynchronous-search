@@ -2,7 +2,7 @@ package com.amazon.opendistroforelasticsearch.search.async.reaper;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchManagementAction;
-import com.amazon.opendistroforelasticsearch.search.async.request.DeleteExpiredAsyncSearchesRequest;
+import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchManagementRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -115,7 +115,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
             int pos = random.nextInt(nodes.length);
             DiscoveryNode randomNode = nodes[pos];
             transportService.sendRequest(randomNode, AsyncSearchManagementAction.NAME,
-                    new DeleteExpiredAsyncSearchesRequest("master scheduled job"), new ActionListenerResponseHandler<AcknowledgedResponse>(
+                    new AsyncSearchManagementRequest("master scheduled job"), new ActionListenerResponseHandler<AcknowledgedResponse>(
                             ActionListener.wrap((response) -> logger.debug("Successfully executed", response.isAcknowledged()),
                                     (e)  -> logger.error("Exception executing action", e)
                             ), AcknowledgedResponse::new));

@@ -2,11 +2,10 @@ package com.amazon.opendistroforelasticsearch.search.async.stats;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
-import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchCountStats;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.metrics.CounterMetric;
 
-public class AsyncSearchStatsListener implements AsyncSearchContextListener {
+public class InternalAsyncSearchStats implements AsyncSearchContextListener {
 
     private final CountStatsHolder countStatsHolder = new CountStatsHolder();
 
@@ -48,8 +47,8 @@ public class AsyncSearchStatsListener implements AsyncSearchContextListener {
         final CounterMetric failedAsyncSearchCount = new CounterMetric();
         final CounterMetric completedAsyncSearchCount = new CounterMetric();
 
-        public AsyncSearchCountStats countStats() {
-            return new AsyncSearchCountStats(runningAsyncSearchCount.count(), abortedAsyncSearchCount.count(),
+        public AsyncSearchStatusStats countStats() {
+            return new AsyncSearchStatusStats(runningAsyncSearchCount.count(), abortedAsyncSearchCount.count(),
                     persistedAsyncSearchCount.count(),
                     completedAsyncSearchCount.count(), failedAsyncSearchCount.count());
         }

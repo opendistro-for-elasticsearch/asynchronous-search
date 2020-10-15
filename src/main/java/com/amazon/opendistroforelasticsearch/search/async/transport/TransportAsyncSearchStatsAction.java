@@ -25,13 +25,9 @@ public class TransportAsyncSearchStatsAction extends TransportNodesAction<AsyncS
     private final AsyncSearchService asyncSearchService;
 
     @Inject
-    public TransportAsyncSearchStatsAction(
-            ThreadPool threadPool,
-            ClusterService clusterService,
-            TransportService transportService,
-            ActionFilters actionFilters,
-            AsyncSearchService asyncSearchService
-    ) {
+    public TransportAsyncSearchStatsAction(ThreadPool threadPool, ClusterService clusterService, TransportService transportService,
+                                           ActionFilters actionFilters, AsyncSearchService asyncSearchService) {
+
         super(AsyncSearchStatsAction.NAME, threadPool, clusterService, transportService, actionFilters, AsyncSearchStatsRequest::new,
                 AsyncSearchStatsNodeRequest::new, ThreadPool.Names.MANAGEMENT, AsyncSearchStats.class);
         this.asyncSearchService = asyncSearchService;
@@ -39,9 +35,8 @@ public class TransportAsyncSearchStatsAction extends TransportNodesAction<AsyncS
     }
 
     @Override
-    protected AsyncSearchStatsResponse newResponse(
-            AsyncSearchStatsRequest request, List<AsyncSearchStats> responses,
-            List<FailedNodeException> failures) {
+    protected AsyncSearchStatsResponse newResponse(AsyncSearchStatsRequest request, List<AsyncSearchStats> responses,
+                                                   List<FailedNodeException> failures) {
         return new AsyncSearchStatsResponse(clusterService.getClusterName(), responses, failures);
     }
 
