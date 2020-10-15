@@ -122,9 +122,9 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
     @Override
     protected void onQueryResult(int shardIndex) {
         assert shardIndex < partialResultsHolder.totalShards.get();
-        partialResultsHolder.successfulShards.updateAndGet(
-                // query and fetch optimization for single shard
-                (val) -> partialResultsHolder.hasFetchPhase.get() ||  partialResultsHolder.totalShards.get() <= 1 ?
-                partialResultsHolder.successfulShards.get() : partialResultsHolder.successfulShards.incrementAndGet());
+        // query and fetch optimization for single shard
+        if (partialResultsHolder.hasFetchPhase.get() == false ||  partialResultsHolder.totalShards.get() == 1) {
+             partialResultsHolder.successfulShards.incrementAndGet();
+        }
     }
 }
