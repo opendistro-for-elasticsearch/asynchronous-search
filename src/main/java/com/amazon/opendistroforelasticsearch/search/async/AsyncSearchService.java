@@ -194,7 +194,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
 
         //delete active context
         ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
-        if (asyncSearchContext != null && asyncSearchContext.getTask().isCancelled() == false) {
+        if (asyncSearchContext != null && asyncSearchContext.getTask() != null &&  asyncSearchContext.getTask().isCancelled() == false) {
             client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(),
                     asyncSearchContext.getTask().getId()))
                     .execute(ActionListener.wrap((response) -> {
