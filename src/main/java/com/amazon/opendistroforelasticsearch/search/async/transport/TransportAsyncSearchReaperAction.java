@@ -13,22 +13,20 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.transport.TransportService;
 
-public class TransportDeleteExpiredAsyncSearchesAction
-        extends HandledTransportAction<DeleteExpiredAsyncSearchesRequest, AcknowledgedResponse> {
+public class TransportAsyncSearchReaperAction extends HandledTransportAction<DeleteExpiredAsyncSearchesRequest, AcknowledgedResponse> {
 
-    private static final Logger log = LogManager.getLogger(TransportDeleteExpiredAsyncSearchesAction.class);
+    private static final Logger log = LogManager.getLogger(TransportAsyncSearchReaperAction.class);
     private final AsyncSearchPersistenceService persistenceService;
 
     @Inject
-    public TransportDeleteExpiredAsyncSearchesAction(TransportService transportService,
-                                                     ActionFilters actionFilters, AsyncSearchPersistenceService persistenceService) {
+    public TransportAsyncSearchReaperAction(TransportService transportService,
+                                            ActionFilters actionFilters, AsyncSearchPersistenceService persistenceService) {
         super(DeleteExpiredAsyncSearchesAction.NAME, transportService, actionFilters, DeleteExpiredAsyncSearchesRequest::new);
         this.persistenceService = persistenceService;
     }
 
     @Override
     protected void doExecute(Task task, DeleteExpiredAsyncSearchesRequest request, ActionListener<AcknowledgedResponse> listener) {
-        log.debug(request);
         persistenceService.deleteExpiredResponses(listener);
     }
 }
