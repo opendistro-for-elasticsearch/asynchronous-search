@@ -68,13 +68,17 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
     @Override
     protected void doStop() {
-        masterScheduledFuture.cancel();
+        if (masterScheduledFuture != null) {
+            masterScheduledFuture.cancel();
+        }
         taskReaperScheduledFuture.cancel();
     }
 
     @Override
     protected void doClose() {
-        masterScheduledFuture.cancel();
+        if (masterScheduledFuture != null) {
+            masterScheduledFuture.cancel();
+        }
         taskReaperScheduledFuture.cancel();
     }
 
@@ -95,7 +99,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
         public void run() {
             client.execute(DeleteExpiredAsyncSearchesAction.INSTANCE, new DeleteExpiredAsyncSearchesRequest("master scheduled job"),
                     ActionListener.wrap(r -> {
-                        logger.debug("successfully deleted");
+                                logger.debug("successfully deleted");
                             },
                             e -> logger.error("Failed to delete expired async search responses from index", e)));
         }

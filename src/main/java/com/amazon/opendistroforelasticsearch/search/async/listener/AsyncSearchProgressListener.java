@@ -126,6 +126,5 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
                 // query and fetch optimization for single shard
                 (val) -> partialResultsHolder.hasFetchPhase.get() ||  partialResultsHolder.totalShards.get() <= 1 ?
                 partialResultsHolder.successfulShards.get() : partialResultsHolder.successfulShards.incrementAndGet());
-       partialResultsHolder.successfulShards.incrementAndGet();
     }
 }
