@@ -1,5 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.persistence;
 
+import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -37,7 +38,6 @@ import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.reindex.BulkByScrollResponse;
 import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -160,28 +160,23 @@ public class AsyncSearchPersistenceService {
 
     }
 
-    public void deleteExpiredResponses(ActionListener<BulkByScrollResponse> listener) {
+    public void deleteExpiredResponses(ActionListener<AcknowledgedResponse> listener) {
         if (!indexExists()) {
             logger.info("Async search index not yet created! Nothing to delete.");
-            listener.onResponse(null);
+            listener.onResponse(new AcknowledgedResponse(true));
         } else {
             logger.info("Deleting expired async search responses");
             DeleteByQueryRequest request =
                     new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME)
                             .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME)
                                     .lte(System.currentTimeMillis()));
-            client.execute(DeleteByQueryAction.INSTANCE, request, new ActionListener<BulkByScrollResponse>() {
-                @Override
-                public void onResponse(BulkByScrollResponse bulkByScrollResponse) {
-                    listener.onResponse(bulkByScrollResponse);
-                }
-
-                @Override
-                public void onFailure(Exception e) {
-                    logger.warn("Failed to perform delete by query", e);
-                    listener.onFailure(e);
-                }
-            });
+            client.execute(DeleteByQueryAction.INSTANCE, request, ActionListener.wrap(
+                    r -> {
+                        listener.onResponse(new AcknowledgedResponse(true));
+                    },
+                    e -> {
+                        listener.onFailure(e);
+                    }));
         }
 
     }
@@ -291,7 +286,7 @@ public class AsyncSearchPersistenceService {
     }
 
     void parseResponse(String id, GetResponse getResponse, ActionListener<AsyncSearchPersistenceContext> listener) throws IOException {
-        if (getResponse.isExists() &&
+            if (getResponse.isExists() &&
                 getResponse.getSource() != null
                 && getResponse.getSource().containsKey(RESPONSE)
                 && getResponse.getSource().containsKey(EXPIRATION_TIME)) {

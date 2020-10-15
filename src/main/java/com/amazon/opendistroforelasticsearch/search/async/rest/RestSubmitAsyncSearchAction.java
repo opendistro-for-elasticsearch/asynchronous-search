@@ -73,7 +73,7 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
                     SubmitAsyncSearchRequest.DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT));
         }
         if (request.hasParam("keep_alive")) {
-            submitAsyncSearchRequest.setKeepAlive(request.paramAsTime("keep_alive", SubmitAsyncSearchRequest.DEFAULT_KEEP_ALIVE));
+            submitAsyncSearchRequest.keepAlive(request.paramAsTime("keep_alive", SubmitAsyncSearchRequest.DEFAULT_KEEP_ALIVE));
         }
         if (request.hasParam("keep_on_completion")) {
             submitAsyncSearchRequest.keepOnCompletion(request.paramAsBoolean("keep_on_completion",

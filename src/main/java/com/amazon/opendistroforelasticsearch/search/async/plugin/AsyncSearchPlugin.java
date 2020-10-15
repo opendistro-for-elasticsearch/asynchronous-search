@@ -19,17 +19,18 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchLifecycleSe
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.DeleteExpiredAsyncSearchesAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
-import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchReaperPersistentTaskExecutor;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteExpiredAsyncSearchesAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportSubmitAsyncSearchAction;
 import org.elasticsearch.action.ActionRequest;
@@ -38,7 +39,6 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.component.LifecycleComponent;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.ClusterSettings;
@@ -46,17 +46,13 @@ import org.elasticsearch.common.settings.IndexScopedSettings;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.settings.SettingsFilter;
-import org.elasticsearch.common.settings.SettingsModule;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
 import org.elasticsearch.indices.SystemIndexDescriptor;
-import org.elasticsearch.persistent.PersistentTaskParams;
-import org.elasticsearch.persistent.PersistentTasksExecutor;
 import org.elasticsearch.plugins.ActionPlugin;
-import org.elasticsearch.plugins.PersistentTaskPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.SystemIndexPlugin;
 import org.elasticsearch.repositories.RepositoriesService;
@@ -75,7 +71,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
-public class AsyncSearchPlugin extends Plugin implements ActionPlugin, PersistentTaskPlugin, SystemIndexPlugin {
+public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemIndexPlugin {
 
     public static final String OPEN_DISTRO_ASYNC_SEARCH_MANAGEMENT_THREAD_POOL_NAME = "open_distro_async_search_management";
     public static final String OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME = "open_distro_async_search_generic";
@@ -115,28 +111,13 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
         return Collections.singletonList(AsyncSearchManagementService.class);
     }
 
-    @Override
-    public List<NamedWriteableRegistry.Entry> getNamedWriteables() {
-        return Collections.singletonList(
-                new NamedWriteableRegistry.Entry(PersistentTaskParams.class, AsyncSearchReaperPersistentTaskExecutor.NAME,
-                        in -> new AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams())
-        );
-    }
 
-
-    @Override
-    public List<NamedXContentRegistry.Entry> getNamedXContent() {
-        return Collections.singletonList(
-                new NamedXContentRegistry.Entry(PersistentTaskParams.class,
-                        new ParseField(AsyncSearchReaperPersistentTaskExecutor.NAME),
-                        AsyncSearchReaperPersistentTaskExecutor.AsyncSearchReaperParams::fromXContent)
-        );
-    }
 
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays.asList(
                 new ActionHandler<>(AsyncSearchStatsAction.INSTANCE, TransportAsyncSearchStatsAction.class),
+                new ActionHandler<>(DeleteExpiredAsyncSearchesAction.INSTANCE, TransportDeleteExpiredAsyncSearchesAction.class),
                 new ActionHandler<>(SubmitAsyncSearchAction.INSTANCE, TransportSubmitAsyncSearchAction.class),
                 new ActionHandler<>(GetAsyncSearchAction.INSTANCE, TransportGetAsyncSearchAction.class),
                 new ActionHandler<>(DeleteAsyncSearchAction.INSTANCE, TransportDeleteAsyncSearchAction.class));
@@ -154,12 +135,6 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, Persisten
                 "Stores the response for async search"));
     }
 
-    public List<PersistentTasksExecutor<?>> getPersistentTasksExecutor(ClusterService clusterService, ThreadPool threadPool,
-                                                                       Client client, SettingsModule settingsModule,
-                                                                       IndexNameExpressionResolver expressionResolver) {
-        return Collections.singletonList(
-                new AsyncSearchReaperPersistentTaskExecutor(clusterService, client, persistenceService));
-    }
 
     @Override
     public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {

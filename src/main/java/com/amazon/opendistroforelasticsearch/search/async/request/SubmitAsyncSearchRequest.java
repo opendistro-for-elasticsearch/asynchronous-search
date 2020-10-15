@@ -100,7 +100,7 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
     /**
      * Sets the amount of time after which the result will expire (defaults to 5 days).
      */
-    public void setKeepAlive(TimeValue keepAlive) {
+    public void keepAlive(TimeValue keepAlive) {
         this.keepAlive = keepAlive;
     }
 

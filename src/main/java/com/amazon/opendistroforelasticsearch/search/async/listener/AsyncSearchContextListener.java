@@ -33,21 +33,21 @@ public interface AsyncSearchContextListener {
 
     /**
      *
-     * @param contextId
+     * @param contextId contextId
      */
     default void onContextFailed(AsyncSearchContextId contextId) {
     }
 
     /**
      *
-     * @param asyncSearchContextId
+     * @param asyncSearchContextId contextId
      */
     default void onContextPersisted(AsyncSearchContextId asyncSearchContextId) {
     }
 
     /**
      *
-     * @param asyncSearchContextId
+     * @param asyncSearchContextId contextId
      */
     default void onContextRunning(AsyncSearchContextId asyncSearchContextId) {
 

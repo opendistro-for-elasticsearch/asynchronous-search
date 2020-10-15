@@ -272,9 +272,9 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
 
     /**
      * Updates the keep alive for the context
-     * @param request
-     * @param asyncSearchContext
-     * @param listener
+     * @param request request
+     * @param asyncSearchContext asyncSearchContext
+     * @param listener handle response
      */
     public void updateKeepAlive(GetAsyncSearchRequest request, AsyncSearchContext asyncSearchContext,
                                 ActionListener<AsyncSearchResponse> listener) {

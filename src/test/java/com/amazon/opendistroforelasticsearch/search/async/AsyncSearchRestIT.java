@@ -50,7 +50,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("num", 10)));
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
         TimeValue keepAlive = new TimeValue(10, TimeUnit.DAYS);
-        submitAsyncSearchRequest.setKeepAlive(keepAlive);
+        submitAsyncSearchRequest.keepAlive(keepAlive);
         AsyncSearchResponse submitResponse = submitAsyncSearchApi(submitAsyncSearchRequest);
         assert submitResponse.getExpirationTimeMillis() - submitResponse.getStartTimeMillis() >= keepAlive.getMillis();
         AsyncSearchResponse getResponse;
