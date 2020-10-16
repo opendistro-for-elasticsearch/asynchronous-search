@@ -76,7 +76,6 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
     @Override
     public void onResponse(SearchResponse searchResponse) {
         //assert partial results match actual results on search completion
-        logger.error("partialResultsHolder.successfulShards.get () {}, searchResponse.getSuccessfulShards() {}", partialResultsHolder.successfulShards.get(), searchResponse.getSuccessfulShards());
         assert partialResultsHolder.successfulShards.get() == searchResponse.getSuccessfulShards() : "successful shards mismatch";
         assert partialResultsHolder.reducePhase.get() == searchResponse.getNumReducePhases() : "reduce phase number mismatch";
         assert partialResultsHolder.clusters.get() == searchResponse.getClusters(): "clusters mismatch";

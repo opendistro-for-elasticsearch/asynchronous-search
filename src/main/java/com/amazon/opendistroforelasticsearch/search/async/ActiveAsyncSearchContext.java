@@ -60,7 +60,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     private final AtomicBoolean isCompleted;
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
-    private volatile AtomicReference<SearchTask> searchTask;
+    private volatile SetOnce<SearchTask> searchTask;
     private volatile long expirationTimeMillis;
     private volatile long startTimeMillis;
     private final Boolean keepOnCompletion;
@@ -85,7 +85,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId, threadPool);
         this.progressActionListener = progressActionListener;
         this.startTimeMillis = System.currentTimeMillis();
-        this.searchTask = new AtomicReference<>();
+        this.searchTask = new SetOnce<>();
         this.asyncSearchId = new SetOnce<>();
         this.contextListener = contextListener;
     }
@@ -138,31 +138,30 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         return keepOnCompletion;
     }
 
+
     @Override
-    public AsyncSearchResponse getAsyncSearchResponse() {
-        return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isPartial(), isRunning(), startTimeMillis,
-                getExpirationTimeMillis(), isRunning() ? progressActionListener.partialResponse() : getFinalSearchResponse(), error.get());
+    public SearchResponse getSearchResponse() {
+        if (isCompleted.get()) {
+            return searchResponse.get();
+        } else {
+            return progressActionListener.partialResponse();
+        }
     }
 
-    public SearchResponse getFinalSearchResponse() {
-        return searchResponse.get();
-    }
-
+    @Override
     public boolean isRunning() {
         return isCompleted.get() == false;
     }
 
-    public boolean isPartial() {
-        return isCompleted.get() == false || isCancelled();
-    }
-
-    public boolean isCancelled() {
-        return searchTask == null || (searchTask.get() != null && searchTask.get().isCancelled());
-    }
 
     @Override
     public long getExpirationTimeMillis() {
         return expirationTimeMillis;
+    }
+
+    @Override
+    public long getStartTimeMillis() {
+        return startTimeMillis;
     }
 
     @Override
@@ -174,14 +173,12 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     public void processFailure(Exception e) {
         if (isCompleted.compareAndSet(false, true)) {
             error.set(new ElasticsearchException(e));
-            this.searchTask.set(null);
         }
     }
 
     public void processFinalResponse(SearchResponse response) {
         if (isCompleted.compareAndSet(false, true)) {
             this.searchResponse.compareAndSet(null, response);
-            this.searchTask.set(null);
         }
     }
 

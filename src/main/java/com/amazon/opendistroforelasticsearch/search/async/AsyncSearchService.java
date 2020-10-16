@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.search.async;
 
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceContext;
+import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
@@ -151,7 +152,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
             listener.onResponse(activeAsyncSearchContext);
         } else {
             persistenceService.getResponse(AsyncSearchId.buildAsyncId(asyncSearchId), ActionListener.wrap(listener::onResponse,
-                    ex -> listener.onFailure(new AsyncSearchContextMissingException(asyncSearchContextId))
+                 ex -> listener.onFailure(new AsyncSearchContextMissingException(asyncSearchContextId))
             ));
         }
     }
@@ -229,7 +230,9 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
             asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
             if (asyncSearchContext.needsPersistence()) {
                 asyncSearchContext.acquireAllContextPermit(ActionListener.wrap(releasable -> {
-                    AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(asyncSearchResponse);
+                    AsyncSearchPersistenceModel persistenceModel = new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
+                            asyncSearchResponse.getExpirationTimeMillis(), asyncSearchResponse.getSearchResponse());
+                    AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(asyncSearchContext.getAsyncSearchId(), persistenceModel);
                     persistenceService.createResponse(model, ActionListener.wrap(
                         (indexResponse) -> {
                             asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
@@ -301,7 +304,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
 
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
-
+        // TODO listen to coordinator state failures and async search shards getting assigned
     }
 
     /***

@@ -1,5 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.persistence;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -47,8 +48,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceContext.EXPIRATION_TIME;
-import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceContext.RESPONSE;
+import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.EXPIRATION_TIME_MILLIS;
+import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.START_TIME_MILLIS;
+import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.RESPONSE;
 import static org.elasticsearch.action.admin.cluster.node.tasks.get.GetTaskAction.TASKS_ORIGIN;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
@@ -141,7 +143,7 @@ public class AsyncSearchPersistenceService {
             listener.onFailure(new ResourceNotFoundException(id));
         }
         Map<String, Object> source = new HashMap<>();
-        source.put(EXPIRATION_TIME, expirationTimeMillis);
+        source.put(EXPIRATION_TIME_MILLIS, expirationTimeMillis);
         UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id);
         updateRequest.doc(source, XContentType.JSON);
         client.update(updateRequest, ActionListener.wrap(
@@ -168,7 +170,7 @@ public class AsyncSearchPersistenceService {
             logger.info("Deleting expired async search responses");
             DeleteByQueryRequest request =
                     new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME)
-                            .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME)
+                            .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS)
                                     .lte(System.currentTimeMillis()));
             client.execute(DeleteByQueryAction.INSTANCE, request, ActionListener.wrap(
                     r -> {
@@ -208,16 +210,16 @@ public class AsyncSearchPersistenceService {
         client.admin().indices().create(createIndexRequest, listener);
     }
 
-    private void doStoreResult(AsyncSearchPersistenceContext model, ActionListener<IndexResponse> listener) {
+    private void doStoreResult(AsyncSearchPersistenceContext context, ActionListener<IndexResponse> listener) {
 
         IndexRequestBuilder index = client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX_NAME, MAPPING_TYPE,
-                model.getId());
+                AsyncSearchId.buildAsyncId(context.getAsyncSearchId()));
 
         try (XContentBuilder builder = XContentFactory.contentBuilder(Requests.INDEX_CONTENT_TYPE)) {
-            model.toXContent(builder, ToXContent.EMPTY_PARAMS);
+            context.getAsyncSearchPersistenceModel().toXContent(builder, ToXContent.EMPTY_PARAMS);
             index.setSource(builder);
         } catch (IOException e) {
-            throw new ElasticsearchException("Couldn't convert async search persistence context to XContent for [{}]", e, model);
+            throw new ElasticsearchException("Couldn't convert async search persistence context to XContent for [{}]", e, context.getAsyncSearchPersistenceModel());
         }
         doStoreResult(STORE_BACKOFF_POLICY.iterator(), index, listener);
     }
@@ -261,13 +263,17 @@ public class AsyncSearchPersistenceService {
                     //props
                     .startObject("properties")
 
+                    //expiry
+                    .startObject(START_TIME_MILLIS).field("type", "long").endObject()
+                    //expiry
+
+                    //expiry
+                    .startObject(EXPIRATION_TIME_MILLIS).field("type", "long").endObject()
+                    //expiry
+
                     //response
                     .startObject(RESPONSE).field("type", "object").endObject()
                     //response
-
-                    //expiry
-                    .startObject(EXPIRATION_TIME).field("type", "long").endObject()
-                    //expiry
 
                     .endObject()
                     //props
@@ -276,7 +282,7 @@ public class AsyncSearchPersistenceService {
 
             return builder;
         } catch (IOException e) {
-            throw new IllegalArgumentException("Async search persistence mapping cannot be read correctly.");
+            throw new IllegalArgumentException("Async search persistence mapping cannot be read correctly.", e);
         }
 
     }
@@ -285,25 +291,19 @@ public class AsyncSearchPersistenceService {
         return clusterService.state().routingTable().hasIndex(ASYNC_SEARCH_RESPONSE_INDEX_NAME);
     }
 
-    void parseResponse(String id, GetResponse getResponse, ActionListener<AsyncSearchPersistenceContext> listener) throws IOException {
-            if (getResponse.isExists() &&
-                getResponse.getSource() != null
-                && getResponse.getSource().containsKey(RESPONSE)
-                && getResponse.getSource().containsKey(EXPIRATION_TIME)) {
-            long expirationTimeMillis =
-                    (long) getResponse.getSource().get(EXPIRATION_TIME);
-            if (System.currentTimeMillis() < expirationTimeMillis) {
-                try (XContentParser parser = XContentHelper
-                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsBytesRef())) {
-                    AsyncSearchPersistenceContext persistenceContext = AsyncSearchPersistenceContext.PARSER.apply(parser, null);
-                    listener.onResponse(persistenceContext);
-                }
-            } else {
+    void parseResponse(String id, GetResponse getResponse, ActionListener<AsyncSearchPersistenceContext> listener) {
+        if (!getResponse.isExists()) {
+            listener.onFailure(new ResourceNotFoundException(id));
+        } else {
+            try {
+                XContentParser parser = XContentHelper.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                        getResponse.getSourceAsBytesRef(), Requests.INDEX_CONTENT_TYPE);
+                listener.onResponse(new AsyncSearchPersistenceContext(AsyncSearchId.parseAsyncId(id),
+                        AsyncSearchPersistenceModel.PARSER.apply(parser, null)));
+            } catch (IOException e) {
+                logger.error("IOException occurred finding lock", e);
                 listener.onFailure(new ResourceNotFoundException(id));
             }
-        } else {
-            listener.onFailure(new ResourceNotFoundException(id));
         }
     }
-
 }
