@@ -9,6 +9,7 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 
 import java.io.IOException;
+import java.util.Objects;
 
 public class AsyncSearchPersistenceContext extends AsyncSearchContext {
 
@@ -25,38 +26,48 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
         return asyncSearchPersistenceModel;
     }
 
-    @Override
-    public AsyncSearchId getAsyncSearchId() {
+    @Override public AsyncSearchId getAsyncSearchId() {
         return asyncSearchId;
     }
 
-    @Override
-    public boolean isRunning() {
+    @Override public boolean isRunning() {
         return false;
     }
 
-    @Override
-    public long getExpirationTimeMillis() {
+    @Override public long getExpirationTimeMillis() {
         return asyncSearchPersistenceModel.getExpirationTimeMillis();
     }
 
-    @Override
-    public long getStartTimeMillis() {
+    @Override public long getStartTimeMillis() {
         return asyncSearchPersistenceModel.getStartTimeMillis();
     }
 
-    @Override
-    public SearchResponse getSearchResponse() {
-        try (XContentParser parser = XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY,
-                LoggingDeprecationHandler.INSTANCE, asyncSearchPersistenceModel.getResponse().streamInput())) {
+    @Override public SearchResponse getSearchResponse() {
+        try (
+            XContentParser parser = XContentType.JSON.xContent()
+                .createParser(NamedXContentRegistry.EMPTY,
+                    LoggingDeprecationHandler.INSTANCE,
+                    asyncSearchPersistenceModel.getResponse().streamInput())) {
             return SearchResponse.fromXContent(parser);
         } catch (IOException e) {
             return null;
         }
     }
 
-    @Override
-    public Source getSource() {
+    @Override public Source getSource() {
         return Source.STORE;
+    }
+
+    @Override public int hashCode() {
+        return Objects.hash(asyncSearchId, asyncSearchPersistenceModel);
+    }
+
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        AsyncSearchPersistenceContext asyncSearchPersistenceContext = (AsyncSearchPersistenceContext) o;
+        return asyncSearchPersistenceContext.getAsyncSearchId()
+            .equals(this.asyncSearchId) && asyncSearchPersistenceContext.getAsyncSearchPersistenceModel()
+            .equals(this.asyncSearchPersistenceModel);
     }
 }

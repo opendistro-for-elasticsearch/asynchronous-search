@@ -32,12 +32,12 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
 
         assertNull(getResponse.getSearchResponse().getAggregations());
         assertEquals(10, getResponse.getSearchResponse().getHits().getTotalHits().value);
-        assert getResponse.getExpirationTimeMillis() > submitResponse.getExpirationTimeMillis();
+        assertTrue(getResponse.getExpirationTimeMillis() > submitResponse.getExpirationTimeMillis());
         DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(getResponse.getId());
         AcknowledgedResponse acknowledgedResponse = TestClientUtils.blockingDeleteAsyncSearchRequest(client(),
                 deleteAsyncSearchRequest);
         assertTrue(acknowledgedResponse.isAcknowledged());
-//        assertRNF(TestClientUtils::blockingGetAsyncSearchResponse, client(), getAsyncSearchRequest);
+        assertRNF(TestClientUtils::blockingGetAsyncSearchResponse, client(), getAsyncSearchRequest);
 //        assertRNF(TestClientUtils::blockingDeleteAsyncSearchRequest, client(), deleteAsyncSearchRequest);
 //        TODO : right now we throw a custom AsyncSearchContextMissingException. Should it be wrapped with RNF as client doesnt need to
 //         privy to internal construct, `AsyncSearchContext`

@@ -19,6 +19,7 @@ import org.apache.lucene.store.ByteArrayDataInput;
 import org.apache.lucene.store.RAMOutputStream;
 
 import java.util.Base64;
+import java.util.Objects;
 
 public class AsyncSearchId {
 
@@ -47,8 +48,7 @@ public class AsyncSearchId {
         return taskId;
     }
 
-    @Override
-    public String toString() {
+    @Override public String toString() {
         return "[" + node + "][" + asyncSearchContextId + "]";
     }
 
@@ -81,5 +81,17 @@ public class AsyncSearchId {
         } catch (Exception e) {
             throw new IllegalArgumentException("Cannot parse async search id", e);
         }
+    }
+
+    @Override public int hashCode() {
+        return Objects.hash(this.asyncSearchContextId, this.node, this.taskId);
+    }
+
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        AsyncSearchId asyncSearchId = (AsyncSearchId) o;
+        return asyncSearchId.asyncSearchContextId.equals(this.asyncSearchContextId) && asyncSearchId.node.equals(this.node) && asyncSearchId
+            .getTaskId() == this.taskId;
     }
 }

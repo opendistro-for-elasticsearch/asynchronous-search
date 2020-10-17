@@ -32,8 +32,9 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
     public static final InstantiatingObjectParser<AsyncSearchPersistenceModel, Void> PARSER;
 
     static {
-        InstantiatingObjectParser.Builder<AsyncSearchPersistenceModel, Void> parser = InstantiatingObjectParser.builder(
-                "stored_response", true, AsyncSearchPersistenceModel.class);
+        InstantiatingObjectParser.Builder<AsyncSearchPersistenceModel, Void>
+            parser =
+            InstantiatingObjectParser.builder("stored_response", true, AsyncSearchPersistenceModel.class);
         parser.declareLong(constructorArg(), new ParseField(START_TIME_MILLIS));
         parser.declareLong(constructorArg(), new ParseField(EXPIRATION_TIME_MILLIS));
         ObjectParserHelper<AsyncSearchPersistenceModel, Void> parserHelper = new ObjectParserHelper<>();
@@ -41,8 +42,7 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
         PARSER = parser.build();
     }
 
-    @ParserConstructor
-    public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis, BytesReference response) {
+    @ParserConstructor public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis, BytesReference response) {
         this.startTimeMillis = startTimeMillis;
         this.expirationTimeMillis = expirationTimeMillis;
         this.response = response;
@@ -51,7 +51,6 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
     public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis, SearchResponse response) throws IOException {
         this(startTimeMillis, expirationTimeMillis, XContentHelper.toXContent(response, Requests.INDEX_CONTENT_TYPE, false));
     }
-
 
     public long getStartTimeMillis() {
         return startTimeMillis;
@@ -65,8 +64,7 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
         return expirationTimeMillis;
     }
 
-    @Override
-    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+    @Override public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
         innerToXContent(builder, params);
         return builder.endObject();
@@ -79,18 +77,17 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
         return builder;
     }
 
-    @Override
-    public int hashCode() {
+    @Override public int hashCode() {
         return Objects.hash(startTimeMillis, expirationTimeMillis, response);
     }
 
-    @Override
-    public boolean equals(Object o) {
+    @Override public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         AsyncSearchPersistenceModel persistenceModel = (AsyncSearchPersistenceModel) o;
-        return startTimeMillis == persistenceModel.startTimeMillis &&
-                expirationTimeMillis == persistenceModel.expirationTimeMillis &&
-                response == persistenceModel.response;
+        return startTimeMillis == persistenceModel.startTimeMillis && expirationTimeMillis == persistenceModel.expirationTimeMillis
+            //            &&
+            //                response == persistenceModel.response
+            ;
     }
 }
