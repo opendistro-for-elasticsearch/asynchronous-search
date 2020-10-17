@@ -22,7 +22,6 @@ import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.client.OriginSettingClient;
 import org.elasticsearch.client.Requests;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -51,7 +50,6 @@ import java.util.Map;
 import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.EXPIRATION_TIME_MILLIS;
 import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.START_TIME_MILLIS;
 import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.RESPONSE;
-import static org.elasticsearch.action.admin.cluster.node.tasks.get.GetTaskAction.TASKS_ORIGIN;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
 public class AsyncSearchPersistenceService {
@@ -78,7 +76,7 @@ public class AsyncSearchPersistenceService {
     @Inject
     public AsyncSearchPersistenceService(Client client, ClusterService clusterService, ThreadPool threadPool,
                                          NamedXContentRegistry xContentRegistry) {
-        this.client = new OriginSettingClient(client, TASKS_ORIGIN);
+        this.client = client;
         this.clusterService = clusterService;
         this.threadPool = threadPool;
         this.xContentRegistry = xContentRegistry;
@@ -173,12 +171,8 @@ public class AsyncSearchPersistenceService {
                             .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS)
                                     .lte(System.currentTimeMillis()));
             client.execute(DeleteByQueryAction.INSTANCE, request, ActionListener.wrap(
-                    r -> {
-                        listener.onResponse(new AcknowledgedResponse(true));
-                    },
-                    e -> {
-                        listener.onFailure(e);
-                    }));
+                    r -> listener.onResponse(new AcknowledgedResponse(true)),
+                    listener::onFailure));
         }
 
     }

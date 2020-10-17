@@ -6,6 +6,7 @@ import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.InstantiatingObjectParser;
 import org.elasticsearch.common.xcontent.ObjectParserHelper;
+import org.elasticsearch.common.xcontent.ParserConstructor;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentHelper;
@@ -15,7 +16,9 @@ import java.util.Objects;
 
 import static org.elasticsearch.common.xcontent.ConstructingObjectParser.constructorArg;
 
-
+/**
+ * The model for persisting response to an index for retrieval after the search is complete
+ */
 public class AsyncSearchPersistenceModel implements ToXContentObject {
 
     public static final String EXPIRATION_TIME_MILLIS = "expiration_time_millis";
@@ -38,6 +41,7 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
         PARSER = parser.build();
     }
 
+    @ParserConstructor
     public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis, BytesReference response) {
         this.startTimeMillis = startTimeMillis;
         this.expirationTimeMillis = expirationTimeMillis;

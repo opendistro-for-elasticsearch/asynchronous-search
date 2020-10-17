@@ -60,6 +60,6 @@ public abstract class AsyncSearchContext {
 
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isRunning(), getStartTimeMillis(),
-                getExpirationTimeMillis(), getSearchResponse(), getError().isPresent()? getError().get() : null);
+                getExpirationTimeMillis(), getSearchResponse(), getError().isPresent() ? getError().get() : null);
     }
 }

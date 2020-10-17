@@ -150,7 +150,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
 
     @Override
     public boolean isRunning() {
-        return isCompleted.get() == false;
+        return isCompleted.get() == false || searchTask.get().isCancelled() == false;
     }
 
 

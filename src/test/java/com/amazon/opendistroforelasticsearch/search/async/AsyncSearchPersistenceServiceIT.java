@@ -195,9 +195,9 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
 
     private void verifyResponse(AsyncSearchResponse asyncSearchResponse, CountDownLatch latch,
                                 AsyncSearchPersistenceContext asyncSearchPersistenceContext) {
-        assert asyncSearchPersistenceContext.getAsyncSearchId().toString().equals(AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()).toString());
-        assert asyncSearchPersistenceContext.getAsyncSearchResponse().getExpirationTimeMillis()
-                == asyncSearchResponse.getExpirationTimeMillis();
+        assertEquals(asyncSearchPersistenceContext.getAsyncSearchId().toString(), (AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()).toString()));
+        assertEquals(asyncSearchPersistenceContext.getAsyncSearchResponse().getExpirationTimeMillis(), asyncSearchResponse.getExpirationTimeMillis());
+        //assertEquals(asyncSearchPersistenceContext.getSearchResponse(), asyncSearchResponse.getSearchResponse());
         latch.countDown();
     }
 
