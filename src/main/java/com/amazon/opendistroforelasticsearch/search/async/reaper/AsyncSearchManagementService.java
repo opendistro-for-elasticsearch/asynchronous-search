@@ -2,6 +2,7 @@ package com.amazon.opendistroforelasticsearch.search.async.reaper;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchManagementAction;
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchManagementRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import org.apache.logging.log4j.LogManager;
@@ -54,7 +55,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
     @Override
     public void onMaster() {
         masterScheduledFuture = threadPool.scheduleWithFixedDelay(new RunnableReaper(), TimeValue.timeValueSeconds(10),
-                ThreadPool.Names.GENERIC);
+                AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
     }
 
     @Override
@@ -70,7 +71,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
     @Override
     protected void doStart() {
         taskReaperScheduledFuture = threadPool.scheduleWithFixedDelay(new TaskReaper(), TimeValue.timeValueMinutes(30),
-                ThreadPool.Names.GENERIC);
+                AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
     }
 
     @Override

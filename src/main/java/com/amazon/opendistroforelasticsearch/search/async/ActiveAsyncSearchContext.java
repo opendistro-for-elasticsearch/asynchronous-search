@@ -3,7 +3,6 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
-import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
@@ -91,13 +90,14 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     }
 
     @Override
-    public Optional<SearchProgressActionListener> getSearchProgressActionListener() {
-        return Optional.of(progressActionListener);
+    public SearchProgressActionListener getSearchProgressActionListener() {
+        return progressActionListener;
     }
 
     @Override
-    public Optional<Stage> getSearchStage() {
-        return Optional.of(stage);
+    public Stage getSearchStage() {
+        assert stage !=null : "stage cannot be empty";
+        return stage;
     }
 
     @Override
@@ -119,7 +119,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
 
 
     public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
-        asyncSearchContextPermit.asyncAcquirePermit(onPermitAcquired, timeout, reason);
+        asyncSearchContextPermit.asyncAcquirePermits(onPermitAcquired, timeout, reason);
     }
 
     public void acquireAllContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {

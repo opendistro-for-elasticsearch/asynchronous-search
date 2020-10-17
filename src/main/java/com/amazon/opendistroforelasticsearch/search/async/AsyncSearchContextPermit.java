@@ -1,4 +1,5 @@
 package com.amazon.opendistroforelasticsearch.search.async;
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
@@ -46,8 +47,8 @@ public class AsyncSearchContextPermit {
         }
     }
 
-    private void asyncAcquirePermit(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
-        threadPool.executor(ThreadPool.Names.GENERIC).execute(new AbstractRunnable() {
+    private void asyncAcquirePermits(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
+        threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(new AbstractRunnable() {
 
             @Override
             public void onFailure(final Exception e) {
@@ -72,8 +73,8 @@ public class AsyncSearchContextPermit {
      * @param timeout the timeout within which the permit must be acquired or deemed failed
      * @param reason the reason for acquiring the permit
      */
-    public void asyncAcquirePermit(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
-        asyncAcquirePermit(1, onAcquired, timeout, reason);
+    public void asyncAcquirePermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
+        asyncAcquirePermits(1, onAcquired, timeout, reason);
     }
 
     /***
@@ -86,6 +87,6 @@ public class AsyncSearchContextPermit {
      * @param reason the reason for acquiring the permit
      */
     public void asyncAcquireAllPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
-        asyncAcquirePermit(TOTAL_PERMITS, onAcquired, timeout, reason);
+        asyncAcquirePermits(TOTAL_PERMITS, onAcquired, timeout, reason);
     }
 }

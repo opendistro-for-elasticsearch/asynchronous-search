@@ -14,6 +14,7 @@
  */
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchException;
@@ -61,7 +62,7 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
         this.clusterService = clusterService;
         Settings settings = clusterService.getSettings();
         this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new Reaper(), KEEPALIVE_INTERVAL_SETTING.get(settings),
-                ThreadPool.Names.GENERIC);
+                AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
         maxRunningContext = MAX_RUNNING_CONTEXT.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_RUNNING_CONTEXT, this::setMaxRunningContext);
     }
@@ -156,8 +157,8 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
         public void run() {
             try {
                 for (ActiveAsyncSearchContext activeAsyncSearchContext : activeContexts.values()) {
-                    Optional<ActiveAsyncSearchContext.Stage> stage = activeAsyncSearchContext.getSearchStage();
-                    if (stage.isPresent() && stage.get().equals(ActiveAsyncSearchContext.Stage.ABORTED)
+                    ActiveAsyncSearchContext.Stage stage = activeAsyncSearchContext.getSearchStage();
+                    if (stage != null && stage.equals(ActiveAsyncSearchContext.Stage.ABORTED)
                             || stage.equals(ActiveAsyncSearchContext.Stage.FAILED)
                             || stage.equals(ActiveAsyncSearchContext.Stage.PERSISTED)
                             || stage.equals(ActiveAsyncSearchContext.Stage.PERSIST_FAILED)) {

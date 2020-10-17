@@ -72,8 +72,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemIndexPlugin {
-
-    public static final String OPEN_DISTRO_ASYNC_SEARCH_MANAGEMENT_THREAD_POOL_NAME = "open_distro_async_search_management";
+    
     public static final String OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME = "open_distro_async_search_generic";
 
     private AsyncSearchPersistenceService persistenceService;
@@ -139,10 +138,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
     @Override
     public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
-        final int processorCount = EsExecutors.allocatedProcessors(settings);
         List<ExecutorBuilder<?>> executorBuilders = new ArrayList<>();
-        executorBuilders.add(new ScalingExecutorBuilder(OPEN_DISTRO_ASYNC_SEARCH_MANAGEMENT_THREAD_POOL_NAME, 4,
-                Math.min(64, Math.max(32, processorCount)), TimeValue.timeValueMinutes(5)));
         executorBuilders.add(new ScalingExecutorBuilder(OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, 1, 5,
                 TimeValue.timeValueMinutes(30)));
         return executorBuilders;
