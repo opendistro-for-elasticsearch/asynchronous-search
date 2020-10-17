@@ -197,7 +197,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
                                 AsyncSearchPersistenceContext asyncSearchPersistenceContext) {
         assertEquals(asyncSearchPersistenceContext.getAsyncSearchId().toString(), (AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()).toString()));
         assertEquals(asyncSearchPersistenceContext.getAsyncSearchResponse().getExpirationTimeMillis(), asyncSearchResponse.getExpirationTimeMillis());
-        //assertEquals(asyncSearchPersistenceContext.getSearchResponse(), asyncSearchResponse.getSearchResponse());
+        assertEquals(asyncSearchPersistenceContext.getSearchResponse(), asyncSearchResponse.getSearchResponse());
         latch.countDown();
     }
 

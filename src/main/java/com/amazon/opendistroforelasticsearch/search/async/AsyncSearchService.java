@@ -52,6 +52,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext.Stage.ABORTED;
+import static com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext.Stage.PERSISTED;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 
 /***
@@ -225,33 +226,32 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
     public AsyncSearchResponse postProcessSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
         final ActiveAsyncSearchContext asyncSearchContext = getContext(asyncSearchContextId);
         final AsyncSearchResponse asyncSearchResponse;
-        try {
-            asyncSearchContext.processFinalResponse(searchResponse);
-            asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
-            if (asyncSearchContext.needsPersistence()) {
-                asyncSearchContext.acquireAllContextPermit(ActionListener.wrap(releasable -> {
-                    AsyncSearchPersistenceModel persistenceModel = new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
-                            asyncSearchResponse.getExpirationTimeMillis(), asyncSearchResponse.getSearchResponse());
-                    AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(asyncSearchContext.getAsyncSearchId(), persistenceModel);
-                    persistenceService.createResponse(model, ActionListener.wrap(
-                        (indexResponse) -> {
-                            asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
-                            freeContext(asyncSearchContextId);
-                            releasable.close();
-                        },
+        asyncSearchContext.processFinalResponse(searchResponse);
+        asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
+        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.COMPLETED);
+        if (asyncSearchContext.needsPersistence()) {
+            asyncSearchContext.acquireAllContextPermit(ActionListener.wrap(releasable -> {
+                AsyncSearchPersistenceModel persistenceModel = new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
+                        asyncSearchResponse.getExpirationTimeMillis(), asyncSearchResponse.getSearchResponse());
+                AsyncSearchPersistenceContext model = new AsyncSearchPersistenceContext(asyncSearchContext.getAsyncSearchId(), persistenceModel);
+                persistenceService.createResponse(model, ActionListener.wrap(
+                    (indexResponse) -> {
+                        //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
+                        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSISTED);
+                        // Clean this up so that new context find results in a resolution from persistent store
+                        freeContext(asyncSearchContextId);
+                        releasable.close();
+                    },
 
-                        (e) -> {
-                            asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSIST_FAILED);
-                            logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
-                            releasable.close();
-                        }
-                    ));
+                    (e) -> {
+                        asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.PERSIST_FAILED);
+                        logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
+                        releasable.close();
+                    }
+                ));
 
-                }, (e) -> logger.error("Exception while acquiring the permit due to ", e)),
-                TimeValue.timeValueSeconds(30), "persisting response");
-            }
-        } finally {
-            asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.COMPLETED);
+            }, (e) -> logger.error("Exception while acquiring the permit due to ", e)),
+            TimeValue.timeValueSeconds(60), "persisting response");
         }
         return asyncSearchResponse;
     }
@@ -293,8 +293,17 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
             ActiveAsyncSearchContext activeAsyncSearchContext = (ActiveAsyncSearchContext) asyncSearchContext;
             activeAsyncSearchContext.acquireContextPermit(ActionListener.wrap(
                     releasable -> {
-                        activeAsyncSearchContext.setExpirationMillis(requestedExpirationTime);
-                        listener.onResponse(activeAsyncSearchContext.getAsyncSearchResponse());
+                        // At this point it's possible that the response would have been persisted to system index
+                        if (activeAsyncSearchContext.getSearchStage().get() == PERSISTED) {
+                            persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime,
+                                    ActionListener.wrap((actionResponse) -> {
+                                        listener.onResponse(new AsyncSearchResponse(asyncSearchContext.getAsyncSearchResponse(),
+                                                requestedExpirationTime));
+                                    }, listener::onFailure));
+                        } else {
+                            activeAsyncSearchContext.setExpirationMillis(requestedExpirationTime);
+                            listener.onResponse(activeAsyncSearchContext.getAsyncSearchResponse());
+                        }
                         releasable.close();
                     },
                     listener::onFailure), TimeValue.timeValueSeconds(5), "persisting response");
