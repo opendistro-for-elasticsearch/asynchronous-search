@@ -35,7 +35,6 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpect
 public class AsyncSearchResponse extends ActionResponse implements StatusToXContentObject {
 
     private static final ParseField ID = new ParseField("id");
-    private static final ParseField IS_PARTIAL = new ParseField("is_partial");
     private static final ParseField IS_RUNNING = new ParseField("is_running");
     private static final ParseField START_TIME_IN_MILLIS = new ParseField("start_time_in_millis");
     private static final ParseField EXPIRATION_TIME_IN_MILLIS = new ParseField("expiration_time_in_millis");
@@ -44,17 +43,11 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
 
 
     private String id;
-
-    private boolean isPartial;
     private boolean isRunning;
     private long startTimeMillis;
     private long expirationTimeMillis;
     private SearchResponse searchResponse;
     private ElasticsearchException error;
-
-    public boolean isPartial() {
-        return isPartial;
-    }
 
     public boolean isRunning() {
         return isRunning;
@@ -72,10 +65,9 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         return error;
     }
 
-    public AsyncSearchResponse(String id, boolean isPartial, boolean isRunning, long startTimeMillis, long expirationTimeMillis,
+    public AsyncSearchResponse(String id,  boolean isRunning, long startTimeMillis, long expirationTimeMillis,
                                SearchResponse searchResponse, ElasticsearchException error) {
         this.id = id;
-        this.isPartial = isPartial;
         this.isRunning = isRunning;
         this.startTimeMillis = startTimeMillis;
         this.expirationTimeMillis = expirationTimeMillis;
@@ -85,7 +77,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
 
     public AsyncSearchResponse(AsyncSearchResponse response, long expirationTimeMillis) {
         this.id = response.getId();
-        this.isPartial = response.isPartial();
         this.isRunning = response.isRunning();
         this.startTimeMillis = response.getStartTimeMillis();
         this.expirationTimeMillis = expirationTimeMillis;
@@ -102,7 +93,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(id);
-        out.writeBoolean(isPartial);
         out.writeBoolean(isRunning);
         out.writeLong(startTimeMillis);
         out.writeLong(expirationTimeMillis);
@@ -118,7 +108,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
 
     public AsyncSearchResponse(StreamInput in) throws IOException {
         this.id = in.readString();
-        this.isPartial = in.readBoolean();
         this.isRunning = in.readBoolean();
         this.startTimeMillis = in.readLong();
         this.expirationTimeMillis = in.readLong();
@@ -130,7 +119,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
         builder.field(ID.getPreferredName(), id);
-        builder.field(IS_PARTIAL.getPreferredName(), isPartial);
         builder.field(IS_RUNNING.getPreferredName(), isRunning);
         builder.field(START_TIME_IN_MILLIS.getPreferredName(), startTimeMillis);
         builder.field(EXPIRATION_TIME_IN_MILLIS.getPreferredName(), expirationTimeMillis);
@@ -173,20 +161,18 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
 
     public static AsyncSearchResponse innerFromXContent(XContentParser parser) throws IOException {
         ensureExpectedToken(XContentParser.Token.FIELD_NAME, parser.currentToken(), parser::getTokenLocation);
-        String id=null;
-        boolean isPartial=false;
-        boolean isRunning=false;
-        long startTimeMillis=-1;
-        long expirationTimeMillis=-1;
-        SearchResponse searchResponse=null;
-        ElasticsearchException error=null;
+        String id = null;
+        boolean isRunning = false;
+        long startTimeMillis = -1;
+        long expirationTimeMillis = -1;
+        SearchResponse searchResponse = null;
+        ElasticsearchException error = null;
         String currentFieldName = parser.currentName();
 
         for (XContentParser.Token token = parser.nextToken(); token != XContentParser.Token.END_OBJECT; token = parser.nextToken()) {
             if (token == XContentParser.Token.FIELD_NAME) {
                 currentFieldName = parser.currentName();
                 if (RESPONSE.getPreferredName().equals(currentFieldName)) {
-
                     searchResponse = SearchResponse.fromXContent(parser);
                 } else if (ERROR.getPreferredName().equals(currentFieldName)) {
                     error = ElasticsearchException.fromXContent(parser);
@@ -200,8 +186,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
                     startTimeMillis = parser.longValue();
                 } else if (EXPIRATION_TIME_IN_MILLIS.match(currentFieldName, parser.getDeprecationHandler())) {
                     expirationTimeMillis = parser.longValue();
-                } else if (IS_PARTIAL.match(currentFieldName, parser.getDeprecationHandler())) {
-                    isPartial = parser.booleanValue();
                 } else if (IS_RUNNING.match(currentFieldName, parser.getDeprecationHandler())) {
                     isRunning = parser.booleanValue();
                 } else {
@@ -209,6 +193,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
                 }
             }
         }
-        return new AsyncSearchResponse(id, isPartial, isRunning, startTimeMillis, expirationTimeMillis,searchResponse,error);
+        return new AsyncSearchResponse(id, isRunning, startTimeMillis, expirationTimeMillis,searchResponse,error);
     }
 }

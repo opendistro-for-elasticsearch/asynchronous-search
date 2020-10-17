@@ -32,7 +32,6 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
 
         assertNull(getResponse.getSearchResponse().getAggregations());
         assertEquals(10, getResponse.getSearchResponse().getHits().getTotalHits().value);
-        assertFalse(getResponse.isPartial());
         assert getResponse.getExpirationTimeMillis() > submitResponse.getExpirationTimeMillis();
         DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(getResponse.getId());
         AcknowledgedResponse acknowledgedResponse = TestClientUtils.blockingDeleteAsyncSearchRequest(client(),
@@ -60,7 +59,6 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
 
         assertNull(getResponse.getSearchResponse().getAggregations());
         assertEquals(1, getResponse.getSearchResponse().getHits().getTotalHits().value);
-        assertFalse(getResponse.isPartial());
 
         DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(getResponse.getId());
         AcknowledgedResponse acknowledgedResponse = TestClientUtils.blockingDeleteAsyncSearchRequest(client(),

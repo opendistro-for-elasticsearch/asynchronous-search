@@ -35,7 +35,6 @@ public class AsyncSearchIT extends AsyncSearchIntegTestCase {
 
         assertNull(getResponse.getSearchResponse().getAggregations());
         assertEquals(3, getResponse.getSearchResponse().getHits().getTotalHits().value);
-        assertFalse(getResponse.isPartial());
 
         DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(getResponse.getId());
         AcknowledgedResponse acknowledgedResponse = TestClientUtils.blockingDeleteAsyncSearchRequest(client(),

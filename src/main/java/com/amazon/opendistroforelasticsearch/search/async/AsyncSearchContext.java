@@ -17,7 +17,9 @@ package com.amazon.opendistroforelasticsearch.search.async;
 
 
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchProgressActionListener;
+import org.elasticsearch.action.search.SearchResponse;
 
 import java.util.Optional;
 
@@ -38,16 +40,26 @@ public abstract class AsyncSearchContext {
 
     public Optional<ActiveAsyncSearchContext.Stage> getSearchStage() { return Optional.empty(); }
 
+    public Optional<ElasticsearchException> getError() { return Optional.empty(); }
+
     public AsyncSearchContextId getAsyncSearchContextId() {
         return asyncSearchContextId;
     }
 
     public abstract AsyncSearchId getAsyncSearchId();
 
-    public abstract AsyncSearchResponse getAsyncSearchResponse();
+    public abstract boolean isRunning();
 
     public abstract long getExpirationTimeMillis();
 
+    public abstract long getStartTimeMillis();
+
+    public abstract SearchResponse getSearchResponse();
+
     public abstract Source getSource();
 
+    public AsyncSearchResponse getAsyncSearchResponse() {
+        return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isRunning(), getStartTimeMillis(),
+                getExpirationTimeMillis(), getSearchResponse(), getError().isPresent() ? getError().get() : null);
+    }
 }
