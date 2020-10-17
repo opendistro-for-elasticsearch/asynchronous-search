@@ -294,7 +294,7 @@ public class AsyncSearchService extends AsyncSearchLifecycleService implements C
             activeAsyncSearchContext.acquireContextPermit(ActionListener.wrap(
                     releasable -> {
                         // At this point it's possible that the response would have been persisted to system index
-                        if (activeAsyncSearchContext.getSearchStage().get() == PERSISTED) {
+                        if (activeAsyncSearchContext.getSearchStage() == PERSISTED) {
                             persistenceService.updateExpirationTime(request.getId(), requestedExpirationTime,
                                     ActionListener.wrap((actionResponse) -> {
                                         listener.onResponse(new AsyncSearchResponse(asyncSearchContext.getAsyncSearchResponse(),

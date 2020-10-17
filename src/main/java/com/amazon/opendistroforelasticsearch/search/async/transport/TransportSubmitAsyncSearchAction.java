@@ -69,8 +69,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         try {
             final long relativeStartMillis = System.currentTimeMillis();
             ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartMillis);
-            assert asyncSearchContext.getSearchProgressActionListener().isPresent() : "missing progress listener for an active context";
-            AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener) asyncSearchContext.getSearchProgressActionListener().get();
+            assert asyncSearchContext.getSearchProgressActionListener() != null : "missing progress listener for an active context";
+            AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener) asyncSearchContext.getSearchProgressActionListener();
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
                 @Override

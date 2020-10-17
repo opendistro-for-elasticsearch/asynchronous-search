@@ -90,13 +90,14 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     }
 
     @Override
-    public Optional<SearchProgressActionListener> getSearchProgressActionListener() {
-        return Optional.of(progressActionListener);
+    public SearchProgressActionListener getSearchProgressActionListener() {
+        return progressActionListener;
     }
 
     @Override
-    public Optional<Stage> getSearchStage() {
-        return Optional.of(stage);
+    public Stage getSearchStage() {
+        assert stage !=null : "stage cannot be empty";
+        return stage;
     }
 
     @Override

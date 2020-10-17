@@ -157,8 +157,8 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
         public void run() {
             try {
                 for (ActiveAsyncSearchContext activeAsyncSearchContext : activeContexts.values()) {
-                    Optional<ActiveAsyncSearchContext.Stage> stage = activeAsyncSearchContext.getSearchStage();
-                    if (stage.isPresent() && stage.get().equals(ActiveAsyncSearchContext.Stage.ABORTED)
+                    ActiveAsyncSearchContext.Stage stage = activeAsyncSearchContext.getSearchStage();
+                    if (stage != null && stage.equals(ActiveAsyncSearchContext.Stage.ABORTED)
                             || stage.equals(ActiveAsyncSearchContext.Stage.FAILED)
                             || stage.equals(ActiveAsyncSearchContext.Stage.PERSISTED)
                             || stage.equals(ActiveAsyncSearchContext.Stage.PERSIST_FAILED)) {

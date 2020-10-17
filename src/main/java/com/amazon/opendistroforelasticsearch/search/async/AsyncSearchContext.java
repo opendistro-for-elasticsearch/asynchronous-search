@@ -20,8 +20,8 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchRe
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.Nullable;
 
-import java.util.Optional;
 
 public abstract class AsyncSearchContext {
 
@@ -36,11 +36,11 @@ public abstract class AsyncSearchContext {
         this.asyncSearchContextId = asyncSearchContextId;
     }
 
-    public Optional<SearchProgressActionListener> getSearchProgressActionListener() { return Optional.empty(); }
+    public @Nullable SearchProgressActionListener getSearchProgressActionListener() { return null; }
 
-    public Optional<ActiveAsyncSearchContext.Stage> getSearchStage() { return Optional.empty(); }
+    public @Nullable ActiveAsyncSearchContext.Stage getSearchStage() { return null; }
 
-    public Optional<ElasticsearchException> getError() { return Optional.empty(); }
+    public @Nullable ElasticsearchException getError() { return null; }
 
     public AsyncSearchContextId getAsyncSearchContextId() {
         return asyncSearchContextId;
@@ -60,6 +60,6 @@ public abstract class AsyncSearchContext {
 
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isRunning(), getStartTimeMillis(),
-                getExpirationTimeMillis(), getSearchResponse(), getError().isPresent() ? getError().get() : null);
+                getExpirationTimeMillis(), getSearchResponse(), getError() == null ? getError() : null);
     }
 }

@@ -50,9 +50,9 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                     boolean updateNeeded = request.getKeepAlive() != null;
                     switch (source) {
                         case IN_MEMORY:
-                            ActiveAsyncSearchContext.Stage stage = asyncSearchContext.getSearchStage().orElse(ActiveAsyncSearchContext.Stage.INIT);
+                            ActiveAsyncSearchContext.Stage stage = asyncSearchContext.getSearchStage();
                             if (stage == ActiveAsyncSearchContext.Stage.RUNNING) {
-                                AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener)asyncSearchContext.getSearchProgressActionListener().get();
+                                AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener)asyncSearchContext.getSearchProgressActionListener();
                                 if (updateNeeded) {
                                     ActionListener<AsyncSearchResponse> groupedListener = new GroupedActionListener<>(
                                             ActionListener.wrap(
