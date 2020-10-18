@@ -31,23 +31,28 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
         return asyncSearchPersistenceModel;
     }
 
-    @Override public AsyncSearchId getAsyncSearchId() {
+    @Override
+    public AsyncSearchId getAsyncSearchId() {
         return asyncSearchId;
     }
 
-    @Override public boolean isRunning() {
+    @Override
+    public boolean isRunning() {
         return false;
     }
 
-    @Override public long getExpirationTimeMillis() {
+    @Override
+    public long getExpirationTimeMillis() {
         return asyncSearchPersistenceModel.getExpirationTimeMillis();
     }
 
-    @Override public long getStartTimeMillis() {
+    @Override
+    public long getStartTimeMillis() {
         return asyncSearchPersistenceModel.getStartTimeMillis();
     }
 
-    @Override public SearchResponse getSearchResponse() {
+    @Override
+    public SearchResponse getSearchResponse() {
         try (
             XContentParser parser = XContentType.JSON.xContent()
                 .createParser(NamedXContentRegistry.EMPTY,
@@ -62,11 +67,17 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
     }
 
     @Override
+    public void setStage(Stage stage) {
+        throw new IllegalStateException("Cannot set stage "+ stage + "for persisted context");
+    }
+
+    @Override
     public Stage getContextStage() {
         return Stage.PERSISTED;
     }
 
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         return Objects.hash(asyncSearchId, asyncSearchPersistenceModel);
     }
 

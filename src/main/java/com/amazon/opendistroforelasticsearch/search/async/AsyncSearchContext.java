@@ -18,10 +18,17 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.Nullable;
+import org.elasticsearch.common.lease.Releasable;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.threadpool.ThreadPool;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 public abstract class AsyncSearchContext {
@@ -61,22 +68,26 @@ public abstract class AsyncSearchContext {
     }
 
     private final AsyncSearchContextId asyncSearchContextId;
-
     protected volatile Stage stage;
+    protected AtomicBoolean completed;
+    protected volatile SearchProgressActionListener searchProgressActionListener;
+    protected AtomicReference<ElasticsearchException> error;
+    protected AtomicReference<SearchResponse> searchResponse;
+    protected AsyncSearchContextPermit asyncSearchContextPermit;
 
     public AsyncSearchContext(AsyncSearchContextId asyncSearchContextId) {
         this.asyncSearchContextId = asyncSearchContextId;
+        this.completed = new AtomicBoolean(false);
+        this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId);
     }
 
-    public @Nullable SearchProgressActionListener getSearchProgressActionListener() { return null; }
+    public @Nullable SearchProgressActionListener getSearchProgressActionListener() { return searchProgressActionListener; }
 
     public abstract Stage getContextStage();
 
     public boolean isRunning() {
         return stage == Stage.RUNNING;
     }
-
-    public @Nullable ElasticsearchException getError() { return null; }
 
     public AsyncSearchContextId getAsyncSearchContextId() {
         return asyncSearchContextId;
@@ -90,8 +101,34 @@ public abstract class AsyncSearchContext {
 
     public abstract SearchResponse getSearchResponse();
 
+    public abstract void setStage(Stage stage);
+
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isRunning(), getStartTimeMillis(),
-                getExpirationTimeMillis(), getSearchResponse(), getError() == null ? getError() : null);
+                getExpirationTimeMillis(), getSearchResponse(), error.get());
+    }
+
+    public void processSearchFailure(Exception e) {
+        if (completed.compareAndSet(false, true)) {
+            error.set(new ElasticsearchException(e));
+            searchProgressActionListener = null;
+            setStage(Stage.FAILED);
+        }
+    }
+
+    public void processSearchSuccess(SearchResponse response) {
+        if (completed.compareAndSet(false, true)) {
+            this.searchResponse.compareAndSet(null, response);
+            searchProgressActionListener = null;
+            setStage(Stage.SUCCEEDED);
+        }
+    }
+
+    public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, ThreadPool threadPool, String reason) {
+        asyncSearchContextPermit.asyncAcquirePermits(onPermitAcquired, timeout, threadPool, reason);
+    }
+
+    public void acquireAllContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, ThreadPool threadPool, String reason) {
+        asyncSearchContextPermit.asyncAcquireAllPermits(onPermitAcquired, timeout, threadPool, reason);
     }
 }

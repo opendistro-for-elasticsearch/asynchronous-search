@@ -67,7 +67,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                         }));
                 }
         } catch (Exception e) {
-            logger.error("Failed to get async search request {}", request);
+            logger.error(() -> new ParameterizedMessage("Unable to update and get async search request {}", request, e));
             listener.onFailure(e);
         }
     }

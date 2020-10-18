@@ -21,12 +21,10 @@ public class AsyncSearchContextPermit {
     private static final int TOTAL_PERMITS = Integer.MAX_VALUE;
     private final Semaphore mutex = new Semaphore(TOTAL_PERMITS, true);
     private final AsyncSearchContextId asyncSearchContextId;
-    private final ThreadPool threadPool;
     private static final Logger logger = LogManager.getLogger(AsyncSearchContextPermit.class);
 
-    public AsyncSearchContextPermit(AsyncSearchContextId asyncSearchContextId, ThreadPool threadPool) {
+    public AsyncSearchContextPermit(AsyncSearchContextId asyncSearchContextId) {
         this.asyncSearchContextId = asyncSearchContextId;
-        this.threadPool = threadPool;
     }
 
     private Releasable acquirePermits(int permits, TimeValue timeout, final String details) throws RuntimeException {
@@ -47,7 +45,7 @@ public class AsyncSearchContextPermit {
         }
     }
 
-    private void asyncAcquirePermits(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
+    private void asyncAcquirePermits(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, ThreadPool threadPool, String reason)  {
         threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(new AbstractRunnable() {
 
             @Override
@@ -73,8 +71,8 @@ public class AsyncSearchContextPermit {
      * @param timeout the timeout within which the permit must be acquired or deemed failed
      * @param reason the reason for acquiring the permit
      */
-    public void asyncAcquirePermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
-        asyncAcquirePermits(1, onAcquired, timeout, reason);
+    public void asyncAcquirePermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, ThreadPool threadPool, String reason)  {
+        asyncAcquirePermits(1, onAcquired, timeout, threadPool, reason);
     }
 
     /***
@@ -86,7 +84,7 @@ public class AsyncSearchContextPermit {
      * @param timeout the timeout within which the permit must be acquired or deemed failed
      * @param reason the reason for acquiring the permit
      */
-    public void asyncAcquireAllPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
-        asyncAcquirePermits(TOTAL_PERMITS, onAcquired, timeout, reason);
+    public void asyncAcquireAllPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, ThreadPool threadPool, String reason)  {
+        asyncAcquirePermits(TOTAL_PERMITS, onAcquired, timeout, threadPool, reason);
     }
 }

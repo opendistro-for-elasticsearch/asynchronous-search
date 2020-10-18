@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.active.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
@@ -26,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchRe
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchTask;
@@ -41,6 +43,7 @@ import org.elasticsearch.transport.TransportService;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Submits an async search request by executing a {@link TransportSearchAction} on an {@link AsyncSearchTask} with
@@ -67,9 +70,10 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
 
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
+        AtomicReference<Runnable> advanceStage = null;
         try {
             final long relativeStartMillis = System.currentTimeMillis();
-            ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartMillis);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartMillis);
             Objects.requireNonNull(asyncSearchContext.getSearchProgressActionListener(), "missing progress listener for an active context");
             AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener) asyncSearchContext.getSearchProgressActionListener();
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
@@ -84,13 +88,13 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                                 progressActionListener.removeListener(actionListener);
                                 listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
                             });
-                    asyncSearchService.preProcessSearch(asyncSearchTask, asyncSearchContext.getAsyncSearchContextId());
+                    advanceStage.set(asyncSearchService.preProcessSearch(asyncSearchTask, asyncSearchContext.getAsyncSearchContextId()));
                     return asyncSearchTask;
                 }
             }, progressActionListener);
-            asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.RUNNING);
+            advanceStage.get().run();
         } catch (Exception e) {
-            logger.error("Failed to submit async search request {}", request);
+            logger.error(() -> new ParameterizedMessage("Failed to submit async search request {}", request, e));
             listener.onFailure(e);
         }
     }

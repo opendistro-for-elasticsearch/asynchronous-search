@@ -114,17 +114,17 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      * @param submitAsyncSearchRequest the request for submitting the async search
      * @param relativeStartMillis      the start time of the async search
      */
-    public ActiveAsyncSearchContext prepareContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, long relativeStartMillis) {
+    public AsyncSearchContext prepareContext(SubmitAsyncSearchRequest submitAsyncSearchRequest, long relativeStartMillis) {
         if (submitAsyncSearchRequest.getKeepAlive().getMillis() > maxKeepAlive) {
             throw new IllegalArgumentException(
-                    "Keep alive for async searcg (" + TimeValue.timeValueMillis(submitAsyncSearchRequest.getKeepAlive().getMillis()) + ")" +
+                    "Keep alive for async search (" + TimeValue.timeValueMillis(submitAsyncSearchRequest.getKeepAlive().getMillis()) + ")" +
                             " is too large It must be less than (" + TimeValue.timeValueMillis(maxKeepAlive) + "). " +
                             "This limit can be set by changing the [" + MAX_KEEPALIVE_SETTING.getKey() + "] cluster level setting.");
         }
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartMillis,
                 (response) -> postProcessSearchResponse(response, asyncSearchContextId),
-                (e) -> postProcessSearchFailure(e, asyncSearchContextId), threadPool.executor(ThreadPool.Names.GENERIC),
+                (e) -> postProcessSearchFailure(e, asyncSearchContextId), threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME),
                 System::currentTimeMillis);
         ActiveAsyncSearchContext asyncSearchContext = new ActiveAsyncSearchContext(asyncSearchContextId, clusterService.localNode().getId(),
                 submitAsyncSearchRequest.getKeepAlive(),
@@ -139,10 +139,11 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      * @param searchTask           the search task
      * @param asyncSearchContextId the async search context id
      */
-    public void preProcessSearch(SearchTask searchTask, AsyncSearchContextId asyncSearchContextId) {
+    public Runnable preProcessSearch(SearchTask searchTask, AsyncSearchContextId asyncSearchContextId) {
         ActiveAsyncSearchContext asyncSearchContext = activeAsyncSearchStoreService.getContext(asyncSearchContextId);
-        asyncSearchContext.initializeTask(searchTask);
+        asyncSearchContext.setTask(searchTask);
         asyncSearchContext.setExpirationMillis(searchTask.getStartTime() + asyncSearchContext.getKeepAlive().getMillis());
+        return () -> asyncSearchContext.setStage(RUNNING);
     }
 
     /***
@@ -232,7 +233,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     public AsyncSearchResponse postProcessSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
         final ActiveAsyncSearchContext asyncSearchContext = activeAsyncSearchStoreService.getContext(asyncSearchContextId);
         final AsyncSearchResponse asyncSearchResponse;
-        asyncSearchContext.processFinalResponse(searchResponse);
+        asyncSearchContext.processSearchSuccess(searchResponse);
         asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
         if (asyncSearchContext.needsPersistence()) {
             asyncSearchContext.acquireAllContextPermit(ActionListener.wrap(releasable -> {
@@ -256,7 +257,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         ));
 
                     }, (e) -> logger.error("Exception while acquiring the permit due to ", e)),
-                    TimeValue.timeValueSeconds(60), "persisting response");
+                    TimeValue.timeValueSeconds(60), threadPool, "persisting response");
         }
         return asyncSearchResponse;
     }
@@ -269,7 +270,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      */
     public void postProcessSearchFailure(Exception e, AsyncSearchContextId asyncSearchContextId) {
         ActiveAsyncSearchContext activeContext = activeAsyncSearchStoreService.getContext(asyncSearchContextId);
-        activeContext.processFailure(e);
+        activeContext.processSearchFailure(e);
         activeAsyncSearchStoreService.freeContext(asyncSearchContextId);
     }
 
@@ -296,7 +297,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         }
                         releasable.close();
                     },
-                    listener::onFailure), TimeValue.timeValueSeconds(5), "persisting response");
+                    listener::onFailure), TimeValue.timeValueSeconds(5), threadPool, "persisting response");
         } else {
             // try update the doc on the index assuming there exists one.
             persistenceService.updateExpirationTimeAndGet(request.getId(), requestedExpirationTime,
