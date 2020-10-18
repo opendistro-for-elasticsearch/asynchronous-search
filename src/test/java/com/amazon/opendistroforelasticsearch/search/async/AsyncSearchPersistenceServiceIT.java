@@ -144,9 +144,22 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
 
         CountDownLatch updateLatch = new CountDownLatch(1);
         long newExpirationTime = System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis();
-        persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
+        persistenceService.updateExpirationTimeAndGet(asyncSearchResponse.getId(),
             newExpirationTime,
-            ActionListener.wrap(r -> updateLatch.countDown(), e -> failure(updateLatch)));
+            ActionListener.wrap(asyncSearchPersistenceContext -> {
+                try {
+                    assertEquals(asyncSearchPersistenceContext.getAsyncSearchId().toString(),
+                        (AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()).toString()));
+                    assertTrue(asyncSearchPersistenceContext.getAsyncSearchResponse().getExpirationTimeMillis() >
+                        asyncSearchResponse.getExpirationTimeMillis());
+                    assertEquals(asyncSearchPersistenceContext.getAsyncSearchResponse().getStartTimeMillis(),
+                        asyncSearchResponse.getStartTimeMillis());
+                    //        assertEquals(asyncSearchPersistenceContext.getSearchResponse(), asyncSearchResponse.getSearchResponse());
+                } finally {
+                    updateLatch.countDown();
+                }
+
+            }, e -> failure(updateLatch)));
         updateLatch.await();
 
         CountDownLatch getLatch = new CountDownLatch(1);

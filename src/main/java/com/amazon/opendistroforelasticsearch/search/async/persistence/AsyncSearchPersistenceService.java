@@ -21,6 +21,7 @@ import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Requests;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
@@ -37,9 +38,11 @@ import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.get.GetResult;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
+import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
@@ -138,19 +141,38 @@ public class AsyncSearchPersistenceService {
         source.put(EXPIRATION_TIME_MILLIS, expirationTimeMillis);
         UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id);
         updateRequest.doc(source, XContentType.JSON);
-        client.update(updateRequest, ActionListener.wrap(
-                updateResponse -> {
-                    if (updateResponse.getResult() == DocWriteResponse.Result.UPDATED) {
-                        listener.onResponse(null);
-                    } else if (updateResponse.getResult() == DocWriteResponse.Result.NOT_FOUND) {
-                        listener.onFailure(new ResourceNotFoundException(id));
-                    } else {
-                        listener.onFailure(new IOException("Failed to update keep_alive for async search " + id));
-                    }
-                },
-                exception -> {
-                    listener.onFailure(new IOException("Failed to update keep_alive for async search " + id));
-                }));
+        client.update(updateRequest, ActionListener.wrap(updateResponse -> {
+            if (updateResponse.getResult() == DocWriteResponse.Result.UPDATED) {
+                listener.onResponse(null);
+            } else if (updateResponse.getResult() == DocWriteResponse.Result.NOT_FOUND) {
+                listener.onFailure(new ResourceNotFoundException(id));
+            } else {
+                listener.onFailure(new IOException("Failed to update keep_alive for async search " + id));
+            }
+        }, exception -> {
+            listener.onFailure(new IOException("Failed to update keep_alive for async search " + id));
+        }));
+
+    }
+
+    /**
+     * Throws ResourceNotFoundException if index doesn't exist.
+     */
+
+    public void updateExpirationTimeAndGet(String id, long expirationTimeMillis, ActionListener<AsyncSearchPersistenceContext> listener) {
+        if (!indexExists()) {
+            listener.onFailure(new ResourceNotFoundException(id));
+        }
+        Map<String, Object> source = new HashMap<>();
+        source.put(EXPIRATION_TIME_MILLIS, expirationTimeMillis);
+        UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id);
+        updateRequest.doc(source, XContentType.JSON);
+        updateRequest.fetchSource(FetchSourceContext.FETCH_SOURCE);
+        client.update(updateRequest, ActionListener.wrap(updateResponse -> {
+            parseResponse(id, updateResponse, listener);
+        }, exception -> {
+            listener.onFailure(new IOException("Failed to update keep_alive for async search " + id));
+        }));
 
     }
 
@@ -160,13 +182,13 @@ public class AsyncSearchPersistenceService {
             listener.onResponse(new AcknowledgedResponse(true));
         } else {
             logger.info("Deleting expired async search responses");
-            DeleteByQueryRequest request =
-                    new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME)
-                            .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS)
-                                    .lte(System.currentTimeMillis()));
-            client.execute(DeleteByQueryAction.INSTANCE, request, ActionListener.wrap(
-                    r -> listener.onResponse(new AcknowledgedResponse(true)),
-                    listener::onFailure));
+            DeleteByQueryRequest
+                request =
+                new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME).setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS)
+                    .lte(System.currentTimeMillis()));
+            client.execute(DeleteByQueryAction.INSTANCE,
+                request,
+                ActionListener.wrap(r -> listener.onResponse(new AcknowledgedResponse(true)), listener::onFailure));
         }
 
     }
@@ -278,7 +300,7 @@ public class AsyncSearchPersistenceService {
     }
 
     void parseResponse(String id, GetResponse getResponse, ActionListener<AsyncSearchPersistenceContext> listener) {
-        if (getResponse.isExists() && isIndexedResponseExpired(getResponse) ==  false) {
+        if (getResponse.isExists() && isIndexedResponseExpired(getResponse) == false) {
             try {
                 XContentParser parser = XContentHelper.createParser(NamedXContentRegistry.EMPTY,
                     LoggingDeprecationHandler.INSTANCE,
@@ -287,7 +309,7 @@ public class AsyncSearchPersistenceService {
                 listener.onResponse(new AsyncSearchPersistenceContext(AsyncSearchId.parseAsyncId(id),
                     AsyncSearchPersistenceModel.PARSER.apply(parser, null)));
             } catch (IOException e) {
-                logger.error("IOException occurred finding lock", e);
+                logger.error("IOException occurred finding response", e);
                 listener.onFailure(new ResourceNotFoundException(id));
             }
         } else {
@@ -298,5 +320,39 @@ public class AsyncSearchPersistenceService {
     private boolean isIndexedResponseExpired(GetResponse getResponse) {
         return getResponse.getSource().containsKey(EXPIRATION_TIME_MILLIS) && (long) getResponse.getSource()
             .get(EXPIRATION_TIME_MILLIS) < System.currentTimeMillis();
+    }
+
+    private void parseResponse(String id, UpdateResponse updateResponse, ActionListener<AsyncSearchPersistenceContext> listener) {
+        switch (updateResponse.getResult()) {
+            case UPDATED:
+                if (isIndexedResponseExpired(updateResponse.getGetResult())) {
+                    listener.onFailure(new ResourceNotFoundException(id));
+                } else {
+                    try {
+                        XContentParser parser = XContentHelper.createParser(NamedXContentRegistry.EMPTY,
+                            LoggingDeprecationHandler.INSTANCE,
+                            updateResponse.getGetResult().sourceRef(),
+                            Requests.INDEX_CONTENT_TYPE);
+                        listener.onResponse(new AsyncSearchPersistenceContext(AsyncSearchId.parseAsyncId(id),
+                            AsyncSearchPersistenceModel.PARSER.apply(parser, null)));
+                    } catch (IOException e) {
+                        logger.error("IOException occurred finding lock", e);
+                        listener.onFailure(new ResourceNotFoundException(id));
+                    }
+                }
+                break;
+            case NOT_FOUND:
+                listener.onFailure(new ResourceNotFoundException(id));
+                break;
+            default:
+                listener.onFailure(new IOException("Failed to update keep_alive for async search " + id));
+                break;
+        }
+
+    }
+
+    private boolean isIndexedResponseExpired(GetResult getResult) {
+        return getResult.sourceAsMap() != null && getResult.sourceAsMap()
+            .containsKey(EXPIRATION_TIME_MILLIS) && (long) getResult.getSource().get(EXPIRATION_TIME_MILLIS) < System.currentTimeMillis();
     }
 }
