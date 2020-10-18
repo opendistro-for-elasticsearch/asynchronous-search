@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchLifecycleService;
+import com.amazon.opendistroforelasticsearch.search.async.active.ActiveAsyncSearchStoreService;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
@@ -47,7 +47,6 @@ import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.settings.SettingsFilter;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
@@ -125,7 +124,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
     @Override
     public List<Setting<?>> getSettings() {
-        return Arrays.asList(AsyncSearchLifecycleService.MAX_RUNNING_CONTEXT,
+        return Arrays.asList(ActiveAsyncSearchStoreService.MAX_RUNNING_CONTEXT,
                 AsyncSearchService.MAX_KEEPALIVE_SETTING);
     }
 

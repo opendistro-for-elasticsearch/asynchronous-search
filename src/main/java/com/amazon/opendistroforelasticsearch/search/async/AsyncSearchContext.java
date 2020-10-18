@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
 
+import com.amazon.opendistroforelasticsearch.search.async.active.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchProgressActionListener;

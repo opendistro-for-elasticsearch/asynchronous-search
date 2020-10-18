@@ -12,57 +12,36 @@
  *   express or implied. See the License for the specific language governing
  *   permissions and limitations under the License.
  */
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.active;
 
-import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.component.AbstractLifecycleComponent;
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.CollectionUtils;
-import org.elasticsearch.common.util.concurrent.ConcurrentMapLong;
-import org.elasticsearch.threadpool.Scheduler;
-import org.elasticsearch.threadpool.ThreadPool;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
 
-/**
- * Once the response have been persisted or otherwise ready to be expunged, the {@link AsyncSearchLifecycleService.Reaper} frees up the
- * in-memory contexts maintained on the coordinator node
- */
-public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
+import java.util.Map;
 
-    private static Logger logger = LogManager.getLogger(AsyncSearchLifecycleService.class);
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchRejectedException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.settings.Setting;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.util.CollectionUtils;
+import org.elasticsearch.common.util.concurrent.ConcurrentMapLong;
 
-    private final Scheduler.Cancellable keepAliveReaper;
-    private final ThreadPool threadPool;
-    private final ClusterService clusterService;
+public class ActiveAsyncSearchStoreService {
+
+    private static Logger logger = LogManager.getLogger(ActiveAsyncSearchStoreService.class);
     private volatile int maxRunningContext;
-
-    public static final Setting<TimeValue> KEEPALIVE_INTERVAL_SETTING =
-            Setting.positiveTimeSetting("async_search.keep_alive_interval", timeValueMinutes(1), Setting.Property.NodeScope);
 
     public static final Setting<Integer> MAX_RUNNING_CONTEXT =
             Setting.intSetting("async_search.max_running_context", 100, 0, Setting.Property.Dynamic, Setting.Property.NodeScope);
 
     private final ConcurrentMapLong<ActiveAsyncSearchContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
 
-    public AsyncSearchLifecycleService(ThreadPool threadPool, ClusterService clusterService) {
-        this.threadPool = threadPool;
-        this.clusterService = clusterService;
+
+    public ActiveAsyncSearchStoreService(ClusterService clusterService) {
         Settings settings = clusterService.getSettings();
-        this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new Reaper(), KEEPALIVE_INTERVAL_SETTING.get(settings),
-                AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
         maxRunningContext = MAX_RUNNING_CONTEXT.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_RUNNING_CONTEXT, this::setMaxRunningContext);
     }
@@ -127,47 +106,9 @@ public class AsyncSearchLifecycleService extends AbstractLifecycleComponent {
         return false;
     }
 
-    @Override
-    protected void doStart() {
-    }
-
-    @Override
-    protected void doStop() {
-        freeAllContexts();
-    }
-
     public void freeAllContexts() {
         for (final AsyncSearchContext context : activeContexts.values()) {
             freeContext(context.getAsyncSearchContextId());
-        }
-    }
-
-    @Override
-    protected void doClose() {
-        doStop();
-        keepAliveReaper.cancel();
-    }
-
-    /***
-     * Reaps the contexts ready to be expunged
-     */
-    class Reaper implements Runnable {
-
-        @Override
-        public void run() {
-            try {
-                for (ActiveAsyncSearchContext activeAsyncSearchContext : activeContexts.values()) {
-                    ActiveAsyncSearchContext.Stage stage = activeAsyncSearchContext.getSearchStage();
-                    if (stage != null && stage.equals(ActiveAsyncSearchContext.Stage.ABORTED)
-                            || stage.equals(ActiveAsyncSearchContext.Stage.FAILED)
-                            || stage.equals(ActiveAsyncSearchContext.Stage.PERSISTED)
-                            || stage.equals(ActiveAsyncSearchContext.Stage.PERSIST_FAILED)) {
-                        freeContext(activeAsyncSearchContext.getAsyncSearchContextId());
-                    }
-                }
-            } catch (Exception e) {
-                logger.error("Exception while reaping contexts", e);
-            }
         }
     }
 }
