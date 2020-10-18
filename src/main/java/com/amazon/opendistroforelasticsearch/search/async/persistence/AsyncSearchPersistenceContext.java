@@ -61,8 +61,9 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
         }
     }
 
-    @Override public Source getSource() {
-        return Source.STORE;
+    @Override
+    public Stage getContextStage() {
+        return Stage.PERSISTED;
     }
 
     @Override public int hashCode() {

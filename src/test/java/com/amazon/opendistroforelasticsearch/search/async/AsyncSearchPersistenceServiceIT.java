@@ -81,7 +81,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
                 System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(),
                 getBytesReferenceObject(asyncSearchId)));
         CountDownLatch createLatch = new CountDownLatch(1);
-        persistenceService.createResponse(model1,
+        persistenceService.storeResponse(model1,
             ActionListener.wrap(r -> assertSuccessfulResponseCreation(r, createLatch), ex -> failure(createLatch)));
         createLatch.await();
         CountDownLatch latch = new CountDownLatch(2);
@@ -116,10 +116,10 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
                 getBytesReferenceObject(asyncSearchId1)));
         CountDownLatch createLatch = new CountDownLatch(2);
         threadPool.generic()
-            .execute(() -> persistenceService.createResponse(context1,
+            .execute(() -> persistenceService.storeResponse(context1,
                 ActionListener.wrap(r -> assertSuccessfulResponseCreation(r, createLatch), ex -> failure(createLatch))));
         threadPool.generic()
-            .execute(() -> persistenceService.createResponse(context2,
+            .execute(() -> persistenceService.storeResponse(context2,
                 ActionListener.wrap(r -> assertSuccessfulResponseCreation(r, createLatch), ex -> failure(createLatch))));
         createLatch.await();
 
@@ -224,7 +224,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
     private void createDoc(AsyncSearchPersistenceService persistenceService, AsyncSearchResponse asyncSearchResponse)
         throws IOException, InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        persistenceService.createResponse(new AsyncSearchPersistenceContext(AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()),
+        persistenceService.storeResponse(new AsyncSearchPersistenceContext(AsyncSearchId.parseAsyncId(asyncSearchResponse.getId()),
                 new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
                     asyncSearchResponse.getExpirationTimeMillis(),
                     asyncSearchResponse.getSearchResponse())),

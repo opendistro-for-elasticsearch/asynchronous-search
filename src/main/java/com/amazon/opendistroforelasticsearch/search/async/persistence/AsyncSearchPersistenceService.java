@@ -86,7 +86,7 @@ public class AsyncSearchPersistenceService {
      * Creates async search response as document in index. Creates index if necessary, before creating document. Retries response
      * creation on failure with exponential backoff
      */
-    public void createResponse(AsyncSearchPersistenceContext model, ActionListener<IndexResponse> listener) {
+    public void storeResponse(AsyncSearchPersistenceContext model, ActionListener<IndexResponse> listener) {
         if (indexExists()) {
             doStoreResult(model, listener);
         } else {
@@ -325,6 +325,7 @@ public class AsyncSearchPersistenceService {
     private void parseResponse(String id, UpdateResponse updateResponse, ActionListener<AsyncSearchPersistenceContext> listener) {
         switch (updateResponse.getResult()) {
             case UPDATED:
+            case NOOP:
                 if (isIndexedResponseExpired(updateResponse.getGetResult())) {
                     listener.onFailure(new ResourceNotFoundException(id));
                 } else {
@@ -337,15 +338,13 @@ public class AsyncSearchPersistenceService {
                             AsyncSearchPersistenceModel.PARSER.apply(parser, null)));
                     } catch (IOException e) {
                         logger.error("IOException occurred finding lock", e);
-                        listener.onFailure(new ResourceNotFoundException(id));
+                        listener.onFailure(new IOException(id));
                     }
                 }
                 break;
             case NOT_FOUND:
+            case DELETED:
                 listener.onFailure(new ResourceNotFoundException(id));
-                break;
-            default:
-                listener.onFailure(new IOException("Failed to update keep_alive for async search " + id));
                 break;
         }
 

@@ -17,7 +17,6 @@ import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -26,39 +25,6 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class ActiveAsyncSearchContext extends AsyncSearchContext {
 
-    /**
-     * The state of the async search.
-     */
-    public enum Stage {
-        /**
-         * At the start of the search, before the {@link SearchTask starts to run}
-         */
-        INIT,
-        /**
-         * The search state actually has been started
-         */
-        RUNNING,
-        /**
-         * The search has completed successfully
-         */
-        COMPLETED,
-        /**
-         * The search has been cancelled either by the user, task API cancel or {@link AsyncSearchManagementService}
-         */
-        ABORTED,
-        /**
-         * The context has been persisted to system index
-         */
-        PERSISTED,
-        /**
-         * The context has failed to persist to system index
-         */
-        PERSIST_FAILED,
-        /**
-         * The search execution has failed
-         */
-        FAILED
-    }
 
     private final AtomicBoolean isCompleted;
     private final AtomicReference<ElasticsearchException> error;
@@ -68,9 +34,8 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     private volatile long startTimeMillis;
     private final Boolean keepOnCompletion;
     private volatile TimeValue keepAlive;
-    private volatile Stage stage;
     private final AsyncSearchContextPermit asyncSearchContextPermit;
-    private final AsyncSearchProgressListener progressActionListener;
+    private volatile AsyncSearchProgressListener progressActionListener;
     private final String nodeId;
     private volatile SetOnce<AsyncSearchId> asyncSearchId;
     private final AsyncSearchContextListener contextListener;
@@ -99,8 +64,8 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     }
 
     @Override
-    public Stage getSearchStage() {
-        assert stage !=null : "stage cannot be empty";
+    public Stage getContextStage() {
+        assert stage != null : "stage cannot be empty";
         return stage;
     }
 
@@ -153,12 +118,6 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     }
 
     @Override
-    public boolean isRunning() {
-        return isCompleted.get() == false || searchTask.get().isCancelled() == false;
-    }
-
-
-    @Override
     public long getExpirationTimeMillis() {
         return expirationTimeMillis;
     }
@@ -168,21 +127,20 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         return startTimeMillis;
     }
 
-    @Override
-    public Source getSource() {
-        return Source.IN_MEMORY;
-    }
-
 
     public void processFailure(Exception e) {
         if (isCompleted.compareAndSet(false, true)) {
             error.set(new ElasticsearchException(e));
+            progressActionListener = null;
+            setStage(Stage.FAILED);
         }
     }
 
     public void processFinalResponse(SearchResponse response) {
         if (isCompleted.compareAndSet(false, true)) {
             this.searchResponse.compareAndSet(null, response);
+            progressActionListener = null;
+            setStage(Stage.SUCCEEDED);
         }
     }
 
@@ -203,7 +161,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
                 contextListener.onContextRunning(getAsyncSearchContextId());
                 validateAndSetStage(Stage.INIT, stage);
                 break;
-            case COMPLETED:
+            case SUCCEEDED:
                 assert searchTask.get() == null || searchTask.get().isCancelled() == false : "search task is cancelled";
                 validateAndSetStage(Stage.RUNNING, stage);
                 contextListener.onContextCompleted(getAsyncSearchContextId());
@@ -218,7 +176,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
                 contextListener.onContextFailed(getAsyncSearchContextId());
                 break;
             case PERSISTED:
-                validateAndSetStage(Stage.COMPLETED, stage);
+                validateAndSetStage(Stage.SUCCEEDED, stage);
                 contextListener.onContextPersisted(getAsyncSearchContextId());
                 break;
             default:

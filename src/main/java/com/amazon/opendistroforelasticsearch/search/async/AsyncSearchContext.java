@@ -15,23 +15,54 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-
-import com.amazon.opendistroforelasticsearch.search.async.active.ActiveAsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.Nullable;
 
 
 public abstract class AsyncSearchContext {
 
-    public enum Source {
-        IN_MEMORY,
-        STORE
+    /**
+     * The state of the async search.
+     */
+    public enum Stage {
+        /**
+         * At the start of the search, before the {@link SearchTask starts to run}
+         */
+        INIT,
+        /**
+         * The search state actually has been started
+         */
+        RUNNING,
+        /**
+         * The search has completed successfully
+         */
+        SUCCEEDED,
+        /**
+         * The search has been cancelled either by the user, task API cancel or {@link AsyncSearchManagementService}
+         */
+        ABORTED,
+        /**
+         * The context has been persisted to system index
+         */
+        PERSISTED,
+        /**
+         * The context has failed to persist to system index
+         */
+        PERSIST_FAILED,
+        /**
+         * The search execution has failed
+         */
+        FAILED
     }
 
     private final AsyncSearchContextId asyncSearchContextId;
+
+    protected volatile Stage stage;
 
     public AsyncSearchContext(AsyncSearchContextId asyncSearchContextId) {
         this.asyncSearchContextId = asyncSearchContextId;
@@ -39,7 +70,11 @@ public abstract class AsyncSearchContext {
 
     public @Nullable SearchProgressActionListener getSearchProgressActionListener() { return null; }
 
-    public @Nullable ActiveAsyncSearchContext.Stage getSearchStage() { return null; }
+    public abstract Stage getContextStage();
+
+    public boolean isRunning() {
+        return stage == Stage.RUNNING;
+    }
 
     public @Nullable ElasticsearchException getError() { return null; }
 
@@ -49,15 +84,11 @@ public abstract class AsyncSearchContext {
 
     public abstract AsyncSearchId getAsyncSearchId();
 
-    public abstract boolean isRunning();
-
     public abstract long getExpirationTimeMillis();
 
     public abstract long getStartTimeMillis();
 
     public abstract SearchResponse getSearchResponse();
-
-    public abstract Source getSource();
 
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isRunning(), getStartTimeMillis(),

@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.search.async.active;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
 
 import java.util.Map;
+import java.util.function.Predicate;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
@@ -50,10 +51,6 @@ public class ActiveAsyncSearchStoreService {
         this.maxRunningContext = maxRunningContext;
     }
 
-    /**
-     * @param asyncSearchContextId New Key being inserted into active context map
-     * @param asyncSearchContext   New Value being insert into active context map
-     */
     public void putContext(AsyncSearchContextId asyncSearchContextId, ActiveAsyncSearchContext asyncSearchContext) {
         if (activeContexts.values().stream().filter(context -> context.isRunning()).distinct().count() > maxRunningContext) {
             throw new AsyncSearchRejectedException(
@@ -64,11 +61,6 @@ public class ActiveAsyncSearchStoreService {
         activeContexts.put(asyncSearchContextId.getId(), asyncSearchContext);
     }
 
-    /**
-     * Returns the context id if present
-     * @param contextId AsyncSearchContextId
-     * @return ActiveAsyncSearchContext
-     */
     public ActiveAsyncSearchContext getContext(AsyncSearchContextId contextId) {
         ActiveAsyncSearchContext context = activeContexts.get(contextId.getId());
         if (context == null) {
@@ -80,22 +72,22 @@ public class ActiveAsyncSearchStoreService {
         return null;
     }
 
+    public ActiveAsyncSearchContext getContext(AsyncSearchContextId contextId, Predicate<ActiveAsyncSearchContext.Stage> predicate) {
+        ActiveAsyncSearchContext context = activeContexts.get(contextId.getId());
+        if (context == null) {
+            return null;
+        }
+        if (context.getAsyncSearchContextId().getContextId().equals(contextId.getContextId())) {
+            return predicate.test(context.getContextStage()) ? context : null;
+        }
+        return null;
+    }
 
-    /**
-     * Returns a copy of all active contexts
-     *
-     * @return all context
-     */
+
     public Map<Long, ActiveAsyncSearchContext> getAllContexts() {
         return CollectionUtils.copyMap(activeContexts);
     }
 
-
-    /**
-     * Frees the active context
-     * @param asyncSearchContextId asyncSearchContextId
-     * @return acknowledgement of context removal
-     */
     public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
         AsyncSearchContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
         if (asyncSearchContext != null) {
