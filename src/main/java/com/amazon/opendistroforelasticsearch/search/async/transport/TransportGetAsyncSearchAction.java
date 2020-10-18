@@ -3,6 +3,7 @@ package com.amazon.opendistroforelasticsearch.search.async.transport;
 import com.amazon.opendistroforelasticsearch.search.async.ActiveAsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
@@ -10,6 +11,8 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchPr
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.GroupedActionListener;
@@ -29,6 +32,7 @@ import java.util.Objects;
  */
 public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchAction<GetAsyncSearchRequest, AsyncSearchResponse> {
 
+    private static final Logger logger = LogManager.getLogger(TransportGetAsyncSearchAction.class);
     private final ThreadPool threadPool;
     private final AsyncSearchService asyncSearchService;
 
@@ -51,6 +55,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                     switch (source) {
                         case IN_MEMORY:
                             ActiveAsyncSearchContext.Stage stage = asyncSearchContext.getSearchStage();
+                            // Attach a listener if the search is already in progress
                             if (stage == ActiveAsyncSearchContext.Stage.RUNNING) {
                                 AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener)asyncSearchContext.getSearchProgressActionListener();
                                 if (updateNeeded) {
@@ -68,7 +73,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                                     },
                                                     listener::onFailure), 2);
                                     PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                                            request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, groupedListener,
+                                            request.getWaitForCompletionTimeout(), AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, groupedListener,
                                             (actionListener) -> {
                                                 progressActionListener.removeListener(actionListener);
                                                 groupedListener.onResponse(asyncSearchContext.getAsyncSearchResponse());
@@ -77,7 +82,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                                     asyncSearchService.updateKeepAlive(request, asyncSearchContext, groupedListener);
                                 } else {
                                     PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
-                                            request.getWaitForCompletionTimeout(), ThreadPool.Names.GENERIC, listener,
+                                            request.getWaitForCompletionTimeout(), AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, listener,
                                             (actionListener) -> {
                                                 progressActionListener.removeListener(actionListener);
                                                 listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
@@ -87,6 +92,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                             } else {
                                 // async search is no more RUNNING so we don't need to wait on listeners for completion
                                 if (updateNeeded) {
+                                    //TODO failure to update keep alive should still return the async search response
                                     asyncSearchService.updateKeepAlive(request, asyncSearchContext, listener);
                                 } else {
                                     listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
@@ -105,6 +111,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                 listener::onFailure)
             );
         } catch (Exception e) {
+            logger.error("Failed to get async search request {}", request);
             listener.onFailure(e);
         }
     }

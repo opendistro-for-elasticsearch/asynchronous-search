@@ -16,7 +16,6 @@ import org.elasticsearch.transport.TransportService;
 public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchAction<DeleteAsyncSearchRequest, AcknowledgedResponse> {
 
     private final AsyncSearchService asyncSearchService;
-    private final Client client;
 
     @Inject
     public TransportDeleteAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
@@ -24,7 +23,6 @@ public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchA
         super(transportService, clusterService, threadPool, client, DeleteAsyncSearchAction.NAME, actionFilters,
                 DeleteAsyncSearchRequest::new, AcknowledgedResponse::new);
         this.asyncSearchService = asyncSearchService;
-        this.client = client;
     }
 
     @Override
@@ -32,7 +30,7 @@ public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchA
                               ActionListener<AcknowledgedResponse> listener) {
         try {
             asyncSearchService.freeContext(request.getId(), asyncSearchId.getAsyncSearchContextId(), ActionListener
-                    .wrap((Boolean complete) -> listener.onResponse(new AcknowledgedResponse(complete)), listener::onFailure));
+                    .wrap((complete) -> listener.onResponse(new AcknowledgedResponse(complete)), listener::onFailure));
         } catch (Exception e) {
             listener.onFailure(e);
         }
