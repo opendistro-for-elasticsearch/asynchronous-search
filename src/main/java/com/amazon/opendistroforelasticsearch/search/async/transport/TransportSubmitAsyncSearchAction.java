@@ -40,6 +40,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Submits an async search request by executing a {@link TransportSearchAction} on an {@link AsyncSearchTask} with
@@ -69,7 +70,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         try {
             final long relativeStartMillis = System.currentTimeMillis();
             ActiveAsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartMillis);
-            assert asyncSearchContext.getSearchProgressActionListener() != null : "missing progress listener for an active context";
+            Objects.requireNonNull(asyncSearchContext.getSearchProgressActionListener(), "missing progress listener for an active context");
             AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener) asyncSearchContext.getSearchProgressActionListener();
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
@@ -89,7 +90,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             }, progressActionListener);
             asyncSearchContext.setStage(ActiveAsyncSearchContext.Stage.RUNNING);
         } catch (Exception e) {
-            logger.warn("Failed to submit async search request {}", request);
+            logger.error("Failed to submit async search request {}", request);
             listener.onFailure(e);
         }
     }

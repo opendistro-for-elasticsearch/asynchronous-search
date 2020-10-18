@@ -3,6 +3,7 @@ package com.amazon.opendistroforelasticsearch.search.async.persistence;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.ParseField;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.InstantiatingObjectParser;
 import org.elasticsearch.common.xcontent.ObjectParserHelper;
@@ -17,7 +18,7 @@ import java.util.Objects;
 import static org.elasticsearch.common.xcontent.ConstructingObjectParser.constructorArg;
 
 /**
- * The model for persisting response to an index for retrieval after the search is complete
+ * The model for persisting async search response to an index for retrieval after the search is complete
  */
 public class AsyncSearchPersistenceModel implements ToXContentObject {
 
@@ -77,7 +78,13 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
         return builder;
     }
 
-    @Override public int hashCode() {
+    @Override
+    public String toString() {
+        return Strings.toString(this, false, true);
+    }
+
+    @Override
+    public int hashCode() {
         return Objects.hash(startTimeMillis, expirationTimeMillis, response);
     }
 
