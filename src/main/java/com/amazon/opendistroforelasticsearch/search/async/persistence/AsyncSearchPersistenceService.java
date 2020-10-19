@@ -35,6 +35,7 @@ import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.engine.DocumentMissingException;
 import org.elasticsearch.index.get.GetResult;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryAction;
@@ -93,24 +94,24 @@ public class AsyncSearchPersistenceService {
             listener.onFailure(new ResourceNotFoundException(id));
         }
         client.get(new GetRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id), ActionListener.wrap(getResponse ->
-            {
-                if (getResponse.isExists() && isIndexedResponseExpired(getResponse) == false) {
-                    try {
-                        XContentParser parser = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                                getResponse.getSourceAsBytesRef(), Requests.INDEX_CONTENT_TYPE);
-                        listener.onResponse(AsyncSearchPersistenceModel.PARSER.apply(parser, null));
-                    } catch (IOException e) {
-                        logger.error("Exception occurred finding response", e);
+                {
+                    if (getResponse.isExists() && isIndexedResponseExpired(getResponse) == false) {
+                        try {
+                            XContentParser parser = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                                    getResponse.getSourceAsBytesRef(), Requests.INDEX_CONTENT_TYPE);
+                            listener.onResponse(AsyncSearchPersistenceModel.PARSER.apply(parser, null));
+                        } catch (IOException e) {
+                            logger.error("Exception occurred finding response", e);
+                            listener.onFailure(new ResourceNotFoundException(id));
+                        }
+                    } else {
                         listener.onFailure(new ResourceNotFoundException(id));
                     }
-                } else {
-                    listener.onFailure(new ResourceNotFoundException(id));
-                }
-            },
-            exception -> {
-            logger.error("Failed to get response for async search [" + id + "]", exception);
-            listener.onFailure(exception);
-        }));
+                },
+                exception -> {
+                    logger.error("Failed to get response for async search [" + id + "]", exception);
+                    listener.onFailure(exception);
+                }));
     }
 
     public void deleteResponse(String id, ActionListener<Boolean> listener) {
@@ -169,7 +170,13 @@ public class AsyncSearchPersistenceService {
                     listener.onFailure(new ResourceNotFoundException(id));
                     break;
             }
-        }, exception -> listener.onFailure(new IOException("Failed to update keep_alive for async search " + id))));
+        }, exception -> {
+            if (exception.getCause() instanceof DocumentMissingException) {
+                listener.onFailure(new ResourceNotFoundException(id));
+            } else {
+                listener.onFailure(new IOException("Failed to update keep_alive for async search " + id));
+            }
+        }));
 
     }
 
@@ -278,7 +285,7 @@ public class AsyncSearchPersistenceService {
                     //expiry
 
                     //response
-                    .startObject(RESPONSE).field("type", "object").endObject()
+                    .startObject(RESPONSE).field("type", "object").field("enabled", "false").endObject()
                     //response
 
                     .endObject()

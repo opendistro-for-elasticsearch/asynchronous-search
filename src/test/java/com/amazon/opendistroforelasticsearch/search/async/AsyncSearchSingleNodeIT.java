@@ -38,9 +38,7 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                 deleteAsyncSearchRequest);
         assertTrue(acknowledgedResponse.isAcknowledged());
         assertRNF(TestClientUtils::blockingGetAsyncSearchResponse, client(), getAsyncSearchRequest);
-//        assertRNF(TestClientUtils::blockingDeleteAsyncSearchRequest, client(), deleteAsyncSearchRequest);
-//        TODO : right now we throw a custom AsyncSearchContextMissingException. Should it be wrapped with RNF as client doesnt need to
-//         privy to internal construct, `AsyncSearchContext`
+        assertRNF(TestClientUtils::blockingDeleteAsyncSearchRequest, client(), deleteAsyncSearchRequest);
     }
 
     @Test
@@ -50,6 +48,7 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
 
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        submitAsyncSearchRequest.keepOnCompletion(true);
         AsyncSearchResponse submitResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), submitAsyncSearchRequest);
         TestClientUtils.assertResponsePersistence(client(), submitResponse.getId());
         GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
@@ -64,8 +63,8 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         AcknowledgedResponse acknowledgedResponse = TestClientUtils.blockingDeleteAsyncSearchRequest(client(),
                 deleteAsyncSearchRequest);
         assertTrue(acknowledgedResponse.isAcknowledged());
-//        assertRNF(TestClientUtils::blockingGetAsyncSearchResponse, client(), getAsyncSearchRequest);
-//        assertRNF(TestClientUtils::blockingDeleteAsyncSearchRequest, client(), deleteAsyncSearchRequest);
+        assertRNF(TestClientUtils::blockingGetAsyncSearchResponse, client(), getAsyncSearchRequest);
+        assertRNF(TestClientUtils::blockingDeleteAsyncSearchRequest, client(), deleteAsyncSearchRequest);
     }
 
 }

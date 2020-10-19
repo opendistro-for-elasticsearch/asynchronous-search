@@ -55,7 +55,12 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.*;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.ABORTED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.FAILED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.PERSISTED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.PERSIST_FAILED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.RUNNING;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.SUCCEEDED;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
@@ -143,19 +148,19 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
     /***
      * The method tries to find a context in-memory and if it's not found, it tries to look up data on the disk. It no data
-     * on the disk exists, it's likely that the context has expired in which case {@link AsyncSearchContextMissingException}
+     * on the disk exists, it's likely that the context has expired in which case {@link ResourceNotFoundException}
      * is thrown
      * @param listener The listener to be invoked once the context is available
      */
-    public void findContext(AsyncSearchId asyncSearchId, ActionListener<AsyncSearchContext> listener) {
+    public void findContext(String id, AsyncSearchId asyncSearchId, ActionListener<AsyncSearchContext> listener) {
         AsyncSearchContextId asyncSearchContextId = asyncSearchId.getAsyncSearchContextId();
         ActiveAsyncSearchContext activeAsyncSearchContext = activeAsyncSearchStoreService.getContext(asyncSearchContextId);
         if (activeAsyncSearchContext != null) {
             listener.onResponse(activeAsyncSearchContext);
         } else {
             persistenceService.getResponse(AsyncSearchId.buildAsyncId(asyncSearchId), ActionListener.wrap(
-                (persistenceModel) -> listener.onResponse(new AsyncSearchPersistenceContext(asyncSearchId, persistenceModel)),
-                 ex -> listener.onFailure(new AsyncSearchContextMissingException(asyncSearchContextId))
+                    (persistenceModel) -> listener.onResponse(new AsyncSearchPersistenceContext(asyncSearchId, persistenceModel)),
+                    ex -> listener.onFailure(new ResourceNotFoundException(id))
             ));
         }
     }
@@ -234,23 +239,23 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         asyncSearchResponse = asyncSearchContext.getAsyncSearchResponse();
         if (asyncSearchContext.needsPersistence()) {
             asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
-                AsyncSearchPersistenceModel persistenceModel = new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
-                        asyncSearchResponse.getExpirationTimeMillis(), asyncSearchResponse.getSearchResponse());
-                persistenceService.storeResponse(AsyncSearchId.buildAsyncId(asyncSearchContext.getAsyncSearchId()), persistenceModel, ActionListener.wrap(
-                    (indexResponse) -> {
-                        //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
-                        asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSISTED);
-                        // Clean this up so that new context find results in a resolution from persistent store
-                        activeAsyncSearchStoreService.freeContext(asyncSearchContextId);
-                        releasable.close();
-                    },
+                        AsyncSearchPersistenceModel persistenceModel = new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
+                                asyncSearchResponse.getExpirationTimeMillis(), asyncSearchResponse.getSearchResponse());
+                        persistenceService.storeResponse(AsyncSearchId.buildAsyncId(asyncSearchContext.getAsyncSearchId()), persistenceModel, ActionListener.wrap(
+                                (indexResponse) -> {
+                                    //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
+                                    asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSISTED);
+                                    // Clean this up so that new context find results in a resolution from persistent store
+                                    activeAsyncSearchStoreService.freeContext(asyncSearchContextId);
+                                    releasable.close();
+                                },
 
-                    (e) -> {
-                        asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSIST_FAILED);
-                        logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
-                        releasable.close();
-                    }
-                ));
+                                (e) -> {
+                                    asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSIST_FAILED);
+                                    logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
+                                    releasable.close();
+                                }
+                        ));
 
                     }, (e) -> logger.error("Exception while acquiring the permit due to ", e)),
                     TimeValue.timeValueSeconds(60), threadPool, "persisting response");
@@ -261,7 +266,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     /**
      * Post processing search failure
      *
-     * @param exception the exception
+     * @param exception            the exception
      * @param asyncSearchContextId the identifier of the search context
      */
     public void postProcessSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) {
@@ -306,7 +311,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         // At this point it's possible that the response would have been persisted to system index
                         if (activeAsyncSearchContext.getContextStage() == PERSISTED) {
                             persistenceService.updateExpirationTimeAndGet(request.getId(), requestedExpirationTime, ActionListener.wrap((actionResponse) ->
-                                 listener.onResponse(new AsyncSearchPersistenceContext(activeAsyncSearchContext.getAsyncSearchId(), actionResponse)),
+                                            listener.onResponse(new AsyncSearchPersistenceContext(activeAsyncSearchContext.getAsyncSearchId(), actionResponse)),
                                     listener::onFailure));
                         } else {
                             activeAsyncSearchContext.setExpirationMillis(requestedExpirationTime);
@@ -318,9 +323,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         } else {
             // try update the doc on the index assuming there exists one.
             persistenceService.updateExpirationTimeAndGet(request.getId(), requestedExpirationTime,
-                ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
-                        AsyncSearchId.parseAsyncId(request.getId()), actionResponse)),
-                       listener::onFailure));
+                    ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
+                                    AsyncSearchId.parseAsyncId(request.getId()), actionResponse)),
+                            listener::onFailure));
         }
     }
 
