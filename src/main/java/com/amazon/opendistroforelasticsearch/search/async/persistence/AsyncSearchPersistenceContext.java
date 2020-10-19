@@ -91,8 +91,13 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
     }
 
     @Override
-    public Stage getContextStage() {
+    public Stage getStage() {
         return Stage.PERSISTED;
+    }
+
+    @Override
+    public void setStage(Stage stage) {
+        throw new IllegalStateException("Persistence context stage "+ getStage() +" cannot be mutated");
     }
 
     @Override

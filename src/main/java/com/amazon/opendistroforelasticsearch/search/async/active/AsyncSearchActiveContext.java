@@ -21,7 +21,7 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchPr
 /**
  * The context representing an ongoing search, keeps track of the underlying {@link SearchTask} and {@link SearchProgressActionListener}
  */
-public class ActiveAsyncSearchContext extends AsyncSearchContext {
+public class AsyncSearchActiveContext extends AsyncSearchContext {
 
     private volatile SetOnce<SearchTask> searchTask;
     private volatile long expirationTimeMillis;
@@ -32,10 +32,11 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     private volatile SetOnce<AsyncSearchId> asyncSearchId;
     private final AsyncSearchContextListener contextListener;
     private AtomicBoolean completed;
+    private volatile Stage stage;
     private AtomicReference<ElasticsearchException> error;
     private AtomicReference<SearchResponse> searchResponse;
 
-    public ActiveAsyncSearchContext(AsyncSearchContextId asyncSearchContextId, String nodeId, TimeValue keepAlive, boolean keepOnCompletion,
+    public AsyncSearchActiveContext(AsyncSearchContextId asyncSearchContextId, String nodeId, TimeValue keepAlive, boolean keepOnCompletion,
                                     AsyncSearchProgressListener searchProgressActionListener, AsyncSearchContextListener contextListener) {
         super(asyncSearchContextId);
         this.keepOnCompletion = keepOnCompletion;
@@ -52,7 +53,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     }
 
     @Override
-    public Stage getContextStage() {
+    public Stage getStage() {
         assert stage != null : "stage cannot be empty";
         return stage;
     }
@@ -63,8 +64,9 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     }
 
     public void setTask(SearchTask searchTask) {
+        Objects.requireNonNull(searchTask);
+        searchTask.setProgressListener(searchProgressActionListener);
         this.searchTask.set(searchTask);
-        this.searchTask.get().setProgressListener(searchProgressActionListener);
         this.startTimeMillis = searchTask.getStartTime();
         this.asyncSearchId.set(new AsyncSearchId(nodeId, searchTask.getId(), getAsyncSearchContextId()));
         this.setStage(Stage.INIT);
@@ -82,7 +84,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         return keepAlive;
     }
 
-    public boolean needsPersistence() {
+    public boolean shouldPersist() {
         return keepOnCompletion;
     }
 
@@ -180,7 +182,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
 
     @Override
     public String toString() {
-        return "ActiveAsyncSearchContext{" +
+        return "AsyncSearchActiveContext{" +
                 ", completed=" + completed +
                 ", error=" + error +
                 ", searchResponse=" + searchResponse +

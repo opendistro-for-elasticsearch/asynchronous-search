@@ -15,13 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
+import com.amazon.opendistroforelasticsearch.search.async.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchManagementAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.active.ActiveAsyncSearchStoreService;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestAsyncSearchStatsAction;
@@ -122,7 +122,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
     @Override
     public List<Setting<?>> getSettings() {
-        return Arrays.asList(ActiveAsyncSearchStoreService.MAX_RUNNING_CONTEXT,
+        return Arrays.asList(AsyncSearchActiveStore.MAX_RUNNING_CONTEXT,
                 AsyncSearchService.MAX_KEEPALIVE_SETTING);
     }
 

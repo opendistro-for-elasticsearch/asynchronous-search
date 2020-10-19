@@ -30,18 +30,18 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.CollectionUtils;
 import org.elasticsearch.common.util.concurrent.ConcurrentMapLong;
 
-public class ActiveAsyncSearchStoreService {
+public class AsyncSearchActiveStore {
 
-    private static Logger logger = LogManager.getLogger(ActiveAsyncSearchStoreService.class);
+    private static Logger logger = LogManager.getLogger(AsyncSearchActiveStore.class);
     private volatile int maxRunningContext;
 
     public static final Setting<Integer> MAX_RUNNING_CONTEXT =
             Setting.intSetting("async_search.max_running_context", 100, 0, Setting.Property.Dynamic, Setting.Property.NodeScope);
 
-    private final ConcurrentMapLong<ActiveAsyncSearchContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
+    private final ConcurrentMapLong<AsyncSearchActiveContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
 
 
-    public ActiveAsyncSearchStoreService(ClusterService clusterService) {
+    public AsyncSearchActiveStore(ClusterService clusterService) {
         Settings settings = clusterService.getSettings();
         maxRunningContext = MAX_RUNNING_CONTEXT.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_RUNNING_CONTEXT, this::setMaxRunningContext);
@@ -51,18 +51,16 @@ public class ActiveAsyncSearchStoreService {
         this.maxRunningContext = maxRunningContext;
     }
 
-    public void putContext(AsyncSearchContextId asyncSearchContextId, ActiveAsyncSearchContext asyncSearchContext) {
+    public void putContext(AsyncSearchContextId asyncSearchContextId, AsyncSearchActiveContext asyncSearchContext) {
         if (activeContexts.values().stream().filter(context -> context.isRunning()).distinct().count() > maxRunningContext) {
-            throw new AsyncSearchRejectedException(
-                    "Trying to create too many running contexts. Must be less than or equal to: [" +
-                            maxRunningContext + "]. " + "This limit can be set by changing the ["
-                            + MAX_RUNNING_CONTEXT.getKey() + "] setting.", maxRunningContext);
+            throw new AsyncSearchRejectedException("Trying to create too many running contexts. Must be less than or equal to: [" +
+                 maxRunningContext + "]. " + "This limit can be set by changing the [" + MAX_RUNNING_CONTEXT.getKey() + "] setting.", maxRunningContext);
         }
         activeContexts.put(asyncSearchContextId.getId(), asyncSearchContext);
     }
 
-    public ActiveAsyncSearchContext getContext(AsyncSearchContextId contextId) {
-        ActiveAsyncSearchContext context = activeContexts.get(contextId.getId());
+    public AsyncSearchActiveContext getContext(AsyncSearchContextId contextId) {
+        AsyncSearchActiveContext context = activeContexts.get(contextId.getId());
         if (context == null) {
             return null;
         }
@@ -72,19 +70,19 @@ public class ActiveAsyncSearchStoreService {
         return null;
     }
 
-    public ActiveAsyncSearchContext getContext(AsyncSearchContextId contextId, Predicate<ActiveAsyncSearchContext.Stage> predicate) {
-        ActiveAsyncSearchContext context = activeContexts.get(contextId.getId());
+    public AsyncSearchActiveContext getContext(AsyncSearchContextId contextId, Predicate<AsyncSearchActiveContext.Stage> predicate) {
+        AsyncSearchActiveContext context = activeContexts.get(contextId.getId());
         if (context == null) {
             return null;
         }
         if (context.getAsyncSearchContextId().getContextId().equals(contextId.getContextId())) {
-            return predicate.test(context.getContextStage()) ? context : null;
+            return predicate.test(context.getStage()) ? context : null;
         }
         return null;
     }
 
 
-    public Map<Long, ActiveAsyncSearchContext> getAllContexts() {
+    public Map<Long, AsyncSearchActiveContext> getAllContexts() {
         return CollectionUtils.copyMap(activeContexts);
     }
 

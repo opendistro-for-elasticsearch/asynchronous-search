@@ -27,6 +27,7 @@ import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import java.util.Objects;
 
 
 public abstract class AsyncSearchContext {
@@ -66,21 +67,21 @@ public abstract class AsyncSearchContext {
     }
 
     protected final AsyncSearchContextId asyncSearchContextId;
-    protected volatile Stage stage;
     protected final AsyncSearchContextPermit asyncSearchContextPermit;
     protected volatile SearchProgressActionListener searchProgressActionListener;
 
     public AsyncSearchContext(AsyncSearchContextId asyncSearchContextId) {
+        Objects.requireNonNull(asyncSearchContextId);
         this.asyncSearchContextId = asyncSearchContextId;
         this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId);
     }
 
     public @Nullable SearchProgressActionListener getSearchProgressActionListener() { return searchProgressActionListener; }
 
-    public abstract Stage getContextStage();
+    public abstract Stage getStage();
 
     public boolean isRunning() {
-        return stage == Stage.RUNNING;
+        return getStage() == Stage.RUNNING;
     }
 
     public AsyncSearchContextId getAsyncSearchContextId() {
