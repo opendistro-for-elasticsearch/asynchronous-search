@@ -5,6 +5,7 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
@@ -53,22 +54,26 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
 
     @Override
     public SearchResponse getSearchResponse() {
-        try (
-            XContentParser parser = XContentType.JSON.xContent()
-                .createParser(NamedXContentRegistry.EMPTY,
-                    LoggingDeprecationHandler.INSTANCE,
-                    asyncSearchPersistenceModel.getResponse().streamInput())) {
+        try (XContentParser parser = XContentType.JSON.xContent()
+                .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, asyncSearchPersistenceModel.getResponse().streamInput())) {
             return SearchResponse.fromXContent(parser);
         } catch (IOException e) {
-            logger.error(new ParameterizedMessage("could not parse search response for async search id : {}",
+            logger.debug(new ParameterizedMessage("could not parse search response for async search id : {}",
                     AsyncSearchId.buildAsyncId(asyncSearchId), e));
             return null;
         }
     }
 
     @Override
-    public void setStage(Stage stage) {
-        throw new IllegalStateException("Cannot set stage "+ stage + "for persisted context");
+    public ElasticsearchException getSearchError() {
+        try (XContentParser parser = XContentType.JSON.xContent()
+                        .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, asyncSearchPersistenceModel.getError().streamInput())) {
+            return ElasticsearchException.fromXContent(parser);
+        } catch (IOException e) {
+            logger.debug(() -> new ParameterizedMessage("could not parse search error for async search id : {}",
+                    AsyncSearchId.buildAsyncId(asyncSearchId), e));
+            return null;
+        }
     }
 
     @Override

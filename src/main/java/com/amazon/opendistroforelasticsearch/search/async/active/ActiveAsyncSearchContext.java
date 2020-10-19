@@ -1,9 +1,11 @@
 package com.amazon.opendistroforelasticsearch.search.async.active;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.lucene.util.SetOnce;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
@@ -29,13 +31,13 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
     private final String nodeId;
     private volatile SetOnce<AsyncSearchId> asyncSearchId;
     private final AsyncSearchContextListener contextListener;
-    private final ThreadPool threadPool;
+    private AtomicBoolean completed;
+    private AtomicReference<ElasticsearchException> error;
+    private AtomicReference<SearchResponse> searchResponse;
 
     public ActiveAsyncSearchContext(AsyncSearchContextId asyncSearchContextId, String nodeId, TimeValue keepAlive, boolean keepOnCompletion,
-                                    ThreadPool threadPool, AsyncSearchProgressListener searchProgressActionListener,
-                                    AsyncSearchContextListener contextListener) {
+                                    AsyncSearchProgressListener searchProgressActionListener, AsyncSearchContextListener contextListener) {
         super(asyncSearchContextId);
-        this.threadPool = threadPool;
         this.keepOnCompletion = keepOnCompletion;
         this.error = new AtomicReference<>();
         this.searchResponse = new AtomicReference<>();
@@ -46,11 +48,7 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         this.searchTask = new SetOnce<>();
         this.asyncSearchId = new SetOnce<>();
         this.contextListener = contextListener;
-    }
-
-    @Override
-    public SearchProgressActionListener getSearchProgressActionListener() {
-        return searchProgressActionListener;
+        this.completed = new AtomicBoolean(false);
     }
 
     @Override
@@ -88,7 +86,21 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         return keepOnCompletion;
     }
 
+    public void processSearchFailure(Exception e) {
+        if (completed.compareAndSet(false, true)) {
+            error.set(new ElasticsearchException(e));
+            searchProgressActionListener = null;
+            setStage(Stage.FAILED);
+        }
+    }
 
+    public void processSearchSuccess(SearchResponse response) {
+        if (completed.compareAndSet(false, true)) {
+            this.searchResponse.compareAndSet(null, response);
+            searchProgressActionListener = null;
+            setStage(Stage.SUCCEEDED);
+        }
+    }
     @Override
     public SearchResponse getSearchResponse() {
         if (completed.get()) {
@@ -96,6 +108,11 @@ public class ActiveAsyncSearchContext extends AsyncSearchContext {
         } else {
             return ((AsyncSearchProgressListener)searchProgressActionListener).partialResponse();
         }
+    }
+
+    @Override
+    public ElasticsearchException getSearchError() {
+        return error.get();
     }
 
     @Override

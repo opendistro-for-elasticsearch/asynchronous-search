@@ -65,7 +65,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
     @Override
     public String executorName() {
-        return ThreadPool.Names.GENERIC;
+        return AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME;
     }
 
     @Override

@@ -70,7 +70,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
 
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
-        AtomicReference<Runnable> advanceStage = null;
+        AtomicReference<Runnable> advanceStage = new AtomicReference<>();
         try {
             final long relativeStartMillis = System.currentTimeMillis();
             AsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request, relativeStartMillis);
@@ -92,6 +92,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     return asyncSearchTask;
                 }
             }, progressActionListener);
+            //see if there is a hook to move the Stage to RUNNING once the search execution starts
             advanceStage.get().run();
         } catch (Exception e) {
             logger.error(() -> new ParameterizedMessage("Failed to submit async search request {}", request, e));

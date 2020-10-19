@@ -45,7 +45,7 @@ public class AsyncSearchContextPermit {
         }
     }
 
-    private void asyncAcquirePermits(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, ThreadPool threadPool, String reason)  {
+    private void asyncAcquirePermit(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, ThreadPool threadPool, String reason)  {
         threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(new AbstractRunnable() {
 
             @Override
@@ -71,8 +71,8 @@ public class AsyncSearchContextPermit {
      * @param timeout the timeout within which the permit must be acquired or deemed failed
      * @param reason the reason for acquiring the permit
      */
-    public void asyncAcquirePermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, ThreadPool threadPool, String reason)  {
-        asyncAcquirePermits(1, onAcquired, timeout, threadPool, reason);
+    public void asyncAcquirePermit(final ActionListener<Releasable> onAcquired, final TimeValue timeout, ThreadPool threadPool, String reason)  {
+        asyncAcquirePermit(1, onAcquired, timeout, threadPool, reason);
     }
 
     /***
@@ -85,6 +85,6 @@ public class AsyncSearchContextPermit {
      * @param reason the reason for acquiring the permit
      */
     public void asyncAcquireAllPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, ThreadPool threadPool, String reason)  {
-        asyncAcquirePermits(TOTAL_PERMITS, onAcquired, timeout, threadPool, reason);
+        asyncAcquirePermit(TOTAL_PERMITS, onAcquired, timeout, threadPool, reason);
     }
 }

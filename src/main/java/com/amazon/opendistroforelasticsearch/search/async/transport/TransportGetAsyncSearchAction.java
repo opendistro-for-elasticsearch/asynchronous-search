@@ -73,8 +73,9 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
     }
 
     private void handleWaitForCompletion(AsyncSearchContext context, TimeValue timeValue, ActionListener<AsyncSearchResponse> listener) {
-        SearchProgressActionListener progressActionListener = context.getSearchProgressActionListener();
-        if (progressActionListener != null) {
+        if (context.isRunning()) {
+            SearchProgressActionListener progressActionListener = context.getSearchProgressActionListener();
+            assert progressActionListener != null : "progress listener cannot be null";
             PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
                     timeValue, AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, listener,
                     (actionListener) -> {
@@ -83,7 +84,6 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                     });
             ((AsyncSearchProgressListener)progressActionListener).addOrExecuteListener(wrappedListener);
         } else {
-            assert context.isRunning() == false : "context cannot be running if there is no progress listener";
             // we don't need to wait any further on search progress
             listener.onResponse(context.getAsyncSearchResponse());
         }
