@@ -17,6 +17,7 @@ import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDI
 
 public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase {
     static final String INDEX = ".async_search_response";
+    static final String TEST_INDEX = "index";
 
     @Override
     protected boolean resetNodeAfterTest() {
@@ -26,9 +27,9 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        createIndex("index", Settings.builder().put("index.refresh_interval", -1).build());
+        createIndex(TEST_INDEX, Settings.builder().put("index.refresh_interval", -1).build());
         for (int i = 0; i < 10; i++)
-            client().prepareIndex("index", "type", String.valueOf(i)).setSource("field", "value" + i)
+            client().prepareIndex(TEST_INDEX, "type", String.valueOf(i)).setSource("field", "value" + i)
                     .setRefreshPolicy(IMMEDIATE).get();
     }
 

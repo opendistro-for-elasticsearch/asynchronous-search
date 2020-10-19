@@ -7,6 +7,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -54,24 +55,37 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
 
     @Override
     public SearchResponse getSearchResponse() {
-        try (XContentParser parser = XContentType.JSON.xContent()
-                .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, asyncSearchPersistenceModel.getResponse().streamInput())) {
-            return SearchResponse.fromXContent(parser);
-        } catch (IOException e) {
-            logger.debug(new ParameterizedMessage("could not parse search response for async search id : {}",
-                    AsyncSearchId.buildAsyncId(asyncSearchId), e));
+
+        BytesReference response = asyncSearchPersistenceModel.getResponse();
+        if (response != null) {
+            try (XContentParser parser = XContentType.JSON.xContent()
+                    .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.streamInput())) {
+                return SearchResponse.fromXContent(parser);
+            } catch (IOException e) {
+                logger.debug(new ParameterizedMessage("could not parse search response for async search id : {}",
+                        AsyncSearchId.buildAsyncId(asyncSearchId), e));
+                return null;
+            }
+        } else {
             return null;
         }
     }
 
     @Override
     public ElasticsearchException getSearchError() {
-        try (XContentParser parser = XContentType.JSON.xContent()
-                        .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, asyncSearchPersistenceModel.getError().streamInput())) {
-            return ElasticsearchException.fromXContent(parser);
-        } catch (IOException e) {
-            logger.debug(() -> new ParameterizedMessage("could not parse search error for async search id : {}",
-                    AsyncSearchId.buildAsyncId(asyncSearchId), e));
+
+        BytesReference error = asyncSearchPersistenceModel.getError();
+        if (error != null) {
+            try (XContentParser parser = XContentType.JSON.xContent()
+                    .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, error.streamInput())) {
+                return ElasticsearchException.fromXContent(parser);
+            } catch (IOException e) {
+                logger.debug(() -> new ParameterizedMessage("could not parse search error for async search id : {}",
+                        AsyncSearchId.buildAsyncId(asyncSearchId), e));
+                return null;
+            }
+
+        } else {
             return null;
         }
     }
@@ -86,12 +100,15 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
         return Objects.hash(asyncSearchId, asyncSearchPersistenceModel);
     }
 
-    @Override public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         AsyncSearchPersistenceContext asyncSearchPersistenceContext = (AsyncSearchPersistenceContext) o;
         return asyncSearchPersistenceContext.getAsyncSearchId()
-            .equals(this.asyncSearchId) && asyncSearchPersistenceContext.getAsyncSearchPersistenceModel()
-            .equals(this.asyncSearchPersistenceModel);
+                .equals(this.asyncSearchId) && asyncSearchPersistenceContext.getAsyncSearchPersistenceModel()
+                .equals(this.asyncSearchPersistenceModel);
     }
 }

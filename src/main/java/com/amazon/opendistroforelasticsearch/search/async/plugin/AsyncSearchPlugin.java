@@ -15,22 +15,22 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
-import com.amazon.opendistroforelasticsearch.search.async.active.ActiveAsyncSearchStoreService;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchManagementAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchManagementAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.active.ActiveAsyncSearchStoreService;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchManagementAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchManagementAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportSubmitAsyncSearchAction;
 import org.elasticsearch.action.ActionRequest;
@@ -71,7 +71,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemIndexPlugin {
-    
+
     public static final String OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME = "open_distro_async_search_generic";
 
     private AsyncSearchPersistenceService persistenceService;
@@ -99,8 +99,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
         this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool,
                 xContentRegistry);
-        return Collections.singletonList(new AsyncSearchService(persistenceService, client, clusterService, threadPool,
-                namedWriteableRegistry));
+        return Collections.singletonList(new AsyncSearchService(persistenceService, client, clusterService, threadPool));
 
     }
 
@@ -109,7 +108,6 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
     public Collection<Class<? extends LifecycleComponent>> getGuiceServiceClasses() {
         return Collections.singletonList(AsyncSearchManagementService.class);
     }
-
 
 
     @Override
