@@ -64,7 +64,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
         try {
             boolean updateNeeded = request.getKeepAlive() != null;
             if (updateNeeded) {
-                asyncSearchService.updateKeepAliveAndGetContext(request.getKeepAlive(), asyncSearchId, ActionListener.wrap(
+                asyncSearchService.updateKeepAliveAndGetContext(request.getId(), request.getKeepAlive(), asyncSearchId, ActionListener.wrap(
                         // check if the context is active and is still RUNNING
                         (context) -> handleWaitForCompletion(context, request.getWaitForCompletionTimeout(), listener),
                         (e) -> {

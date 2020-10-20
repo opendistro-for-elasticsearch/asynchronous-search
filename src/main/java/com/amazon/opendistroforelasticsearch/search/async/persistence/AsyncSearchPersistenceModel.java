@@ -146,7 +146,8 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
         return Objects.hash(startTimeMillis, expirationTimeMillis, response, error);
     }
 
-    @Override public boolean equals(Object o) {
+    @Override
+    public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         AsyncSearchPersistenceModel persistenceModel = (AsyncSearchPersistenceModel) o;
