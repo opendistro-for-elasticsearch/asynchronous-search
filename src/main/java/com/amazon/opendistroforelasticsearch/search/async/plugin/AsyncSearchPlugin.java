@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
 import com.amazon.opendistroforelasticsearch.search.async.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchManagementAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchCleanUpAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
@@ -28,7 +28,7 @@ import com.amazon.opendistroforelasticsearch.search.async.rest.RestAsyncSearchSt
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchManagementAction;
+import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchCleanUpAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
@@ -114,7 +114,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays.asList(
                 new ActionHandler<>(AsyncSearchStatsAction.INSTANCE, TransportAsyncSearchStatsAction.class),
-                new ActionHandler<>(AsyncSearchManagementAction.INSTANCE, TransportAsyncSearchManagementAction.class),
+                new ActionHandler<>(AsyncSearchCleanUpAction.INSTANCE, TransportAsyncSearchCleanUpAction.class),
                 new ActionHandler<>(SubmitAsyncSearchAction.INSTANCE, TransportSubmitAsyncSearchAction.class),
                 new ActionHandler<>(GetAsyncSearchAction.INSTANCE, TransportGetAsyncSearchAction.class),
                 new ActionHandler<>(DeleteAsyncSearchAction.INSTANCE, TransportDeleteAsyncSearchAction.class));
@@ -122,8 +122,12 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
     @Override
     public List<Setting<?>> getSettings() {
-        return Arrays.asList(AsyncSearchActiveStore.MAX_RUNNING_CONTEXT,
-                AsyncSearchService.MAX_KEEPALIVE_SETTING);
+        return Arrays.asList(
+                AsyncSearchActiveStore.MAX_RUNNING_CONTEXT,
+                AsyncSearchService.MAX_KEEPALIVE_SETTING,
+                AsyncSearchManagementService.RESPONSE_CLEAN_UP_INTERVAL_SETTING,
+                AsyncSearchManagementService.TASK_CANCELLATION_INTERVAL_SETTING
+        );
     }
 
     @Override

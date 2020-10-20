@@ -21,30 +21,25 @@ import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
 import java.io.IOException;
+import java.util.Objects;
 
-public class AsyncSearchManagementRequest extends ActionRequest {
+public class AsyncSearchCleanUpRequest extends ActionRequest {
 
-    public static final String DEFAULT_REASON = "scheduled job";
+    private final long absoluteTimeInMillis;
 
-    public AsyncSearchManagementRequest() {
-        this.reason = DEFAULT_REASON;
+    public AsyncSearchCleanUpRequest(long absoluteTimeInMillis) {
+        this.absoluteTimeInMillis = absoluteTimeInMillis;
     }
 
-    public AsyncSearchManagementRequest(String reason) {
-        this.reason = reason;
-    }
-
-    private final String reason;
-
-    public AsyncSearchManagementRequest(StreamInput in) throws IOException {
+    public AsyncSearchCleanUpRequest(StreamInput in) throws IOException {
         super(in);
-        this.reason = in.readString();
+        this.absoluteTimeInMillis = in.readLong();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeString(reason);
+        out.writeLong(absoluteTimeInMillis);
     }
 
     @Override
@@ -55,7 +50,26 @@ public class AsyncSearchManagementRequest extends ActionRequest {
     /**
      * The reason for deleting expired async searches.
      */
-    public String reason() {
-        return reason;
+    public long getAbsoluteTimeInMillis() {
+        return absoluteTimeInMillis;
+    }
+
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(absoluteTimeInMillis);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        AsyncSearchCleanUpRequest asyncSearchCleanUpRequest = (AsyncSearchCleanUpRequest) o;
+        return absoluteTimeInMillis == asyncSearchCleanUpRequest.absoluteTimeInMillis;
+    }
+
+    @Override
+    public String toString() {
+        return "[expirationTimeMillis] : " + absoluteTimeInMillis;
     }
 }

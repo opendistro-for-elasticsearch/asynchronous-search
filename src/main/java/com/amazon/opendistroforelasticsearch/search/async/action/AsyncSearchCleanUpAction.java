@@ -18,12 +18,12 @@ package com.amazon.opendistroforelasticsearch.search.async.action;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import org.elasticsearch.action.ActionType;
 
-public class AsyncSearchManagementAction extends ActionType<AcknowledgedResponse> {
+public class AsyncSearchCleanUpAction extends ActionType<AcknowledgedResponse> {
 
-    public static final AsyncSearchManagementAction INSTANCE = new AsyncSearchManagementAction();
+    public static final AsyncSearchCleanUpAction INSTANCE = new AsyncSearchCleanUpAction();
     public static final String NAME = "indices:data/read/async_search/management";
 
-    private AsyncSearchManagementAction() {
+    private AsyncSearchCleanUpAction() {
         super(NAME, AcknowledgedResponse::new);
     }
 
