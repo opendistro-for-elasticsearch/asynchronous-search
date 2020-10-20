@@ -65,7 +65,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.keepAlive = keepAlive;
         this.nodeId = nodeId;
         this.searchProgressActionListener = searchProgressActionListener;
-        this.startTimeMillis = System.currentTimeMillis();
+        this.startTimeMillis = threadPool.absoluteTimeInMillis();
         this.searchTask = new SetOnce<>();
         this.asyncSearchId = new SetOnce<>();
         this.contextListener = contextListener;
@@ -183,13 +183,21 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
                 validateAndSetStage(Stage.SUCCEEDED, stage);
                 contextListener.onContextPersisted(getAsyncSearchContextId());
                 break;
+            case PERSIST_FAILED:
+                validateAndSetStage(Stage.SUCCEEDED, stage);
+                break;
+            case DELETED:
+                //any state except INIT can be moved to DELETED
+                this.stage = stage;
+                break;
             default:
-                throw new IllegalArgumentException("unknown AsyncSearchContext.Stage [" + stage + "]");
+                throw new IllegalArgumentException("Unknown stage [" + stage + "]");
         }
     }
 
     private void validateAndSetStage(Stage expected, Stage next) {
-        if (stage != expected) {
+        // Once DELETED the stage shouldn't progress any further
+        if (stage != expected || (expected == Stage.DELETED && next != Stage.DELETED)) {
             throw new IllegalStateException("can't move to stage [" + next + "]. current stage: ["
                     + stage + "] (expected [" + expected + "])");
         }

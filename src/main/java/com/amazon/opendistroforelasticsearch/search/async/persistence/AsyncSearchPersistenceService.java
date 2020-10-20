@@ -15,7 +15,6 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -36,7 +35,6 @@ import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.engine.DocumentMissingException;
-import org.elasticsearch.index.get.GetResult;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
@@ -95,7 +93,7 @@ public class AsyncSearchPersistenceService {
         }
         client.get(new GetRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id), ActionListener.wrap(getResponse ->
                 {
-                    if (getResponse.isExists() && isIndexedResponseExpired(getResponse) == false) {
+                    if (getResponse.isExists()) {
                         try {
                             XContentParser parser = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                                     getResponse.getSourceAsBytesRef(), Requests.INDEX_CONTENT_TYPE);
@@ -160,18 +158,14 @@ public class AsyncSearchPersistenceService {
             switch (updateResponse.getResult()) {
                 case UPDATED:
                 case NOOP:
-                    if (isIndexedResponseExpired(updateResponse.getGetResult())) {
-                        listener.onFailure(new ResourceNotFoundException(id));
-                    } else {
-                        try {
-                            XContentParser parser = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                                    updateResponse.getGetResult().sourceRef(), Requests.INDEX_CONTENT_TYPE);
-                            listener.onResponse(AsyncSearchPersistenceModel.PARSER.apply(parser, null));
-                        } catch (IOException e) {
-                            logger.error("IOException occurred finding lock", e);
-                            listener.onFailure(new IOException(id));
-                        }
-                    }
+                   try {
+                       XContentParser parser = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                               updateResponse.getGetResult().sourceRef(), Requests.INDEX_CONTENT_TYPE);
+                       listener.onResponse(AsyncSearchPersistenceModel.PARSER.apply(parser, null));
+                   } catch (IOException e) {
+                       logger.error("IOException occurred finding lock", e);
+                       listener.onFailure(new IOException(id));
+                   }
                     break;
                 case NOT_FOUND:
                 case DELETED:
@@ -188,7 +182,7 @@ public class AsyncSearchPersistenceService {
 
     }
 
-    public void deleteExpiredResponses(ActionListener<AcknowledgedResponse> listener) {
+    public void deleteExpiredResponses(ActionListener<AcknowledgedResponse> listener, long expirationTimeInMillis) {
         if (!indexExists()) {
             logger.info("Async search index not yet created! Nothing to delete.");
             listener.onResponse(new AcknowledgedResponse(true));
@@ -197,7 +191,7 @@ public class AsyncSearchPersistenceService {
             DeleteByQueryRequest
                     request =
                     new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME).setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS)
-                            .lte(System.currentTimeMillis()));
+                            .lte(expirationTimeInMillis));
             client.execute(DeleteByQueryAction.INSTANCE,
                     request,
                     ActionListener.wrap(r -> listener.onResponse(new AcknowledgedResponse(true)), listener::onFailure));
@@ -310,17 +304,5 @@ public class AsyncSearchPersistenceService {
 
     private boolean indexExists() {
         return clusterService.state().routingTable().hasIndex(ASYNC_SEARCH_RESPONSE_INDEX_NAME);
-    }
-
-
-    private boolean isIndexedResponseExpired(GetResponse getResponse) {
-        return getResponse.getSource().containsKey(EXPIRATION_TIME_MILLIS) && (long) getResponse.getSource()
-                .get(EXPIRATION_TIME_MILLIS) < System.currentTimeMillis();
-    }
-
-
-    private boolean isIndexedResponseExpired(GetResult getResult) {
-        return getResult.sourceAsMap() != null && getResult.sourceAsMap()
-                .containsKey(EXPIRATION_TIME_MILLIS) && (long) getResult.getSource().get(EXPIRATION_TIME_MILLIS) < System.currentTimeMillis();
     }
 }
