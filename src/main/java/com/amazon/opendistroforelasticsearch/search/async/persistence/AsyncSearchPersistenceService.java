@@ -114,6 +114,9 @@ public class AsyncSearchPersistenceService {
                 }));
     }
 
+
+    // This method should be safe to call even if there isn't a prior document that exists. If the doc was actually deleted
+    // the listener should return true
     public void deleteResponse(String id, ActionListener<Boolean> listener) {
         if (!indexExists()) {
             listener.onResponse(false);
@@ -121,7 +124,7 @@ public class AsyncSearchPersistenceService {
         }
 
         client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id), ActionListener.wrap(deleteResponse -> {
-            if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED) {
+            if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED || deleteResponse.getResult() == DocWriteResponse.Result.NOT_FOUND) {
                 logger.debug("Deleted async search {}", id);
                 listener.onResponse(true);
             } else {
@@ -129,8 +132,13 @@ public class AsyncSearchPersistenceService {
                 listener.onResponse(false);
             }
         }, e -> {
-            logger.error("Failed to delete async search " + id, e);
-            listener.onFailure(e);
+                    if (ExceptionsHelper.unwrapCause(e) instanceof DocumentMissingException) {
+                        logger.debug("Async search response doc already deleted {}", id);
+                        listener.onResponse(false);
+                    } else {
+                        logger.error("Failed to delete async search " + id, e);
+                        listener.onFailure(e);
+                    }
         }));
     }
 
@@ -171,7 +179,7 @@ public class AsyncSearchPersistenceService {
                     break;
             }
         }, exception -> {
-            if (exception.getCause() instanceof DocumentMissingException) {
+            if (ExceptionsHelper.unwrapCause(exception) instanceof DocumentMissingException) {
                 listener.onFailure(new ResourceNotFoundException(id));
             } else {
                 listener.onFailure(new IOException("Failed to update keep_alive for async search " + id));

@@ -1,7 +1,24 @@
+/*
+ *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   or in the "license" file accompanying this file. This file is distributed
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *   express or implied. See the License for the specific language governing
+ *   permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
+import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
@@ -14,30 +31,33 @@ import java.util.concurrent.TimeUnit;
 
 /***
  * The permit needed by any mutating operation on {@link AsyncSearchContext} while it is being moved over to the
- * persistence store
+ * persistence store. Each mutating operation acquires a single permit while the {@link AsyncSearchPostProcessor} acquires
+ * all permits before it transitions context to the index
  */
 public class AsyncSearchContextPermit {
 
     private static final int TOTAL_PERMITS = Integer.MAX_VALUE;
-    private final Semaphore mutex = new Semaphore(TOTAL_PERMITS, true);
+    private final Semaphore mutex;
     private final AsyncSearchContextId asyncSearchContextId;
+    private String lockDetails;
+    private final ThreadPool threadPool;
     private static final Logger logger = LogManager.getLogger(AsyncSearchContextPermit.class);
 
-    public AsyncSearchContextPermit(AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchContextPermit(AsyncSearchContextId asyncSearchContextId, ThreadPool threadPool) {
         this.asyncSearchContextId = asyncSearchContextId;
+        this.threadPool = threadPool;
+        this.mutex = new Semaphore(TOTAL_PERMITS, true);
     }
 
     private Releasable acquirePermits(int permits, TimeValue timeout, final String details) throws RuntimeException {
         try {
             if (mutex.tryAcquire(permits, timeout.getMillis(), TimeUnit.MILLISECONDS)) {
-                final RunOnce release = new RunOnce(() -> {
-                    mutex.release(1);
-                });
+                this.lockDetails = details;
+                final RunOnce release = new RunOnce(() -> mutex.release(1));
                 return release::run;
             } else {
-                throw new RuntimeException(
-                        "obtaining context lock"+ asyncSearchContextId +"timed out after " + timeout.getMillis() + "ms, " +
-                                "previous lock details: [" + details + "] trying to lock for [" + details + "]");
+                throw new RuntimeException("obtaining context lock"+ asyncSearchContextId +"timed out after " + timeout.getMillis() + "ms, " +
+                                "previous lock details: [" + lockDetails + "] trying to lock for [" + details + "]");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -45,19 +65,19 @@ public class AsyncSearchContextPermit {
         }
     }
 
-    private void asyncAcquirePermit(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, ThreadPool threadPool, String reason)  {
+    private void asyncAcquirePermit(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout,  String reason)  {
         threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(new AbstractRunnable() {
-
             @Override
             public void onFailure(final Exception e) {
-               onAcquired.onFailure(e);
+                logger.debug(() -> new ParameterizedMessage("Failed to acquire permit {} for {}", permits, reason, e));
+                onAcquired.onFailure(e);
             }
 
             @Override
             protected void doRun()  {
                 final Releasable releasable = acquirePermits(permits, timeout, reason);
-                logger.info("Successfully acquired permit for {}", reason);
-                onAcquired.onResponse(() -> releasable.close());
+                logger.debug("Successfully acquired permit {} for {}", permits, reason);
+                onAcquired.onResponse(releasable::close);
             }
         });
     }
@@ -71,8 +91,8 @@ public class AsyncSearchContextPermit {
      * @param timeout the timeout within which the permit must be acquired or deemed failed
      * @param reason the reason for acquiring the permit
      */
-    public void asyncAcquirePermit(final ActionListener<Releasable> onAcquired, final TimeValue timeout, ThreadPool threadPool, String reason)  {
-        asyncAcquirePermit(1, onAcquired, timeout, threadPool, reason);
+    public void asyncAcquirePermit(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
+        asyncAcquirePermit(1, onAcquired, timeout, reason);
     }
 
     /***
@@ -84,7 +104,7 @@ public class AsyncSearchContextPermit {
      * @param timeout the timeout within which the permit must be acquired or deemed failed
      * @param reason the reason for acquiring the permit
      */
-    public void asyncAcquireAllPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, ThreadPool threadPool, String reason)  {
-        asyncAcquirePermit(TOTAL_PERMITS, onAcquired, timeout, threadPool, reason);
+    public void asyncAcquireAllPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
+        asyncAcquirePermit(TOTAL_PERMITS, onAcquired, timeout, reason);
     }
 }

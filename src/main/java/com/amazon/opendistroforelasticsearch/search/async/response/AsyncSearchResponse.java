@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.search.async.response;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.io.stream.StreamInput;
@@ -46,7 +47,9 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     private boolean isRunning;
     private long startTimeMillis;
     private long expirationTimeMillis;
+    @Nullable
     private SearchResponse searchResponse;
+    @Nullable
     private ElasticsearchException error;
 
     public boolean isRunning() {
@@ -65,7 +68,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         return error;
     }
 
-    public AsyncSearchResponse(String id,  boolean isRunning, long startTimeMillis, long expirationTimeMillis,
+    public AsyncSearchResponse(String id, boolean isRunning, long startTimeMillis, long expirationTimeMillis,
                                SearchResponse searchResponse, ElasticsearchException error) {
         this.id = id;
         this.isRunning = isRunning;
@@ -100,7 +103,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         if (error != null) {
             out.writeBoolean(true);
             out.writeException(error);
-
         } else {
             out.writeBoolean(false);
         }
@@ -145,7 +147,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
 
     @Override
     public RestStatus status() {
-        return searchResponse == null ? RestStatus.OK : searchResponse.status();
+        return searchResponse == null ? RestStatus.NOT_FOUND : searchResponse.status();
     }
 
     @Override

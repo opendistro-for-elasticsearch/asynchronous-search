@@ -30,6 +30,8 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.CollectionUtils;
 import org.elasticsearch.common.util.concurrent.ConcurrentMapLong;
 
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.DELETED;
+
 public class AsyncSearchActiveStore {
 
     private static Logger logger = LogManager.getLogger(AsyncSearchActiveStore.class);
@@ -87,10 +89,11 @@ public class AsyncSearchActiveStore {
     }
 
     public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
-        AsyncSearchContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
+        AsyncSearchActiveContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
         if (asyncSearchContext != null) {
             logger.debug("Removing {} from context map", asyncSearchContextId);
             activeContexts.remove(asyncSearchContextId.getId());
+            asyncSearchContext.setStage(DELETED);
             return true;
         }
         return false;

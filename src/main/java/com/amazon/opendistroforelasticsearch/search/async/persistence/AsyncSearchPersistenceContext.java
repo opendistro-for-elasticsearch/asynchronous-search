@@ -1,3 +1,18 @@
+/*
+ *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   or in the "license" file accompanying this file. This file is distributed
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *   express or implied. See the License for the specific language governing
+ *   permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.search.async.persistence;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
@@ -16,6 +31,9 @@ import org.elasticsearch.common.xcontent.XContentType;
 import java.io.IOException;
 import java.util.Objects;
 
+/**
+ * Represents a persisted version of {@link AsyncSearchContext} through a backing {@link AsyncSearchPersistenceModel}
+ */
 public class AsyncSearchPersistenceContext extends AsyncSearchContext {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceContext.class);
@@ -93,11 +111,6 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
     @Override
     public Stage getStage() {
         return Stage.PERSISTED;
-    }
-
-    @Override
-    public void setStage(Stage stage) {
-        throw new IllegalStateException("Persistence context stage "+ getStage() +" cannot be mutated");
     }
 
     @Override

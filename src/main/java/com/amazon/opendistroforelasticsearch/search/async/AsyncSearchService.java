@@ -28,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats
 import com.amazon.opendistroforelasticsearch.search.async.stats.InternalAsyncSearchStats;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchTask;
@@ -59,6 +60,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchCont
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.PERSIST_FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.RUNNING;
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.SUCCEEDED;
+
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
@@ -129,7 +131,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 System::currentTimeMillis);
         AsyncSearchActiveContext asyncSearchContext = new AsyncSearchActiveContext(asyncSearchContextId, clusterService.localNode().getId(),
                 submitAsyncSearchRequest.getKeepAlive(),
-                submitAsyncSearchRequest.keepOnCompletion(), progressActionListener, statsListener);
+                submitAsyncSearchRequest.keepOnCompletion(), threadPool, progressActionListener, statsListener);
         asyncSearchActiveStore.putContext(asyncSearchContextId, asyncSearchContext);
         return asyncSearchContext;
     }
@@ -193,7 +195,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      * @param listener             handles success or failure
      */
     public void freeContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<Boolean> listener) {
-        // TODO acquire lock so that when we delete we know that there is no active index transition happening.
+        // if there are no context found to be cleaned up we throw a ResourceNotFoundException
         GroupedActionListener<Boolean> groupedDeletionListener = new GroupedActionListener<>(
                 ActionListener.wrap((responses) -> {
                     if (responses.stream().anyMatch(r -> r)) {
@@ -202,28 +204,41 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         listener.onFailure(new ResourceNotFoundException(id));
                     }
                 }, listener::onFailure), 2);
-
-        //delete active context
         AsyncSearchActiveContext asyncSearchContext = asyncSearchActiveStore.getContext(asyncSearchContextId);
-        if (asyncSearchContext != null && asyncSearchContext.getTask() != null && asyncSearchContext.getTask().isCancelled() == false) {
-            client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(),
+        if (asyncSearchContext != null) {
+            //cancel any ongoing async search tasks
+            if (asyncSearchContext.getTask() != null && asyncSearchContext.getTask().isCancelled() == false) {
+                client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(),
                     asyncSearchContext.getTask().getId()))
                     .execute(ActionListener.wrap((response) -> {
-                                asyncSearchActiveStore.freeContext(asyncSearchContextId);
-                                groupedDeletionListener.onResponse(response.getTaskFailures().isEmpty() && asyncSearchActiveStore.freeContext(asyncSearchContextId));
+                                logger.debug("Task cancellation for async search context {}  succeeded with response () ",
+                                        asyncSearchContext.getAsyncSearchId(), response);
+                                asyncSearchContext.acquireContextPermit(ActionListener.wrap(
+                                        releasable -> {
+                                            groupedDeletionListener.onResponse(asyncSearchActiveStore.freeContext(asyncSearchContextId));
+                                            releasable.close();
+                                        }, listener::onFailure), TimeValue.timeValueSeconds(5), "free context");
                             },
                             (e) -> {
-                                asyncSearchActiveStore.freeContext(asyncSearchContextId);
-                                groupedDeletionListener.onResponse(false);
+                                asyncSearchContext.acquireContextPermit(ActionListener.wrap(
+                                        releasable -> {
+                                            groupedDeletionListener.onResponse(asyncSearchActiveStore.freeContext(asyncSearchContextId));
+                                            releasable.close();
+                                        }, listener::onFailure), TimeValue.timeValueSeconds(5), "free context");
+                                logger.debug(() -> new ParameterizedMessage("Unable to cancel async search task {}",
+                                        asyncSearchContext.getTask(), e));
                             }
                     ));
+            }
+            //free async search context if one exists
+            groupedDeletionListener.onResponse(asyncSearchActiveStore.freeContext(asyncSearchContextId));
         } else {
+            // async search context didn't exist so obviously we didn't delete
             groupedDeletionListener.onResponse(false);
         }
 
-        //deleted persisted context
+        //deleted persisted context if one exists. If not the listener returns acknowledged as false
         persistenceService.deleteResponse(id, groupedDeletionListener);
-
     }
 
     public void updateKeepAliveAndGetContext(GetAsyncSearchRequest request, AsyncSearchContextId asyncSearchContextId,
@@ -247,7 +262,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         }
                         releasable.close();
                     },
-                    listener::onFailure), TimeValue.timeValueSeconds(5), threadPool, "persisting response");
+                    listener::onFailure), TimeValue.timeValueSeconds(5), "persisting response");
         } else {
             // try update the doc on the index assuming there exists one.
             persistenceService.updateExpirationTimeAndGet(request.getId(), requestedExpirationTime,

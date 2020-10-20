@@ -18,14 +18,10 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.Nullable;
-import org.elasticsearch.common.lease.Releasable;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Objects;
 
@@ -63,17 +59,20 @@ public abstract class AsyncSearchContext {
         /**
          * The search execution has failed
          */
-        FAILED
+        FAILED,
+        /**
+         * The context has been deleted
+         */
+        DELETED
+
     }
 
     protected final AsyncSearchContextId asyncSearchContextId;
-    protected final AsyncSearchContextPermit asyncSearchContextPermit;
     protected volatile SearchProgressActionListener searchProgressActionListener;
 
     public AsyncSearchContext(AsyncSearchContextId asyncSearchContextId) {
         Objects.requireNonNull(asyncSearchContextId);
         this.asyncSearchContextId = asyncSearchContextId;
-        this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId);
     }
 
     public @Nullable SearchProgressActionListener getSearchProgressActionListener() { return searchProgressActionListener; }
@@ -101,13 +100,5 @@ public abstract class AsyncSearchContext {
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isRunning(), getStartTimeMillis(),
                 getExpirationTimeMillis(), getSearchResponse(), getSearchError());
-    }
-
-    public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, ThreadPool threadPool, String reason) {
-        asyncSearchContextPermit.asyncAcquirePermit(onPermitAcquired, timeout, threadPool, reason);
-    }
-
-    public void acquireAllContextPermits(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, ThreadPool threadPool, String reason) {
-        asyncSearchContextPermit.asyncAcquireAllPermits(onPermitAcquired, timeout, threadPool, reason);
     }
 }

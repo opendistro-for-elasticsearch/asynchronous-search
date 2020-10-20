@@ -83,11 +83,13 @@ public class AsyncSearchId {
         }
     }
 
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         return Objects.hash(this.asyncSearchContextId, this.node, this.taskId);
     }
 
-    @Override public boolean equals(Object o) {
+    @Override
+    public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         AsyncSearchId asyncSearchId = (AsyncSearchId) o;

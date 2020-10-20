@@ -1,14 +1,32 @@
+/*
+ *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   or in the "license" file accompanying this file. This file is distributed
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *   express or implied. See the License for the specific language governing
+ *   permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.search.async.active;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextPermit;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
+import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -35,9 +53,11 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     private volatile Stage stage;
     private AtomicReference<ElasticsearchException> error;
     private AtomicReference<SearchResponse> searchResponse;
+    private final AsyncSearchContextPermit asyncSearchContextPermit;
 
     public AsyncSearchActiveContext(AsyncSearchContextId asyncSearchContextId, String nodeId, TimeValue keepAlive, boolean keepOnCompletion,
-                                    AsyncSearchProgressListener searchProgressActionListener, AsyncSearchContextListener contextListener) {
+                                    ThreadPool threadPool, AsyncSearchProgressListener searchProgressActionListener,
+                                    AsyncSearchContextListener contextListener) {
         super(asyncSearchContextId);
         this.keepOnCompletion = keepOnCompletion;
         this.error = new AtomicReference<>();
@@ -50,6 +70,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.asyncSearchId = new SetOnce<>();
         this.contextListener = contextListener;
         this.completed = new AtomicBoolean(false);
+        this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId, threadPool);
     }
 
     @Override
@@ -173,6 +194,14 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
                     + stage + "] (expected [" + expected + "])");
         }
         stage = next;
+    }
+
+    public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
+        asyncSearchContextPermit.asyncAcquirePermit(onPermitAcquired, timeout, reason);
+    }
+
+    public void acquireAllContextPermits(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
+        asyncSearchContextPermit.asyncAcquireAllPermits(onPermitAcquired, timeout, reason);
     }
 
     @Override
