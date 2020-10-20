@@ -36,7 +36,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
 /***
@@ -48,19 +47,20 @@ import java.util.function.LongSupplier;
 public abstract class CompositeSearchResponseActionListener<T> extends SearchProgressActionListener {
 
     private final List<ActionListener<T>> actionListeners;
-    private final CheckedFunction<SearchResponse, T, Exception> function;
-    private final Consumer<Exception> onFailure;
+    private final CheckedFunction<SearchResponse, T, Exception> responseFunction;
+    private final CheckedFunction<Exception, T, Exception> failureFunction;
     private final Executor executor;
     private boolean complete;
     protected final PartialResultsHolder partialResultsHolder;
 
     private final Logger logger = LogManager.getLogger(getClass());
 
-    CompositeSearchResponseActionListener(CheckedFunction<SearchResponse, T, Exception> function, Consumer<Exception> onFailure,
+    CompositeSearchResponseActionListener(CheckedFunction<SearchResponse, T, Exception> responseFunction,
+                                          CheckedFunction<Exception, T, Exception> failureFunction,
                                           Executor executor, long relativeStartMillis, LongSupplier currentTimeSupplier) {
-        this.function = function;
+        this.responseFunction = responseFunction;
         this.executor = executor;
-        this.onFailure = onFailure;
+        this.failureFunction = failureFunction;
         this.actionListeners = new ArrayList<>(1);
         this.partialResultsHolder = new PartialResultsHolder(relativeStartMillis, currentTimeSupplier);
     }
@@ -93,12 +93,12 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
         //assert partial results match actual results on search completion
         assert partialResultsHolder.successfulShards.get() == searchResponse.getSuccessfulShards() : "successful shards mismatch";
         assert partialResultsHolder.reducePhase.get() == searchResponse.getNumReducePhases() : "reduce phase number mismatch";
-        assert partialResultsHolder.clusters.get() == searchResponse.getClusters(): "clusters mismatch";
+        assert partialResultsHolder.clusters.get() == searchResponse.getClusters() : "clusters mismatch";
         assert Arrays.equals(partialResultsHolder.shardSearchFailures.toArray(
                 new ShardSearchFailure[partialResultsHolder.failurePos.get()]), searchResponse.getShardFailures())
                 : "shard failures mismatch";
-        assert partialResultsHolder.skippedShards.get() == searchResponse.getSkippedShards(): "skipped shards mismatch";
-        assert partialResultsHolder.totalShards.get() == searchResponse.getTotalShards(): "total shards mismatch";
+        assert partialResultsHolder.skippedShards.get() == searchResponse.getSkippedShards() : "skipped shards mismatch";
+        assert partialResultsHolder.totalShards.get() == searchResponse.getTotalShards() : "total shards mismatch";
         assert partialResultsHolder.internalAggregations.get() == searchResponse.getAggregations();
         assert partialResultsHolder.totalHits.get() == searchResponse.getHits().getTotalHits();
 
@@ -106,7 +106,7 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
         executor.execute(() -> {
             T result;
             try {
-                result = function.apply(searchResponse);
+                result = responseFunction.apply(searchResponse);
                 List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
                 if (actionListenersToBeInvoked != null) {
                     for (ActionListener<T> listener : actionListenersToBeInvoked) {
@@ -128,21 +128,22 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
     public void onFailure(Exception e) {
         //immediately fork to a separate thread pool
         executor.execute(() -> {
+            T result;
             try {
-                onFailure.accept(e);
-            } catch (Exception ex) {
-                logger.warn(() -> new ParameterizedMessage("onFailure listener [{}] failed"), ex);
-            } finally {
+                result = failureFunction.apply(e);
                 List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
                 if (actionListenersToBeInvoked != null) {
                     for (ActionListener<T> listener : actionListenersToBeInvoked) {
                         try {
-                            listener.onFailure(e);
+                            listener.onResponse(result);
                         } catch (Exception ex) {
-                            logger.error(() -> new ParameterizedMessage("onFailure listener [{}] failed", listener), e);
+                            logger.error(() -> new ParameterizedMessage("onResponse listener [{}] failed", listener), e);
+                            listener.onFailure(ex);
                         }
                     }
                 }
+            } catch (Exception ex) {
+                logger.error(() -> new ParameterizedMessage("onResponse listener [{}] failed"), ex);
             }
         });
     }
@@ -161,7 +162,7 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
 
     public abstract SearchResponse partialResponse();
 
-     static class PartialResultsHolder {
+    static class PartialResultsHolder {
         final AtomicInteger reducePhase;
         final AtomicReference<TotalHits> totalHits;
         final AtomicReference<InternalAggregations> internalAggregations;

@@ -36,14 +36,16 @@ public class AsyncSearchPostProcessor {
         this.threadPool = threadPool;
     }
 
-    public void postProcessSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchResponse postProcessSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) {
         final AsyncSearchActiveContext asyncSearchContext = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContext != null) {
             asyncSearchContext.processSearchFailure(exception);
             if (asyncSearchContext.shouldPersist()) {
                 postProcess(asyncSearchContext, Optional.empty(), Optional.of(exception));
             }
+            return asyncSearchContext.getAsyncSearchResponse();
         }
+        return null;
     }
 
     public AsyncSearchResponse postProcessSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {

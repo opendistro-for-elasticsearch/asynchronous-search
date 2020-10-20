@@ -29,7 +29,6 @@ import org.elasticsearch.search.internal.InternalSearchResponse;
 
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
 
@@ -40,8 +39,9 @@ import java.util.function.LongSupplier;
 public class AsyncSearchProgressListener extends CompositeSearchResponseActionListener<AsyncSearchResponse> {
 
     public AsyncSearchProgressListener(long relativeStartMillis, CheckedFunction<SearchResponse, AsyncSearchResponse, Exception> function,
-                                       Consumer<Exception> onFailure, Executor executor, LongSupplier currentTimeSupplier) {
-        super(function, onFailure, executor, relativeStartMillis, currentTimeSupplier);
+                                       CheckedFunction<Exception, AsyncSearchResponse, Exception> failureFunction, Executor executor,
+                                       LongSupplier currentTimeSupplier) {
+        super(function, failureFunction, executor, relativeStartMillis, currentTimeSupplier);
     }
 
 
@@ -123,8 +123,8 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
     protected void onQueryResult(int shardIndex) {
         assert shardIndex < partialResultsHolder.totalShards.get();
         // query and fetch optimization for single shard
-        if (partialResultsHolder.hasFetchPhase.get() == false ||  partialResultsHolder.totalShards.get() == 1) {
-             partialResultsHolder.successfulShards.incrementAndGet();
+        if (partialResultsHolder.hasFetchPhase.get() == false || partialResultsHolder.totalShards.get() == 1) {
+            partialResultsHolder.successfulShards.incrementAndGet();
         }
     }
 }

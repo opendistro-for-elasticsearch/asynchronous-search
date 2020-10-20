@@ -19,8 +19,6 @@ import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchMana
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchManagementRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
@@ -31,18 +29,20 @@ import org.elasticsearch.transport.TransportService;
 
 public class TransportAsyncSearchManagementAction extends HandledTransportAction<AsyncSearchManagementRequest, AcknowledgedResponse> {
 
-    private static final Logger log = LogManager.getLogger(TransportAsyncSearchManagementAction.class);
     private final AsyncSearchPersistenceService persistenceService;
+    private final ThreadPool threadPool;
 
     @Inject
     public TransportAsyncSearchManagementAction(TransportService transportService,
-                                                ActionFilters actionFilters, AsyncSearchPersistenceService persistenceService) {
+                                                ActionFilters actionFilters, AsyncSearchPersistenceService persistenceService,
+                                                ThreadPool threadPool) {
         super(AsyncSearchManagementAction.NAME, transportService, actionFilters, AsyncSearchManagementRequest::new, ThreadPool.Names.MANAGEMENT);
         this.persistenceService = persistenceService;
+        this.threadPool = threadPool;
     }
 
     @Override
     protected void doExecute(Task task, AsyncSearchManagementRequest request, ActionListener<AcknowledgedResponse> listener) {
-        persistenceService.deleteExpiredResponses(listener);
+        persistenceService.deleteExpiredResponses(listener, threadPool.relativeTimeInMillis());
     }
 }
