@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.search.async.task.SubmitAsyncSearch
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
@@ -41,8 +42,11 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
     public static Boolean DEFAULT_REQUEST_CACHE = Boolean.TRUE;
 
 
+    @Nullable
     private TimeValue waitForCompletionTimeout = DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT;
+    @Nullable
     private Boolean keepOnCompletion = DEFAULT_KEEP_ON_COMPLETION;
+    @Nullable
     private TimeValue keepAlive = DEFAULT_KEEP_ALIVE;
 
     private final SearchRequest searchRequest;
@@ -121,16 +125,16 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
         if (searchRequest.isSuggestOnly()) {
             validationException.addValidationError("suggest-only queries are not supported");
         }
-//        if (searchRequest.isCcsMinimizeRoundtrips()) {
-//            validationException.addValidationError("[ccs_minimize_roundtrips] must be false, got: "
-//                    + searchRequest.isCcsMinimizeRoundtrips());
-//        }
+        if (searchRequest.scroll() != null) {
+            validationException.addValidationError("scrolls are not supported");
+        }
+        if (searchRequest.isCcsMinimizeRoundtrips()) {
+           validationException.addValidationError("[ccs_minimize_roundtrips] must be false, got: " + searchRequest.isCcsMinimizeRoundtrips());
+        }
         if (keepAlive != null && keepAlive.getMillis() < MIN_KEEP_ALIVE) {
             validationException.addValidationError("[keep_alive] must be greater than 1 minute, got: " + keepAlive.toString());
         }
-        if (validationException.validationErrors().isEmpty()) {
-            return null;
-        }
+        searchRequest.validate();
         return validationException;
     }
 
@@ -145,14 +149,14 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
         }
         SubmitAsyncSearchRequest request = (SubmitAsyncSearchRequest) o;
         return Objects.equals(searchRequest, request.searchRequest)
-                && Objects.equals(getKeepAlive(), request.getKeepAlive())
-                && Objects.equals(getWaitForCompletionTimeout(), request.getWaitForCompletionTimeout())
-                && Objects.equals(keepOnCompletion(), request.keepOnCompletion());
+                && Objects.equals(keepAlive, request.getKeepAlive())
+                && Objects.equals(waitForCompletionTimeout, request.getWaitForCompletionTimeout())
+                && Objects.equals(keepOnCompletion, request.keepOnCompletion());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(searchRequest, getKeepAlive(), getWaitForCompletionTimeout(), keepOnCompletion());
+        return Objects.hash(searchRequest, keepAlive, waitForCompletionTimeout, keepOnCompletion);
     }
 
     @Override
@@ -178,10 +182,5 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
             }
         };
         return submitAsyncSearchTask;
-    }
-
-    @Override
-    public void setParentTask(String parentTaskNode, long parentTaskId) {
-
     }
 }

@@ -21,6 +21,7 @@ import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.Nullable;
+import org.elasticsearch.common.util.set.Sets;
 
 import java.util.Collections;
 import java.util.Objects;
@@ -102,7 +103,7 @@ public abstract class AsyncSearchContext {
     }
 
     public Set<Stage> retainedStages() {
-        return Collections.unmodifiableSet(Set.of(Stage.INIT, Stage.RUNNING, Stage.SUCCEEDED, Stage.FAILED));
+        return Collections.unmodifiableSet(Sets.newHashSet(Stage.INIT, Stage.RUNNING, Stage.SUCCEEDED, Stage.FAILED));
     }
 
     public AsyncSearchResponse getAsyncSearchResponse() {

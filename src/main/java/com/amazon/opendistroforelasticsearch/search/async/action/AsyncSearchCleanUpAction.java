@@ -21,7 +21,7 @@ import org.elasticsearch.action.ActionType;
 public class AsyncSearchCleanUpAction extends ActionType<AcknowledgedResponse> {
 
     public static final AsyncSearchCleanUpAction INSTANCE = new AsyncSearchCleanUpAction();
-    public static final String NAME = "indices:data/read/async_search/management";
+    public static final String NAME = "indices:data/read/async_search/cleanup";
 
     private AsyncSearchCleanUpAction() {
         super(NAME, AcknowledgedResponse::new);

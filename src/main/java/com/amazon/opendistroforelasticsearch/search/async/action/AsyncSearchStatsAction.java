@@ -23,11 +23,8 @@ public class AsyncSearchStatsAction extends ActionType<AsyncSearchStatsResponse>
 
 
     public static final AsyncSearchStatsAction INSTANCE = new AsyncSearchStatsAction();
-    public static final String NAME = "cluster:admin/async_search_stats_action";
+    public static final String NAME = "cluster:admin/async_search/stats";
 
-    /**
-     * Constructor
-     */
     private AsyncSearchStatsAction() {
         super(NAME, AsyncSearchStatsResponse::new);
     }

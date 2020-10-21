@@ -14,7 +14,6 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Optional;
 
@@ -34,8 +33,9 @@ public class AsyncSearchPostProcessor {
     }
 
     public AsyncSearchResponse processSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) {
-        final AsyncSearchActiveContext asyncSearchContext = asyncSearchActiveStore.getContext(asyncSearchContextId);
-        if (asyncSearchContext != null) {
+        final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
+        if (asyncSearchContextOptional.isPresent()) {
+            AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
             asyncSearchContext.processSearchFailure(exception);
             if (asyncSearchContext.shouldPersist()) {
                 postProcess(asyncSearchContext, Optional.empty(), Optional.of(exception));
@@ -46,8 +46,9 @@ public class AsyncSearchPostProcessor {
     }
 
     public AsyncSearchResponse processSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
-        final AsyncSearchActiveContext asyncSearchContext = asyncSearchActiveStore.getContext(asyncSearchContextId);
-        if (asyncSearchContext != null) {
+        final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
+        if (asyncSearchContextOptional.isPresent()) {
+            AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
             asyncSearchContext.processSearchSuccess(searchResponse);
             if (asyncSearchContext.shouldPersist()) {
                 postProcess(asyncSearchContext, Optional.of(searchResponse), Optional.empty());
@@ -84,6 +85,7 @@ public class AsyncSearchPostProcessor {
 
                             (e) -> {
                                 asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSIST_FAILED);
+                                //TODO should we wait or retry after some time or after an event
                                 logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
                                 releasable.close();
                             }

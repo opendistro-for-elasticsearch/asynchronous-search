@@ -54,7 +54,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.*;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.PERSISTED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.RUNNING;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
@@ -81,7 +82,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private final InternalAsyncSearchStats statsListener;
     private final AsyncSearchActiveStore asyncSearchActiveStore;
     private final AsyncSearchPostProcessor asyncSearchPostProcessor;
-    private final Scheduler.Cancellable keepAliveReaper;
+    private final Scheduler.Cancellable contextReaper;
     private final LongSupplier currentTimeSupplier;
 
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService,
@@ -97,7 +98,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.asyncSearchActiveStore = new AsyncSearchActiveStore(clusterService);
         this.currentTimeSupplier = threadPool::absoluteTimeInMillis;
         this.asyncSearchPostProcessor = new AsyncSearchPostProcessor(asyncSearchPersistenceService, asyncSearchActiveStore);
-        this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new ContextReaper(), KEEPALIVE_INTERVAL_SETTING.get(settings),
+        // every node cleans up it's own in-memory context which should either be discarded or has expired
+        this.contextReaper = threadPool.scheduleWithFixedDelay(new ContextReaper(), KEEPALIVE_INTERVAL_SETTING.get(settings),
                 AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
     }
 
@@ -182,10 +184,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(),
                     asyncSearchContext.getTask().getId()))
                     .execute(ActionListener.wrap((response) -> {
-                                logger.debug("Task cancellation for async search context {}  succeeded with response () ",
+                                logger.debug("Task cancellation for async search context {}  succeeded with response {} ",
                                         asyncSearchContext.getAsyncSearchId(), response);
+                                //Intent of the lock here is to disallow ongoing migration to system index
+                                // as if that is underway we might end up deleting the in-memory and stored response
+                                // while the migration would end up creating a new document
                                 asyncSearchContext.acquireContextPermit(ActionListener.wrap(
                                         releasable -> {
+                                            //free context marks the context as DELETED
                                             groupedDeletionListener.onResponse(asyncSearchActiveStore.freeContext(asyncSearchContextId));
                                             releasable.close();
                                         }, listener::onFailure), TimeValue.timeValueSeconds(5), "free context");
@@ -195,6 +201,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                                         releasable -> {
                                             groupedDeletionListener.onResponse(asyncSearchActiveStore.freeContext(asyncSearchContextId));
                                             releasable.close();
+                                            //TODO introduce request timeouts to make the permit wait transparent to the client
                                         }, listener::onFailure), TimeValue.timeValueSeconds(5), "free context");
                                 logger.debug(() -> new ParameterizedMessage("Unable to cancel async search task {}",
                                         asyncSearchContext.getTask(), e));
@@ -209,6 +216,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         }
 
         //deleted persisted context if one exists. If not the listener returns acknowledged as false
+        //we don't need to acquire lock if the in-memory context doesn't exist. For persistence context we have a distributed view
+        //with the last writer wins policy
         persistenceService.deleteResponse(id, groupedDeletionListener);
     }
 
@@ -232,6 +241,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         }
                         releasable.close();
                     },
+                    //TODO introduce request timeouts to make the permit wait transparent to the client
                     listener::onFailure), TimeValue.timeValueSeconds(5), "persisting response");
         } else {
             // try update the doc on the index assuming there exists one.
@@ -274,7 +284,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     @Override
     protected void doClose() {
         doStop();
-        keepAliveReaper.cancel();
+        contextReaper.cancel();
     }
 
     /***

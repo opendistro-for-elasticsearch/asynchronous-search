@@ -46,11 +46,6 @@ public class InternalAsyncSearchStats implements AsyncSearchContextListener {
         countStatsHolder.runningAsyncSearchCount.dec();
     }
 
-    @Override
-    public void onContextCancelled(AsyncSearchContextId context) {
-        countStatsHolder.abortedAsyncSearchCount.inc();
-    }
-
     public AsyncSearchStats stats(boolean count, DiscoveryNode node) {
         return new AsyncSearchStats(node, countStatsHolder.countStats());
     }
@@ -58,13 +53,11 @@ public class InternalAsyncSearchStats implements AsyncSearchContextListener {
     static final class CountStatsHolder {
         final CounterMetric runningAsyncSearchCount = new CounterMetric();
         final CounterMetric persistedAsyncSearchCount = new CounterMetric();
-        final CounterMetric abortedAsyncSearchCount = new CounterMetric();
         final CounterMetric failedAsyncSearchCount = new CounterMetric();
         final CounterMetric completedAsyncSearchCount = new CounterMetric();
 
         public AsyncSearchStatusStats countStats() {
-            return new AsyncSearchStatusStats(runningAsyncSearchCount.count(), abortedAsyncSearchCount.count(),
-                    persistedAsyncSearchCount.count(),
+            return new AsyncSearchStatusStats(runningAsyncSearchCount.count(), persistedAsyncSearchCount.count(),
                     completedAsyncSearchCount.count(), failedAsyncSearchCount.count());
         }
     }

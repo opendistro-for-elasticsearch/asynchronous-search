@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.request;
 
 import org.elasticsearch.action.ActionRequestValidationException;
+import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.unit.TimeValue;
 
@@ -26,7 +27,9 @@ public class GetAsyncSearchRequest extends FetchAsyncSearchRequest<GetAsyncSearc
     public static final TimeValue DEFAULT_KEEP_ALIVE = TimeValue.timeValueDays(5);
     public static final TimeValue DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT = TimeValue.timeValueSeconds(1);
 
+    @Nullable
     private TimeValue waitForCompletionTimeout = DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT;
+    @Nullable
     private TimeValue keepAlive;
 
     public GetAsyncSearchRequest(String id) {
