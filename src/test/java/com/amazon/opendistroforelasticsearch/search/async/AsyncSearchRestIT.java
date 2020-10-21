@@ -17,7 +17,8 @@ import java.util.concurrent.TimeUnit;
 
 public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
 
-    @Test public void submitAsyncSearchAndGetAndDelete() throws Exception {
+    @Test
+    public void submitAsyncSearchAndGetAndDelete() throws Exception {
         AsyncSearchResponse submitResponse = submitAsyncSearchApi(null);
         GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
 
@@ -36,12 +37,13 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         assertEquals(response.getStatusLine().getStatusCode(), 200);
 
         //        //verify get, delete after deletion throw 404
-        //        assert404(deleteAsyncSearchRequest, super::deleteAsyncSearchApi);
-        //        assert404(getAsyncSearchRequest, super::getAsyncSearchApi);
+        assert404(deleteAsyncSearchRequest, super::deleteAsyncSearchApi);
+        assert404(getAsyncSearchRequest, super::getAsyncSearchApi);
 
     }
 
-    @Test public void submitAsyncSearchWithMatchQuery() throws IOException {
+    @Test
+    public void submitAsyncSearchWithMatchQuery() throws IOException {
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("test");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("num", 10)));
@@ -58,7 +60,8 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         assertEquals(getResponse.getSearchResponse().getHits().getHits().length, 1);
     }
 
-    @Test public void submitAsyncSearchUpdateKeepAliveWithGet() throws IOException {
+    @Test
+    public void submitAsyncSearchUpdateKeepAliveWithGet() throws IOException {
         //create async search with default keep alive
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("test");

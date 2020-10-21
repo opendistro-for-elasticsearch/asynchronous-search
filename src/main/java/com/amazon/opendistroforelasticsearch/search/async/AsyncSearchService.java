@@ -147,7 +147,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         Map<Long, AsyncSearchActiveContext> allContexts = asyncSearchActiveStore.getAllContexts();
         return Collections.unmodifiableSet(allContexts.values().stream()
                 .filter(Objects::nonNull)
-                .filter(context -> threadPool.relativeTimeInMillis() < context.getExpirationTimeMillis())
+                .filter(context -> threadPool.absoluteTimeInMillis() > context.getExpirationTimeMillis())
                 .filter(context -> context.getTask().isCancelled() == false)
                 .map(AsyncSearchActiveContext::getTask)
                 .collect(Collectors.toSet()));

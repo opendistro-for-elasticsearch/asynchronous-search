@@ -122,7 +122,7 @@ public class AsyncSearchPersistenceService {
         }
 
         client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id), ActionListener.wrap(deleteResponse -> {
-            if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED || deleteResponse.getResult() == DocWriteResponse.Result.NOT_FOUND) {
+            if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED) {
                 logger.debug("Deleted async search {}", id);
                 listener.onResponse(true);
             } else {
@@ -130,13 +130,13 @@ public class AsyncSearchPersistenceService {
                 listener.onResponse(false);
             }
         }, e -> {
-                    if (ExceptionsHelper.unwrapCause(e) instanceof DocumentMissingException) {
-                        logger.debug("Async search response doc already deleted {}", id);
-                        listener.onResponse(false);
-                    } else {
-                        logger.error("Failed to delete async search " + id, e);
-                        listener.onFailure(e);
-                    }
+            if (ExceptionsHelper.unwrapCause(e) instanceof DocumentMissingException) {
+                logger.debug("Async search response doc already deleted {}", id);
+                listener.onResponse(false);
+            } else {
+                logger.error("Failed to delete async search " + id, e);
+                listener.onFailure(e);
+            }
         }));
     }
 
@@ -158,14 +158,14 @@ public class AsyncSearchPersistenceService {
             switch (updateResponse.getResult()) {
                 case UPDATED:
                 case NOOP:
-                   try {
-                       XContentParser parser = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                               updateResponse.getGetResult().sourceRef(), Requests.INDEX_CONTENT_TYPE);
-                       listener.onResponse(AsyncSearchPersistenceModel.PARSER.apply(parser, null));
-                   } catch (IOException e) {
-                       logger.error("IOException occurred finding lock", e);
-                       listener.onFailure(new IOException(id));
-                   }
+                    try {
+                        XContentParser parser = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                                updateResponse.getGetResult().sourceRef(), Requests.INDEX_CONTENT_TYPE);
+                        listener.onResponse(AsyncSearchPersistenceModel.PARSER.apply(parser, null));
+                    } catch (IOException e) {
+                        logger.error("IOException occurred finding lock", e);
+                        listener.onFailure(new IOException(id));
+                    }
                     break;
                 case NOT_FOUND:
                 case DELETED:
