@@ -24,7 +24,6 @@ import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.ShardSearchFailure;
-import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.common.util.concurrent.AtomicArray;
 import org.elasticsearch.search.aggregations.InternalAggregations;
@@ -36,6 +35,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 
 /***
@@ -47,16 +47,16 @@ import java.util.function.LongSupplier;
 public abstract class CompositeSearchResponseActionListener<T> extends SearchProgressActionListener {
 
     private final List<ActionListener<T>> actionListeners;
-    private final CheckedFunction<SearchResponse, T, Exception> responseFunction;
-    private final CheckedFunction<Exception, T, Exception> failureFunction;
+    private final Function<SearchResponse, T> responseFunction;
+    private final Function<Exception, T> failureFunction;
     private final Executor executor;
     private boolean complete;
     protected final PartialResultsHolder partialResultsHolder;
 
     private final Logger logger = LogManager.getLogger(getClass());
 
-    CompositeSearchResponseActionListener(CheckedFunction<SearchResponse, T, Exception> responseFunction,
-                                          CheckedFunction<Exception, T, Exception> failureFunction,
+    CompositeSearchResponseActionListener(Function<SearchResponse, T> responseFunction,
+                                          Function<Exception, T> failureFunction,
                                           Executor executor, long relativeStartMillis, LongSupplier currentTimeSupplier) {
         this.responseFunction = responseFunction;
         this.executor = executor;
