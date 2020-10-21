@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.reaper.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchProgressActionListener;
@@ -23,7 +22,10 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.Nullable;
 
+import java.util.Collections;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.LongSupplier;
 
 
 public abstract class AsyncSearchContext {
@@ -45,9 +47,9 @@ public abstract class AsyncSearchContext {
          */
         SUCCEEDED,
         /**
-         * The search has been cancelled either by the user, task API cancel or {@link AsyncSearchManagementService}
+         * The search execution has failed
          */
-        ABORTED,
+        FAILED,
         /**
          * The context has been persisted to system index
          */
@@ -57,10 +59,6 @@ public abstract class AsyncSearchContext {
          */
         PERSIST_FAILED,
         /**
-         * The search execution has failed
-         */
-        FAILED,
-        /**
          * The context has been deleted
          */
         DELETED
@@ -68,11 +66,13 @@ public abstract class AsyncSearchContext {
     }
 
     protected final AsyncSearchContextId asyncSearchContextId;
+    protected final LongSupplier currentTimeSupplier;
     protected volatile SearchProgressActionListener searchProgressActionListener;
 
-    public AsyncSearchContext(AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchContext(AsyncSearchContextId asyncSearchContextId, LongSupplier currentTimeSupplier) {
         Objects.requireNonNull(asyncSearchContextId);
         this.asyncSearchContextId = asyncSearchContextId;
+        this.currentTimeSupplier = currentTimeSupplier;
     }
 
     public @Nullable SearchProgressActionListener getSearchProgressActionListener() { return searchProgressActionListener; }
@@ -96,6 +96,14 @@ public abstract class AsyncSearchContext {
     public abstract @Nullable SearchResponse getSearchResponse();
 
     public abstract @Nullable ElasticsearchException getSearchError();
+
+    public boolean isExpired() {
+        return getExpirationTimeMillis() < currentTimeSupplier.getAsLong();
+    }
+
+    public Set<Stage> retainedStages() {
+        return Collections.unmodifiableSet(Set.of(Stage.INIT, Stage.RUNNING, Stage.SUCCEEDED, Stage.FAILED));
+    }
 
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isRunning(), getStartTimeMillis(),

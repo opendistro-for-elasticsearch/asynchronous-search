@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.search.async.active;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
@@ -61,26 +62,15 @@ public class AsyncSearchActiveStore {
         activeContexts.put(asyncSearchContextId.getId(), asyncSearchContext);
     }
 
-    public AsyncSearchActiveContext getContext(AsyncSearchContextId contextId) {
+    public Optional<AsyncSearchActiveContext> getContext(AsyncSearchContextId contextId) {
         AsyncSearchActiveContext context = activeContexts.get(contextId.getId());
         if (context == null) {
-            return null;
+            return Optional.empty();
         }
         if (context.getAsyncSearchContextId().getContextId().equals(contextId.getContextId())) {
-            return context;
+            return Optional.of(context);
         }
-        return null;
-    }
-
-    public AsyncSearchActiveContext getContext(AsyncSearchContextId contextId, Predicate<AsyncSearchActiveContext.Stage> predicate) {
-        AsyncSearchActiveContext context = activeContexts.get(contextId.getId());
-        if (context == null) {
-            return null;
-        }
-        if (context.getAsyncSearchContextId().getContextId().equals(contextId.getContextId())) {
-            return predicate.test(context.getStage()) ? context : null;
-        }
-        return null;
+        return Optional.empty();
     }
 
 

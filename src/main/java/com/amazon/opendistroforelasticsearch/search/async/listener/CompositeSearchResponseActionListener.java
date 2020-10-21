@@ -137,13 +137,13 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
                         try {
                             listener.onResponse(result);
                         } catch (Exception ex) {
-                            logger.error(() -> new ParameterizedMessage("onResponse listener [{}] failed", listener), e);
+                            logger.error(() -> new ParameterizedMessage("onFailure listener [{}] failed", listener), e);
                             listener.onFailure(ex);
                         }
                     }
                 }
             } catch (Exception ex) {
-                logger.error(() -> new ParameterizedMessage("onResponse listener [{}] failed"), ex);
+                logger.error(() -> new ParameterizedMessage("onFailure listener [{}] failed"), ex);
             }
         });
     }
@@ -177,10 +177,10 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
         final AtomicInteger failurePos;
         final AtomicBoolean hasFetchPhase;
         final long relativeStartMillis;
-        final LongSupplier currentTimeSupplier;
+        final LongSupplier relativeTimeSupplier;
 
 
-        PartialResultsHolder(long relativeStartMillis, LongSupplier currentTimeSupplier) {
+        PartialResultsHolder(long relativeStartMillis, LongSupplier relativeTimeSupplier) {
             this.internalAggregations = new AtomicReference<>();
             this.shardSearchFailures = new AtomicArray<>(0);
             this.totalShards = new AtomicInteger();
@@ -195,7 +195,7 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
             this.delayedInternalAggregations = new AtomicReference<>();
             this.relativeStartMillis = relativeStartMillis;
             this.shards = new AtomicReference<>();
-            this.currentTimeSupplier = currentTimeSupplier;
+            this.relativeTimeSupplier = relativeTimeSupplier;
         }
     }
 }

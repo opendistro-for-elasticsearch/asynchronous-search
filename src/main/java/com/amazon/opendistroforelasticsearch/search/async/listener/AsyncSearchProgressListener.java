@@ -40,8 +40,8 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
 
     public AsyncSearchProgressListener(long relativeStartMillis, Function<SearchResponse, AsyncSearchResponse> function,
                                        Function<Exception, AsyncSearchResponse> failureFunction, Executor executor,
-                                       LongSupplier currentTimeSupplier) {
-        super(function, failureFunction, executor, relativeStartMillis, currentTimeSupplier);
+                                       LongSupplier relativeTimeSupplier) {
+        super(function, failureFunction, executor, relativeStartMillis, relativeTimeSupplier);
     }
 
 
@@ -61,7 +61,7 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
                     null, null, false, false, partialResultsHolder.reducePhase.get());
             ShardSearchFailure[] shardSearchFailures =
                     partialResultsHolder.shardSearchFailures.toArray(new ShardSearchFailure[partialResultsHolder.failurePos.get()]);
-            long tookInMillis = partialResultsHolder.currentTimeSupplier.getAsLong() - partialResultsHolder.relativeStartMillis;
+            long tookInMillis = partialResultsHolder.relativeTimeSupplier.getAsLong() - partialResultsHolder.relativeStartMillis;
             return new SearchResponse(internalSearchResponse, null, partialResultsHolder.totalShards.get(),
                     partialResultsHolder.successfulShards.get(),
                     partialResultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures, partialResultsHolder.clusters.get());

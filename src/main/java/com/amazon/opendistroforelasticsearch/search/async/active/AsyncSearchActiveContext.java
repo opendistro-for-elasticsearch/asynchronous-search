@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.search.async.active;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextPermit;
 import org.apache.lucene.util.SetOnce;
@@ -56,16 +57,15 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     private final AsyncSearchContextPermit asyncSearchContextPermit;
 
     public AsyncSearchActiveContext(AsyncSearchContextId asyncSearchContextId, String nodeId, TimeValue keepAlive, boolean keepOnCompletion,
-                                    ThreadPool threadPool, AsyncSearchProgressListener searchProgressActionListener,
+                                    ThreadPool threadPool, LongSupplier currentTimeSupplier, AsyncSearchProgressListener searchProgressActionListener,
                                     AsyncSearchContextListener contextListener) {
-        super(asyncSearchContextId);
+        super(asyncSearchContextId, currentTimeSupplier);
         this.keepOnCompletion = keepOnCompletion;
         this.error = new AtomicReference<>();
         this.searchResponse = new AtomicReference<>();
         this.keepAlive = keepAlive;
         this.nodeId = nodeId;
         this.searchProgressActionListener = searchProgressActionListener;
-        this.startTimeMillis = threadPool.absoluteTimeInMillis();
         this.searchTask = new SetOnce<>();
         this.asyncSearchId = new SetOnce<>();
         this.contextListener = contextListener;
@@ -89,6 +89,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         searchTask.setProgressListener(searchProgressActionListener);
         this.searchTask.set(searchTask);
         this.startTimeMillis = searchTask.getStartTime();
+        this.expirationTimeMillis = startTimeMillis + keepAlive.getMillis();
         this.asyncSearchId.set(new AsyncSearchId(nodeId, searchTask.getId(), getAsyncSearchContextId()));
         this.setStage(Stage.INIT);
     }
@@ -106,7 +107,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     }
 
     public boolean shouldPersist() {
-        return keepOnCompletion;
+        return keepOnCompletion && isExpired() == false;
     }
 
     public void processSearchFailure(Exception e) {
@@ -169,11 +170,6 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
                 assert searchTask.get() == null || searchTask.get().isCancelled() == false : "search task is cancelled";
                 validateAndSetStage(Stage.RUNNING, stage);
                 contextListener.onContextCompleted(getAsyncSearchContextId());
-                break;
-            case ABORTED:
-                assert searchTask.get() == null || searchTask.get().isCancelled() : "search task should be cancelled";
-                validateAndSetStage(Stage.RUNNING, stage);
-                contextListener.onContextCancelled(getAsyncSearchContextId());
                 break;
             case FAILED:
                 validateAndSetStage(Stage.RUNNING, stage);

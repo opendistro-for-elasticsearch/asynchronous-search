@@ -39,14 +39,6 @@ public interface AsyncSearchContextListener {
     }
 
     /**
-     * Executed when a previously created async search context is cancelled.
-     *
-     * @param context the freed search context
-     */
-    default void onContextCancelled(AsyncSearchContextId context) {
-    }
-
-    /**
      *
      * @param contextId contextId
      */

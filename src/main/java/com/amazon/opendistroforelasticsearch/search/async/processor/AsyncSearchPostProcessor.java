@@ -27,16 +27,13 @@ public class AsyncSearchPostProcessor {
 
     private final AsyncSearchPersistenceService asyncSearchPersistenceService;
     private final AsyncSearchActiveStore asyncSearchActiveStore;
-    private final ThreadPool threadPool;
 
-    public AsyncSearchPostProcessor(AsyncSearchPersistenceService asyncSearchPersistenceService, AsyncSearchActiveStore asyncSearchActiveStore,
-                                    ThreadPool threadPool) {
+    public AsyncSearchPostProcessor(AsyncSearchPersistenceService asyncSearchPersistenceService, AsyncSearchActiveStore asyncSearchActiveStore) {
         this.asyncSearchActiveStore = asyncSearchActiveStore;
         this.asyncSearchPersistenceService = asyncSearchPersistenceService;
-        this.threadPool = threadPool;
     }
 
-    public AsyncSearchResponse postProcessSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchResponse processSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) {
         final AsyncSearchActiveContext asyncSearchContext = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContext != null) {
             asyncSearchContext.processSearchFailure(exception);
@@ -48,7 +45,7 @@ public class AsyncSearchPostProcessor {
         return null;
     }
 
-    public AsyncSearchResponse postProcessSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchResponse processSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
         final AsyncSearchActiveContext asyncSearchContext = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContext != null) {
             asyncSearchContext.processSearchSuccess(searchResponse);
@@ -61,6 +58,7 @@ public class AsyncSearchPostProcessor {
     }
 
     private void postProcess(AsyncSearchActiveContext asyncSearchContext, Optional<SearchResponse> searchResponse, Optional<Exception> exception) {
+        assert asyncSearchContext.retainedStages().contains(asyncSearchContext.getStage()) : "found stage "+ asyncSearchContext.getStage() + "that shouldn't be retained";
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
             // check again after acquiring permit if the context has been deleted mean while
             if (asyncSearchContext.getStage() == AsyncSearchContext.Stage.DELETED) {

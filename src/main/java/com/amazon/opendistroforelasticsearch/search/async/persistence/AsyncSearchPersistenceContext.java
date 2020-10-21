@@ -30,6 +30,7 @@ import org.elasticsearch.common.xcontent.XContentType;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.function.LongSupplier;
 
 /**
  * Represents a persisted version of {@link AsyncSearchContext} through a backing {@link AsyncSearchPersistenceModel}
@@ -41,8 +42,9 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
     private final AsyncSearchId asyncSearchId;
     private final AsyncSearchPersistenceModel asyncSearchPersistenceModel;
 
-    public AsyncSearchPersistenceContext(AsyncSearchId asyncSearchId, AsyncSearchPersistenceModel asyncSearchPersistenceModel) {
-        super(asyncSearchId.getAsyncSearchContextId());
+    public AsyncSearchPersistenceContext(AsyncSearchId asyncSearchId, AsyncSearchPersistenceModel asyncSearchPersistenceModel,
+                                         LongSupplier currentTimeSupplier) {
+        super(asyncSearchId.getAsyncSearchContextId(), currentTimeSupplier);
         this.asyncSearchId = asyncSearchId;
         this.asyncSearchPersistenceModel = asyncSearchPersistenceModel;
     }

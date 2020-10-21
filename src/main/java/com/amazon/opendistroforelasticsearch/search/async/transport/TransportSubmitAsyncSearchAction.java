@@ -71,8 +71,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
         AtomicReference<Runnable> advanceStage = new AtomicReference<>();
         try {
-            final long absoluteTimeInMillis = threadPool.absoluteTimeInMillis();
-            AsyncSearchContext asyncSearchContext = asyncSearchService.prepareContext(request.getKeepAlive(), request.keepOnCompletion(), absoluteTimeInMillis);
+            final long relativeStartTimeInMillis = threadPool.relativeTimeInMillis();
+            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndStoreContext(request.getKeepAlive(), request.keepOnCompletion(), relativeStartTimeInMillis);
             Objects.requireNonNull(asyncSearchContext.getSearchProgressActionListener(), "missing progress listener for an active context");
             AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener) asyncSearchContext.getSearchProgressActionListener();
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
