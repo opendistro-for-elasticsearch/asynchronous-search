@@ -7,6 +7,7 @@ import com.amazon.opendistroforelasticsearch.search.async.active.AsyncSearchActi
 import com.amazon.opendistroforelasticsearch.search.async.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,6 +17,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.unit.TimeValue;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -29,6 +31,8 @@ public class AsyncSearchPostProcessor {
     private final AsyncSearchActiveStore asyncSearchActiveStore;
 
     public AsyncSearchPostProcessor(AsyncSearchPersistenceService asyncSearchPersistenceService, AsyncSearchActiveStore asyncSearchActiveStore) {
+        Objects.requireNonNull(asyncSearchActiveStore);
+        Objects.requireNonNull(asyncSearchPersistenceService);
         this.asyncSearchActiveStore = asyncSearchActiveStore;
         this.asyncSearchPersistenceService = asyncSearchPersistenceService;
     }
@@ -66,7 +70,10 @@ public class AsyncSearchPostProcessor {
     }
 
     private void postProcess(AsyncSearchActiveContext asyncSearchContext, AsyncSearchPersistenceModel persistenceModel) {
+        //assert we are not post processing on any other thread pool
+        assert Thread.currentThread().getName().contains(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
         assert asyncSearchContext.retainedStages().contains(asyncSearchContext.getStage()) : "found stage "+ asyncSearchContext.getStage() + "that shouldn't be retained";
+        // acquire all permits non-blocking
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
             // check again after acquiring permit if the context has been deleted mean while
             if (asyncSearchContext.getStage() == AsyncSearchContext.Stage.DELETED) {

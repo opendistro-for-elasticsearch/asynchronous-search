@@ -106,46 +106,56 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
 
         //immediately fork to a separate thread pool
         executor.execute(() -> {
-            T result;
-            try {
-                result = responseFunction.apply(searchResponse);
-                List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
-                if (actionListenersToBeInvoked != null) {
+        T result;
+            List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
+            if (actionListenersToBeInvoked != null) {
+                try {
+                    result = responseFunction.apply(searchResponse);
                     for (ActionListener<T> listener : actionListenersToBeInvoked) {
                         try {
                             listener.onResponse(result);
                         } catch (Exception e) {
-                            logger.error(() -> new ParameterizedMessage("onResponse listener [{}] failed", listener), e);
-                            listener.onFailure(e);
+                            logger.error(() -> new ParameterizedMessage("search response on response listener [{}] failed", listener), e);
+                        }
+                    }
+                } catch (Exception ex) {
+                    for (ActionListener<T> listener : actionListenersToBeInvoked) {
+                        try {
+                            listener.onFailure(ex);
+                        } catch (Exception e) {
+                            logger.error(() -> new ParameterizedMessage("search response on failure listener [{}] failed", listener), e);
                         }
                     }
                 }
-            } catch (Exception ex) {
-                logger.error(() -> new ParameterizedMessage("onResponse listener [{}] failed"), ex);
             }
         });
     }
 
     @Override
-    public void onFailure(Exception e) {
+    public void onFailure(Exception exception) {
         //immediately fork to a separate thread pool
         executor.execute(() -> {
             T result;
-            try {
-                result = failureFunction.apply(e);
-                List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
-                if (actionListenersToBeInvoked != null) {
+            List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
+            if (actionListenersToBeInvoked != null) {
+                try {
+                    result = failureFunction.apply(exception);
                     for (ActionListener<T> listener : actionListenersToBeInvoked) {
                         try {
                             listener.onResponse(result);
-                        } catch (Exception ex) {
-                            logger.error(() -> new ParameterizedMessage("onFailure listener [{}] failed", listener), e);
+                        } catch (Exception e) {
+                            logger.error(() -> new ParameterizedMessage("search failure on response listener [{}] failed", listener), e);
+                        }
+                    }
+                } catch (Exception ex) {
+                    for (ActionListener<T> listener : actionListenersToBeInvoked) {
+                        try {
                             listener.onFailure(ex);
+                        } catch (Exception e) {
+                            logger.error(() -> new ParameterizedMessage("search failure on failure listener [{}] failed", listener), e);
                         }
                     }
                 }
-            } catch (Exception ex) {
-                logger.error(() -> new ParameterizedMessage("onFailure listener [{}] failed"), ex);
             }
         });
     }

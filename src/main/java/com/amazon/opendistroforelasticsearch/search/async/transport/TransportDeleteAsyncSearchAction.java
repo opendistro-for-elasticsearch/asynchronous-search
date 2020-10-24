@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.client.Client;
@@ -47,6 +48,7 @@ public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchA
             asyncSearchService.freeContext(request.getId(), asyncSearchId, ActionListener
                     .wrap((complete) -> listener.onResponse(new AcknowledgedResponse(complete)), listener::onFailure));
         } catch (Exception e) {
+            logger.error(() -> new ParameterizedMessage("Unable to delete async search request {}", request, e));
             listener.onFailure(e);
         }
     }
