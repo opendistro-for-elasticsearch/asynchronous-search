@@ -24,10 +24,12 @@ import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.common.util.concurrent.AtomicArray;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -47,16 +49,16 @@ import java.util.function.LongSupplier;
 public abstract class CompositeSearchResponseActionListener<T> extends SearchProgressActionListener {
 
     private final List<ActionListener<T>> actionListeners;
-    private final Function<SearchResponse, T> responseFunction;
-    private final Function<Exception, T> failureFunction;
+    private final CheckedFunction<SearchResponse, T, IOException> responseFunction;
+    private final CheckedFunction<Exception, T, IOException> failureFunction;
     private final Executor executor;
     private boolean complete;
     protected final PartialResultsHolder partialResultsHolder;
 
     private final Logger logger = LogManager.getLogger(getClass());
 
-    CompositeSearchResponseActionListener(Function<SearchResponse, T> responseFunction,
-                                          Function<Exception, T> failureFunction,
+    CompositeSearchResponseActionListener(CheckedFunction<SearchResponse, T, IOException> responseFunction,
+                                          CheckedFunction<Exception, T, IOException> failureFunction,
                                           Executor executor, long relativeStartMillis, LongSupplier currentTimeSupplier) {
         this.responseFunction = responseFunction;
         this.executor = executor;

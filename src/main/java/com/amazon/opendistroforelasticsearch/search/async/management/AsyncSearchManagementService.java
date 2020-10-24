@@ -13,7 +13,7 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async.reaper;
+package com.amazon.opendistroforelasticsearch.search.async.management;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchCleanUpAction;
@@ -35,6 +35,7 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -123,8 +124,12 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
         @Override
         public void run() {
-            try {
+            final ThreadContext threadContext = threadPool.getThreadContext();
+            try (ThreadContext.StoredContext ignore = threadContext.stashContext()) {
+                // we have to execute under the system context so that if security is enabled the sync is authorized
+                threadContext.markAsSystemContext();
                 Set<SearchTask> toCancel = asyncSearchService.getOverRunningTasks();
+                // don't block on response
                 toCancel.forEach(
                         task -> client.admin().cluster()
                                 .prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(), task.getId()))
@@ -145,7 +150,10 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
         @Override
         public void run() {
-            try {
+            final ThreadContext threadContext = threadPool.getThreadContext();
+            try (ThreadContext.StoredContext ignore = threadContext.stashContext()) {
+                // we have to execute under the system context so that if security is enabled the sync is authorized
+                threadContext.markAsSystemContext();
                 // TODO ensure versioning for BWC
                 DiscoveryNode[] nodes = clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class);
                 int pos = random.nextInt(nodes.length);

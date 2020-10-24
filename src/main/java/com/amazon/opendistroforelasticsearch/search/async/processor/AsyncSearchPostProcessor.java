@@ -15,6 +15,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.unit.TimeValue;
 
+import java.io.IOException;
 import java.util.Optional;
 
 /**
@@ -32,33 +33,39 @@ public class AsyncSearchPostProcessor {
         this.asyncSearchPersistenceService = asyncSearchPersistenceService;
     }
 
-    public AsyncSearchResponse processSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchResponse processSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) throws IOException {
+        AsyncSearchPersistenceModel persistenceModel;
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
             asyncSearchContext.processSearchFailure(exception);
             if (asyncSearchContext.shouldPersist()) {
-                postProcess(asyncSearchContext, Optional.empty(), Optional.of(exception));
+                persistenceModel = new AsyncSearchPersistenceModel(asyncSearchContext.getStartTimeMillis(), asyncSearchContext.getExpirationTimeMillis(),
+                        exception);
+                postProcess(asyncSearchContext, persistenceModel);
             }
             return asyncSearchContext.getAsyncSearchResponse();
         }
         return null;
     }
 
-    public AsyncSearchResponse processSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchResponse processSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) throws IOException {
+        AsyncSearchPersistenceModel persistenceModel;
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
-            asyncSearchContext.processSearchSuccess(searchResponse);
+            asyncSearchContext.processSearchResponse(searchResponse);
             if (asyncSearchContext.shouldPersist()) {
-                postProcess(asyncSearchContext, Optional.of(searchResponse), Optional.empty());
+                persistenceModel = new AsyncSearchPersistenceModel(asyncSearchContext.getStartTimeMillis(), asyncSearchContext.getExpirationTimeMillis(),
+                        searchResponse);
+                postProcess(asyncSearchContext, persistenceModel);
             }
             return asyncSearchContext.getAsyncSearchResponse();
         }
         return null;
     }
 
-    private void postProcess(AsyncSearchActiveContext asyncSearchContext, Optional<SearchResponse> searchResponse, Optional<Exception> exception) {
+    private void postProcess(AsyncSearchActiveContext asyncSearchContext, AsyncSearchPersistenceModel persistenceModel) {
         assert asyncSearchContext.retainedStages().contains(asyncSearchContext.getStage()) : "found stage "+ asyncSearchContext.getStage() + "that shouldn't be retained";
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
             // check again after acquiring permit if the context has been deleted mean while
@@ -66,30 +73,22 @@ public class AsyncSearchPostProcessor {
                 logger.debug("Async search context has been moved to "+ asyncSearchContext.getStage() + "while waiting to acquire permits for post processing");
                 return;
             }
-                    AsyncSearchPersistenceModel persistenceModel = null;
-                    if (exception.isPresent()) {
-                        persistenceModel = new AsyncSearchPersistenceModel(asyncSearchContext.getStartTimeMillis(), asyncSearchContext.getExpirationTimeMillis(),
-                                exception.get());
-                    } else if (searchResponse.isPresent()){
-                        persistenceModel = new AsyncSearchPersistenceModel(asyncSearchContext.getStartTimeMillis(), asyncSearchContext.getExpirationTimeMillis(),
-                                searchResponse.get());
-                    }
-                    asyncSearchPersistenceService.storeResponse(AsyncSearchId.buildAsyncId(asyncSearchContext.getAsyncSearchId()), persistenceModel, ActionListener.wrap(
-                            (indexResponse) -> {
-                                //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
-                                asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSISTED);
-                                // Clean this up so that new context find results in a resolution from persistent store
-                                asyncSearchActiveStore.freeContext(asyncSearchContext.getAsyncSearchContextId());
-                                releasable.close();
-                            },
+                asyncSearchPersistenceService.storeResponse(AsyncSearchId.buildAsyncId(asyncSearchContext.getAsyncSearchId()), persistenceModel, ActionListener.wrap(
+                        (indexResponse) -> {
+                            //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
+                            asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSISTED);
+                            // Clean this up so that new context find results in a resolution from persistent store
+                            asyncSearchActiveStore.freeContext(asyncSearchContext.getAsyncSearchContextId());
+                            releasable.close();
+                        },
 
-                            (e) -> {
-                                asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSIST_FAILED);
-                                //TODO should we wait or retry after some time or after an event
-                                logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
-                                releasable.close();
-                            }
-                    ));
+                        (e) -> {
+                            asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSIST_FAILED);
+                            //TODO should we wait or retry after some time or after an event
+                            logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
+                            releasable.close();
+                        }
+                ));
 
                 }, (e) -> logger.error(() -> new ParameterizedMessage("Exception while acquiring the permit for asyncSearchContext {} due to ",
                         asyncSearchContext, e))),

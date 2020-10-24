@@ -75,6 +75,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             AsyncSearchContext asyncSearchContext = asyncSearchService.createAndStoreContext(request.getKeepAlive(), request.keepOnCompletion(), relativeStartTimeInMillis);
             Objects.requireNonNull(asyncSearchContext.getSearchProgressActionListener(), "missing progress listener for an active context");
             AsyncSearchProgressListener progressActionListener = (AsyncSearchProgressListener) asyncSearchContext.getSearchProgressActionListener();
+            //set the parent task as the submit task for cancellation on connection close
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
                 @Override

@@ -107,21 +107,19 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     }
 
     public boolean shouldPersist() {
-        return keepOnCompletion && isExpired() == false;
+        return keepOnCompletion && isExpired() == false && stage != Stage.DELETED;
     }
 
     public void processSearchFailure(Exception e) {
         if (completed.compareAndSet(false, true)) {
             error.set(new ElasticsearchException(e));
-            searchProgressActionListener = null;
             setStage(Stage.FAILED);
         }
     }
 
-    public void processSearchSuccess(SearchResponse response) {
+    public void processSearchResponse(SearchResponse response) {
         if (completed.compareAndSet(false, true)) {
             this.searchResponse.compareAndSet(null, response);
-            searchProgressActionListener = null;
             setStage(Stage.SUCCEEDED);
         }
     }

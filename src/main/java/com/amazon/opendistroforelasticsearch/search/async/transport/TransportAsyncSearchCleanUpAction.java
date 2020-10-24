@@ -26,6 +26,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
@@ -35,17 +36,22 @@ public class TransportAsyncSearchCleanUpAction extends HandledTransportAction<As
     private static final Logger logger = LogManager.getLogger(TransportAsyncSearchCleanUpAction.class);
 
     private final AsyncSearchPersistenceService persistenceService;
+    private final ThreadPool threadPool;
 
     @Inject
-    public TransportAsyncSearchCleanUpAction(TransportService transportService,
+    public TransportAsyncSearchCleanUpAction(TransportService transportService, ThreadPool threadPool,
                                              ActionFilters actionFilters, AsyncSearchPersistenceService persistenceService) {
         super(AsyncSearchCleanUpAction.NAME, transportService, actionFilters, AsyncSearchCleanUpRequest::new, ThreadPool.Names.MANAGEMENT);
         this.persistenceService = persistenceService;
+        this.threadPool = threadPool;
     }
 
     @Override
     protected void doExecute(Task task, AsyncSearchCleanUpRequest request, ActionListener<AcknowledgedResponse> listener) {
-        try {
+        final ThreadContext threadContext = threadPool.getThreadContext();
+        try (ThreadContext.StoredContext ignore = threadContext.stashContext()) {
+            // we have to execute under the system context so that if security is enabled the sync is authorized
+            threadContext.markAsSystemContext();
             persistenceService.deleteExpiredResponses(listener, request.getAbsoluteTimeInMillis());
         } catch (Exception e) {
             logger.error(() -> new ParameterizedMessage("Failed to execute clean up for request ()", request, e));

@@ -20,12 +20,14 @@ import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.internal.InternalSearchResponse;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -38,8 +40,8 @@ import java.util.function.LongSupplier;
  */
 public class AsyncSearchProgressListener extends CompositeSearchResponseActionListener<AsyncSearchResponse> {
 
-    public AsyncSearchProgressListener(long relativeStartMillis, Function<SearchResponse, AsyncSearchResponse> function,
-                                       Function<Exception, AsyncSearchResponse> failureFunction, Executor executor,
+    public AsyncSearchProgressListener(long relativeStartMillis, CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> function,
+                                       CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction, Executor executor,
                                        LongSupplier relativeTimeSupplier) {
         super(function, failureFunction, executor, relativeStartMillis, relativeTimeSupplier);
     }
