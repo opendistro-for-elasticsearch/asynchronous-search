@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import org.elasticsearch.client.node.NodeClient;
@@ -30,6 +31,7 @@ import java.util.List;
 import static org.elasticsearch.rest.RestRequest.Method.DELETE;
 
 public class RestDeleteAsyncSearchAction extends BaseRestHandler {
+
     @Override
     public String getName() {
         return "delete_async_search";
@@ -37,11 +39,11 @@ public class RestDeleteAsyncSearchAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return Arrays.asList(new Route(DELETE, "/_async_search/{id}"));
+        return Arrays.asList(new Route(DELETE, AsyncSearchPlugin.BASE_URI + "/{id}"));
     }
 
     @Override
-    protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+    protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) {
         DeleteAsyncSearchRequest deleteRequest = new DeleteAsyncSearchRequest(request.param("id"));
         return channel -> {
             RestCancellableNodeClient cancelClient = new RestCancellableNodeClient(client, request.getHttpChannel());

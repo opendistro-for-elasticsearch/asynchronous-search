@@ -95,7 +95,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             //see if there is a hook to move the Stage to RUNNING once the search execution starts
             advanceStage.get().run();
         } catch (Exception e) {
-            logger.error(() -> new ParameterizedMessage("Failed to submit async search request {}", request, e));
+            logger.error(() -> new ParameterizedMessage("Failed to submit async search request {}", request), e);
             listener.onFailure(e);
         }
     }

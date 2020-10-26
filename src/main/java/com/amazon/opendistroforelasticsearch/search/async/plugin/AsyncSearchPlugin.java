@@ -73,6 +73,7 @@ import java.util.function.Supplier;
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemIndexPlugin {
 
     public static final String OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME = "open_distro_async_search_generic";
+    public static final String BASE_URI = "/_opendistro/_async_search";
 
     private AsyncSearchPersistenceService persistenceService;
 

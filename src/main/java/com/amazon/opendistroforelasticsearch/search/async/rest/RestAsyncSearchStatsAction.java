@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchStatsRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,6 +37,7 @@ import static org.elasticsearch.rest.RestRequest.Method.GET;
 public class RestAsyncSearchStatsAction extends BaseRestHandler {
 
     private static final Logger LOG = LogManager.getLogger(RestAsyncSearchStatsAction.class);
+
     private static final String NAME = "async_search_stats_action";
 
     public RestAsyncSearchStatsAction() {
@@ -50,10 +52,8 @@ public class RestAsyncSearchStatsAction extends BaseRestHandler {
     @Override
     public List<Route> routes() {
         return Arrays.asList(
-                new Route(GET, "/_async_search_stats/{nodeId}/stats/"),
-                new Route(GET, "/_async_search_stats/{nodeId}/stats/{stat}"),
-                new Route(GET, "/_async_search_stats/stats"),
-                new Route(GET, "/_async_search_stats/stats/{stat}")
+                new Route(GET, AsyncSearchPlugin.BASE_URI + "/{nodeId}/stats/"),
+                new Route(GET, AsyncSearchPlugin.BASE_URI + "/stats")
         );
     }
 
@@ -67,42 +67,10 @@ public class RestAsyncSearchStatsAction extends BaseRestHandler {
 
     private AsyncSearchStatsRequest getRequest(RestRequest request) {
         // parse the nodes the user wants to query
-        String[] nodeIdsArr = null;
-        String nodesIdsStr = request.param("nodeId");
-        if (!Strings.isEmpty(nodesIdsStr)) {
-            nodeIdsArr = nodesIdsStr.split(",");
-        }
+        String[] nodesIds = Strings.splitStringByCommaToArray(request.param("nodeId"));
 
-        AsyncSearchStatsRequest asyncSearchStatsRequest = new AsyncSearchStatsRequest();
+        AsyncSearchStatsRequest asyncSearchStatsRequest = new AsyncSearchStatsRequest(nodesIds);
         asyncSearchStatsRequest.timeout(request.param("timeout"));
-
-        // parse the stats the customer wants to see
-        Set<String> statsSet = null;
-        String statsStr = request.param("stat");
-        if (!Strings.isEmpty(statsStr)) {
-            statsSet = new HashSet<>(Arrays.asList(statsStr.split(",")));
-        }
-
-        if (statsSet == null) {
-            asyncSearchStatsRequest.all();
-        } else if (statsSet.size() == 1 && statsSet.contains("_all")) {
-            asyncSearchStatsRequest.all();
-        } else if (statsSet.contains(AsyncSearchStatsRequest.ALL_STATS_KEY)) {
-            throw new IllegalArgumentException("Request " + request.path() + " contains _all and individual stats");
-        } else {
-            Set<String> invalidStats = new TreeSet<>();
-            for (String stat : statsSet) {
-                if (!asyncSearchStatsRequest.addStat(stat)) {
-                    invalidStats.add(stat);
-                }
-            }
-
-            if (!invalidStats.isEmpty()) {
-                throw new IllegalArgumentException(unrecognized(request, invalidStats,
-                        asyncSearchStatsRequest.getStatsToBeRetrieved(), "stat"));
-            }
-
-        }
         return asyncSearchStatsRequest;
     }
 }

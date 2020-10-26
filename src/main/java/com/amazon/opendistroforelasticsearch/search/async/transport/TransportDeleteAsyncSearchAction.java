@@ -48,7 +48,7 @@ public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchA
             asyncSearchService.freeContext(request.getId(), asyncSearchId, ActionListener
                     .wrap((complete) -> listener.onResponse(new AcknowledgedResponse(complete)), listener::onFailure));
         } catch (Exception e) {
-            logger.error(() -> new ParameterizedMessage("Unable to delete async search request {}", request, e));
+            logger.error(() -> new ParameterizedMessage("Unable to delete async search request {}", request), e);
             listener.onFailure(e);
         }
     }

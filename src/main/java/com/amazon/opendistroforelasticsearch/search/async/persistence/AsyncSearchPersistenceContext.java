@@ -84,8 +84,8 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
                     .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.streamInput())) {
                 return SearchResponse.fromXContent(parser);
             } catch (IOException e) {
-                logger.debug(new ParameterizedMessage("could not parse search response for async search id : {}",
-                        AsyncSearchId.buildAsyncId(asyncSearchId), e));
+                logger.error(new ParameterizedMessage("could not parse search response for async search id : {}",
+                        AsyncSearchId.buildAsyncId(asyncSearchId)), e);
                 return null;
             }
         } else {
@@ -103,7 +103,7 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
                 return ElasticsearchException.fromXContent(parser);
             } catch (IOException e) {
                 logger.debug(() -> new ParameterizedMessage("could not parse search error for async search id : {}",
-                        AsyncSearchId.buildAsyncId(asyncSearchId), e));
+                        AsyncSearchId.buildAsyncId(asyncSearchId)), e);
                 return null;
             }
 

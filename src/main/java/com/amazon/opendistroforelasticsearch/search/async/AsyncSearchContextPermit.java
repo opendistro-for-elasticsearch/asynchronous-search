@@ -69,7 +69,7 @@ public class AsyncSearchContextPermit {
         threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(new AbstractRunnable() {
             @Override
             public void onFailure(final Exception e) {
-                logger.debug(() -> new ParameterizedMessage("Failed to acquire permit {} for {}", permits, reason, e));
+                logger.debug(() -> new ParameterizedMessage("Failed to acquire permit {} for {}", permits, reason), e);
                 onAcquired.onFailure(e);
             }
 

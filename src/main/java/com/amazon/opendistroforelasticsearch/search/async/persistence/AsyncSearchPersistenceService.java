@@ -10,8 +10,6 @@ import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.DocWriteResponse;
-import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.get.GetRequest;
@@ -64,8 +62,7 @@ public class AsyncSearchPersistenceService {
     private final NamedXContentRegistry xContentRegistry;
 
     @Inject
-    public AsyncSearchPersistenceService(
-            Client client, ClusterService clusterService, ThreadPool threadPool, NamedXContentRegistry xContentRegistry) {
+    public AsyncSearchPersistenceService(Client client, ClusterService clusterService, ThreadPool threadPool, NamedXContentRegistry xContentRegistry) {
         this.client = client;
         this.clusterService = clusterService;
         this.threadPool = threadPool;
@@ -123,7 +120,6 @@ public class AsyncSearchPersistenceService {
 
         client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME, id), ActionListener.wrap(deleteResponse -> {
             if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED) {
-                logger.debug("Deleted async search {}", id);
                 listener.onResponse(true);
             } else {
                 logger.debug("Delete async search {} unsuccessful. Returned result {}", id, deleteResponse.getResult());
@@ -131,19 +127,14 @@ public class AsyncSearchPersistenceService {
             }
         }, e -> {
             if (ExceptionsHelper.unwrapCause(e) instanceof DocumentMissingException) {
-                logger.debug("Async search response doc already deleted {}", id);
+                logger.debug(() -> new ParameterizedMessage("Async search response doc already deleted {}", id), e);
                 listener.onResponse(false);
             } else {
-                logger.error("Failed to delete async search " + id, e);
+                logger.error(() -> new ParameterizedMessage("Failed to delete async search for id {}", id), e);
                 listener.onFailure(e);
             }
         }));
     }
-
-
-    /**
-     * Throws ResourceNotFoundException if index doesn't exist.
-     */
 
     public void updateExpirationTimeAndGet(String id, long expirationTimeMillis, ActionListener<AsyncSearchPersistenceModel> listener) {
         if (!indexExists()) {
@@ -163,8 +154,8 @@ public class AsyncSearchPersistenceService {
                                 updateResponse.getGetResult().sourceRef(), Requests.INDEX_CONTENT_TYPE);
                         listener.onResponse(AsyncSearchPersistenceModel.PARSER.apply(parser, null));
                     } catch (IOException e) {
-                        logger.error("IOException occurred finding lock", e);
-                        listener.onFailure(new IOException(id));
+                        logger.error(() -> new ParameterizedMessage("Exception occurred converting result to XContent for id {}", id), e);
+                        listener.onFailure(new ElasticsearchException("Couldn't convert persistence result to XContent for [{}]", e, id));
                     }
                     break;
                 case NOT_FOUND:
@@ -176,7 +167,8 @@ public class AsyncSearchPersistenceService {
             if (ExceptionsHelper.unwrapCause(exception) instanceof DocumentMissingException) {
                 listener.onFailure(new ResourceNotFoundException(id));
             } else {
-                listener.onFailure(new IOException("Failed to update keep_alive for async search " + id));
+                logger.error(() -> new ParameterizedMessage("Exception occurred converting result to XContent for id {}", id),  exception);
+                listener.onFailure(exception);
             }
         }));
 
@@ -184,25 +176,24 @@ public class AsyncSearchPersistenceService {
 
     public void deleteExpiredResponses(ActionListener<AcknowledgedResponse> listener, long expirationTimeInMillis) {
         if (!indexExists()) {
-            logger.info("Async search index not yet created! Nothing to delete.");
+            logger.debug("Async search index not yet created! Nothing to delete.");
             listener.onResponse(new AcknowledgedResponse(true));
         } else {
-            logger.info("Deleting expired async search responses");
-            DeleteByQueryRequest
-                    request =
-                    new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME).setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS)
+            DeleteByQueryRequest request = new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME).setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS)
                             .lte(expirationTimeInMillis));
-            client.execute(DeleteByQueryAction.INSTANCE,
-                    request,
-                    ActionListener.wrap(r -> listener.onResponse(new AcknowledgedResponse(true)), listener::onFailure));
+            client.execute(DeleteByQueryAction.INSTANCE, request,
+                    ActionListener.wrap(r -> listener.onResponse(new AcknowledgedResponse(true)),
+                            (e) -> {
+                        listener.onFailure(e);
+                        logger.debug(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}", expirationTimeInMillis), e);
+                    }));
         }
-
     }
 
     private void createIndexAndDoStoreResult(String id, AsyncSearchPersistenceModel persistenceModel, ActionListener<IndexResponse> listener) {
-        createAsyncSearchResponseIndex(ActionListener.wrap(createIndexResponse -> doStoreResult(id, persistenceModel, listener), exception -> {
+        client.admin().indices().prepareCreate(ASYNC_SEARCH_RESPONSE_INDEX_NAME).addMapping(MAPPING_TYPE, mapping()).
+                setSettings(indexSettings()).execute(ActionListener.wrap(createIndexResponse -> doStoreResult(id, persistenceModel, listener), exception -> {
             if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
-                // we have the index, do it
                 try {
                     doStoreResult(id, persistenceModel, listener);
                 } catch (Exception inner) {
@@ -215,28 +206,13 @@ public class AsyncSearchPersistenceService {
         }));
     }
 
-    private void createAsyncSearchResponseIndex(ActionListener<CreateIndexResponse> listener) {
-        CreateIndexRequest
-                createIndexRequest =
-                new CreateIndexRequest().mapping(MAPPING_TYPE, mapping())
-                        .settings(indexSettings())
-                        .index(ASYNC_SEARCH_RESPONSE_INDEX_NAME)
-                        .cause("async_search_response_index");
-        client.admin().indices().create(createIndexRequest, listener);
-    }
-
     private void doStoreResult(String id, AsyncSearchPersistenceModel model, ActionListener<IndexResponse> listener) {
-
-        IndexRequestBuilder
-                index =
-                client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX_NAME, MAPPING_TYPE, id);
-
+        IndexRequestBuilder index = client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX_NAME, MAPPING_TYPE, id);
         try (XContentBuilder builder = XContentFactory.contentBuilder(Requests.INDEX_CONTENT_TYPE)) {
             model.toXContent(builder, ToXContent.EMPTY_PARAMS);
             index.setSource(builder);
         } catch (IOException e) {
-            throw new ElasticsearchException("Couldn't convert async search persistence context to XContent for [{}]",
-                    e, model);
+            throw new ElasticsearchException("Couldn't convert async search persistence context to XContent for [{}]", e, model);
         }
         doStoreResult(STORE_BACKOFF_POLICY.iterator(), index, listener);
     }
@@ -250,7 +226,7 @@ public class AsyncSearchPersistenceService {
 
             @Override
             public void onFailure(Exception e) {
-                if (!(e instanceof EsRejectedExecutionException) || !backoff.hasNext()) {
+                if (false == (e instanceof EsRejectedExecutionException) || false == backoff.hasNext()) {
                     listener.onFailure(e);
                 } else {
                     TimeValue wait = backoff.next();
@@ -271,7 +247,6 @@ public class AsyncSearchPersistenceService {
 
     private XContentBuilder mapping() {
         try {
-
             XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
             builder.startObject()
 

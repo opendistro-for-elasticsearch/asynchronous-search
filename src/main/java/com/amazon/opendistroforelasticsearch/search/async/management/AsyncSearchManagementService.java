@@ -162,7 +162,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
                         new ActionListenerResponseHandler<AcknowledgedResponse>(
                                 ActionListener.wrap((response) -> logger.debug("Successfully executed", response.isAcknowledged()),
                                         (e) -> logger.error(() -> new ParameterizedMessage("Exception executing action {}",
-                                                AsyncSearchCleanUpAction.NAME, e))), AcknowledgedResponse::new));
+                                                AsyncSearchCleanUpAction.NAME), e)), AcknowledgedResponse::new));
             } catch (Exception ex) {
                 logger.error("Failed to schedule async search cleanup", ex);
             }

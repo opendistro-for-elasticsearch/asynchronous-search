@@ -98,7 +98,7 @@ public class AsyncSearchPostProcessor {
                 ));
 
                 }, (e) -> logger.error(() -> new ParameterizedMessage("Exception while acquiring the permit for asyncSearchContext {} due to ",
-                        asyncSearchContext, e))),
+                        asyncSearchContext), e)),
                 TimeValue.timeValueSeconds(60), "persisting response");
     }
 }

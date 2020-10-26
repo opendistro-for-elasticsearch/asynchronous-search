@@ -147,7 +147,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             persistenceService.getResponse(id, ActionListener.wrap((persistenceModel) ->
                  listener.onResponse(new AsyncSearchPersistenceContext(asyncSearchId, persistenceModel, currentTimeSupplier)),
                  ex -> {
-                logger.debug(() -> new ParameterizedMessage("Context not found for ID {}", id, ex));
+                logger.debug(() -> new ParameterizedMessage("Context not found for ID {}", id), ex);
                 listener.onFailure(new ResourceNotFoundException(id));}
             ));
         }
@@ -187,8 +187,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                                 logger.debug("Task cancellation for async search context {}  succeeded with response {} ",
                                         asyncSearchContext.getAsyncSearchId(), response);
                                 //Intent of the lock here is to disallow ongoing migration to system index
-                                // as if that is underway we might end up deleting the in-memory and stored response
-                                // while the migration would end up creating a new document
+                                // as if that is underway we might end up creating a new document post a DELETE was executed
                                 asyncSearchContext.acquireContextPermit(ActionListener.wrap(
                                         releasable -> {
                                             //free context marks the context as DELETED
@@ -204,7 +203,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                                             //TODO introduce request timeouts to make the permit wait transparent to the client
                                         }, listener::onFailure), TimeValue.timeValueSeconds(5), "free context");
                                 logger.debug(() -> new ParameterizedMessage("Unable to cancel async search task {}",
-                                        asyncSearchContext.getTask(), e));
+                                        asyncSearchContext.getTask()), e);
                             }
                     ));
             }

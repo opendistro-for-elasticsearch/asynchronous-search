@@ -15,6 +15,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.node.NodeClient;
@@ -56,8 +57,8 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
     @Override
     public List<Route> routes() {
         return Arrays.asList(
-                new Route(POST, "/_async_search"),
-                new Route(POST, "/{index}/_async_search"));
+                new Route(POST, AsyncSearchPlugin.BASE_URI),
+                new Route(POST, "/{index}" + AsyncSearchPlugin.BASE_URI));
     }
 
     @Override

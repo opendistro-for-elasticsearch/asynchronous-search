@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import org.elasticsearch.client.node.NodeClient;
@@ -30,6 +31,7 @@ import java.util.List;
 import static org.elasticsearch.rest.RestRequest.Method.GET;
 
 public class RestGetAsyncSearchAction extends BaseRestHandler {
+
     @Override
     public String getName() {
         return "get_async_search";
@@ -37,7 +39,7 @@ public class RestGetAsyncSearchAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return Arrays.asList(new Route(GET, "/_async_search/{id}"));
+        return Arrays.asList(new Route(GET, AsyncSearchPlugin.BASE_URI + "/{id}"));
     }
 
     @Override

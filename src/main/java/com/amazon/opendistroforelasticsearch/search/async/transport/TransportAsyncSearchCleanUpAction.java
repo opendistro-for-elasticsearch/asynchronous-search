@@ -54,7 +54,7 @@ public class TransportAsyncSearchCleanUpAction extends HandledTransportAction<As
             threadContext.markAsSystemContext();
             persistenceService.deleteExpiredResponses(listener, request.getAbsoluteTimeInMillis());
         } catch (Exception e) {
-            logger.error(() -> new ParameterizedMessage("Failed to execute clean up for request ()", request, e));
+            logger.error(() -> new ParameterizedMessage("Failed to execute clean up for request ()", request), e);
             listener.onFailure(e);
         }
     }

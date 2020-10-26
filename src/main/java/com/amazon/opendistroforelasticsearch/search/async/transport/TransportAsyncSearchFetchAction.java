@@ -89,9 +89,7 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
         private final Request request;
         private volatile ClusterStateObserver observer;
         private DiscoveryNode targetNode;
-        private TaskId taskId;
         private AsyncSearchId asyncSearchId;
-        private final AtomicBoolean finished = new AtomicBoolean();
 
         AsyncSingleAction(Request request, ActionListener<Response> listener) {
             this.request = request;
@@ -102,6 +100,12 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
         }
 
         @Override
+        public void onFailure(Exception e) {
+            logger.error(new ParameterizedMessage("Failed to dispatch request for action {} ", actionName), e);
+            listener.onFailure(e);
+        }
+
+        @Override
         protected void doRun() {
             try {
                 ClusterState state = observer.setAndGetObservedState();
@@ -109,59 +113,28 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
                 // the search exists in the cluster
                 if (state.nodes().getLocalNode().equals(targetNode) == false && state.nodes().nodeExists(targetNode)) {
                     transportService.sendRequest(targetNode, actionName, request,
-                        new ActionListenerResponseHandler<Response>(listener, responseReader) {
-                            @Override
-                            public void handleException(final TransportException exp) {
-                                Throwable cause = exp.unwrapCause();
-                                if (cause instanceof ConnectTransportException ||
-                                        (exp instanceof RemoteTransportException && cause instanceof NodeClosedException)) {
-                                    // we want to retry here a bit to see if the node connects backs
-                                    logger.debug("connection exception while trying to forward request with action name [{}] to " +
-                                                    "target node [{}], scheduling a retry. Error: [{}]",
-                                            actionName, targetNode, exp.getDetailedMessage());
-                                    retry(cause);
-                                } else {
+                            new ActionListenerResponseHandler<Response>(listener, responseReader) {
+                                @Override
+                                public void handleException(final TransportException exp) {
+                                    Throwable cause = exp.unwrapCause();
+                                    if (cause instanceof ConnectTransportException ||
+                                            (exp instanceof RemoteTransportException && cause instanceof NodeClosedException)) {
+                                        // we want to retry here a bit to see if the node connects backs
+                                        logger.debug("connection exception while trying to forward request with action name [{}] to " +
+                                                        "target node [{}], scheduling a retry. Error: [{}]",
+                                                actionName, targetNode, exp.getDetailedMessage());
+                                        //should we re-try on this
+                                    }
+                                    // handle request locally if we were not able to forward the request
                                     handleRequest(asyncSearchId, request, listener);
                                 }
-                            }
-                        });
+                            });
                 } else {
                     handleRequest(asyncSearchId, request, listener);
                 }
 
             } catch (Exception e) {
-                listener.onFailure(e);
-            }
-        }
-
-        private void retry(final Throwable failure) {
-            observer.waitForNextChange(
-                new ClusterStateObserver.Listener() {
-                    @Override
-                    public void onNewClusterState(ClusterState state) {
-                        doRun();
-                    }
-
-                    @Override
-                    public void onClusterServiceClose() {
-                        onFailure(new NodeClosedException(clusterService.localNode()));
-                    }
-
-                    @Override
-                    public void onTimeout(TimeValue timeout) {
-                        logger.debug(() -> new ParameterizedMessage("timed out while retrying [{}] after failure (timeout [{}])",
-                                actionName, timeout), failure);
-                        // Try one more time...
-                        run();
-                    }
-                }, request.connectionTimeout());
-        }
-
-
-        @Override
-        public void onFailure(Exception e) {
-            if (finished.compareAndSet(false, true)) {
-                logger.trace(() -> new ParameterizedMessage("operation failed. action [{}], request [{}]", actionName, request), e);
+                logger.error(new ParameterizedMessage("Failed to dispatch request for action {} ", actionName), e);
                 listener.onFailure(e);
             }
         }

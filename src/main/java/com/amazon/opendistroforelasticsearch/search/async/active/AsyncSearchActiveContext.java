@@ -181,7 +181,8 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
                 validateAndSetStage(Stage.SUCCEEDED, stage);
                 break;
             case DELETED:
-                //any state except INIT can be moved to DELETED
+                //any state except INIT can be moved to DELETED. However since we don't strictly perform DELETES under lock
+                // a DELETE maybe followed by a concurrent DELETE. So DELETES are modelled as an IDEMPOTENT operation
                 this.stage = stage;
                 break;
             default:
@@ -191,7 +192,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
 
     private void validateAndSetStage(Stage expected, Stage next) {
         // Once DELETED the stage shouldn't progress any further
-        if (stage != expected || (expected == Stage.DELETED && next != Stage.DELETED)) {
+        if (stage != expected) {
             throw new IllegalStateException("can't move to stage [" + next + "]. current stage: ["
                     + stage + "] (expected [" + expected + "])");
         }

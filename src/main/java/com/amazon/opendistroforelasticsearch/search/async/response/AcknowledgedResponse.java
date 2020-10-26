@@ -21,9 +21,11 @@ import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.ConstructingObjectParser;
 import org.elasticsearch.common.xcontent.ObjectParser;
+import org.elasticsearch.common.xcontent.StatusToXContentObject;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -36,11 +38,6 @@ import static org.elasticsearch.common.xcontent.ConstructingObjectParser.constru
 public class AcknowledgedResponse extends ActionResponse implements ToXContentObject {
 
     private static final ParseField ACKNOWLEDGED = new ParseField("acknowledged");
-
-    protected static <T extends AcknowledgedResponse> void declareAcknowledgedField(ConstructingObjectParser<T, Void> objectParser) {
-        objectParser.declareField(constructorArg(), (parser, context) -> parser.booleanValue(), ACKNOWLEDGED,
-                ObjectParser.ValueType.BOOLEAN);
-    }
 
     protected boolean acknowledged;
 
@@ -95,10 +92,6 @@ public class AcknowledgedResponse extends ActionResponse implements ToXContentOb
     static {
         ACKNOWLEDGED_FLAG_PARSER.declareField(constructorArg(), (parser, context) -> parser.booleanValue(), ACKNOWLEDGED,
                 ObjectParser.ValueType.BOOLEAN);
-    }
-
-    public static AcknowledgedResponse fromXContent(XContentParser parser) throws IOException {
-        return new AcknowledgedResponse(ACKNOWLEDGED_FLAG_PARSER.apply(parser, null));
     }
 
     @Override

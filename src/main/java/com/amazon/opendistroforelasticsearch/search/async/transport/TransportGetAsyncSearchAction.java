@@ -68,7 +68,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                         // check if the context is active and is still RUNNING
                         (context) -> handleWaitForCompletion(context, request.getWaitForCompletionTimeout(), listener),
                         (e) -> {
-                            logger.debug(() -> new ParameterizedMessage("Unable to update and get async search request {}", asyncSearchId, e));
+                            logger.debug(() -> new ParameterizedMessage("Unable to update and get async search request {}", asyncSearchId), e);
                             listener.onFailure(e);
                         }
                 ));
@@ -77,12 +77,12 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                 asyncSearchService.findContext(request.getId(), asyncSearchId, ActionListener.wrap(
                         (context) -> handleWaitForCompletion(context, request.getWaitForCompletionTimeout(), listener),
                         (e) -> {
-                            logger.debug(() -> new ParameterizedMessage("Unable to update and get async search request {}", asyncSearchId, e));
+                            logger.debug(() -> new ParameterizedMessage("Unable to update and get async search request {}", asyncSearchId), e);
                             listener.onFailure(e);
                         }));
                 }
         } catch (Exception e) {
-            logger.error(() -> new ParameterizedMessage("Unable to update and get async search request {}", request, e));
+            logger.error(() -> new ParameterizedMessage("Unable to update and get async search request {}", request), e);
             listener.onFailure(e);
         }
     }

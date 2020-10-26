@@ -195,6 +195,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
                 }
             }
         }
-        return new AsyncSearchResponse(id, isRunning, startTimeMillis, expirationTimeMillis,searchResponse,error);
+        return new AsyncSearchResponse(id, isRunning, startTimeMillis, expirationTimeMillis, searchResponse, error);
     }
 }
