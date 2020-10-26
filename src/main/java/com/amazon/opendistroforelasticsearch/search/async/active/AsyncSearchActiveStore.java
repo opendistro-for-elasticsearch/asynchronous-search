@@ -18,7 +18,6 @@ import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.new
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
@@ -67,7 +66,7 @@ public class AsyncSearchActiveStore {
         if (context == null) {
             return Optional.empty();
         }
-        if (context.getAsyncSearchContextId().getContextId().equals(contextId.getContextId())) {
+        if (context.getContextId().getContextId().equals(contextId.getContextId())) {
             return Optional.of(context);
         }
         return Optional.empty();
@@ -91,7 +90,7 @@ public class AsyncSearchActiveStore {
 
     public void freeAllContexts() {
         for (final AsyncSearchContext context : activeContexts.values()) {
-            freeContext(context.getAsyncSearchContextId());
+            freeContext(context.getContextId());
         }
     }
 }

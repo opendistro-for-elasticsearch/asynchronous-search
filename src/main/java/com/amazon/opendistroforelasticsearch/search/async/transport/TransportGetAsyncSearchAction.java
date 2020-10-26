@@ -64,7 +64,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
         try {
             boolean updateNeeded = request.getKeepAlive() != null;
             if (updateNeeded) {
-                asyncSearchService.updateKeepAliveAndGetContext(request.getId(), request.getKeepAlive(), asyncSearchId, ActionListener.wrap(
+                asyncSearchService.updateKeepAliveAndGetContext(request.getId(), request.getKeepAlive(), asyncSearchId.getAsyncSearchContextId(), ActionListener.wrap(
                         // check if the context is active and is still RUNNING
                         (context) -> handleWaitForCompletion(context, request.getWaitForCompletionTimeout(), listener),
                         (e) -> {
@@ -74,7 +74,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                 ));
             } else {
                 // we don't need to update keep-alive, simply find one one the node if one exists or look up the index
-                asyncSearchService.findContext(request.getId(), asyncSearchId, ActionListener.wrap(
+                asyncSearchService.findContext(request.getId(), asyncSearchId.getAsyncSearchContextId(), ActionListener.wrap(
                         (context) -> handleWaitForCompletion(context, request.getWaitForCompletionTimeout(), listener),
                         (e) -> {
                             logger.debug(() -> new ParameterizedMessage("Unable to update and get async search request {}", asyncSearchId), e);

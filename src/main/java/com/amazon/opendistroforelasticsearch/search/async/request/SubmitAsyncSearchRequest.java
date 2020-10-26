@@ -30,6 +30,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 
+import static org.elasticsearch.action.ValidateActions.addValidationError;
+
 public class SubmitAsyncSearchRequest extends ActionRequest {
 
     public static long MIN_KEEP_ALIVE = TimeValue.timeValueMinutes(1).millis();
@@ -121,21 +123,20 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
 
     @Override
     public ActionRequestValidationException validate() {
-        final ActionRequestValidationException validationException = new ActionRequestValidationException();
+        ActionRequestValidationException validationException = null;
         if (searchRequest.isSuggestOnly()) {
-            validationException.addValidationError("suggest-only queries are not supported");
+            validationException = addValidationError("suggest-only queries are not supported", validationException);
         }
         if (searchRequest.scroll() != null) {
-            validationException.addValidationError("scrolls are not supported");
+            validationException = addValidationError("scrolls are not supported", validationException);
         }
         if (searchRequest.isCcsMinimizeRoundtrips()) {
-           validationException.addValidationError("[ccs_minimize_roundtrips] must be false, got: " + searchRequest.isCcsMinimizeRoundtrips());
+            validationException = addValidationError("[ccs_minimize_roundtrips] must be false, got: " + searchRequest.isCcsMinimizeRoundtrips(), validationException);
         }
         if (keepAlive != null && keepAlive.getMillis() < MIN_KEEP_ALIVE) {
-            validationException.addValidationError("[keep_alive] must be greater than 1 minute, got: " + keepAlive.toString());
+            validationException = addValidationError("[keep_alive] must be greater than 1 minute, got: " + keepAlive.toString(), validationException);
         }
-        searchRequest.validate();
-        return validationException;
+        return validationException != null ? validationException : searchRequest.validate();
     }
 
 

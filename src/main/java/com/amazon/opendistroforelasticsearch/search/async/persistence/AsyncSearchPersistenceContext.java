@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.persistence;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -39,13 +39,14 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceContext.class);
 
-    private final AsyncSearchId asyncSearchId;
+    private final String asyncSearchId;
     private final AsyncSearchPersistenceModel asyncSearchPersistenceModel;
 
-    public AsyncSearchPersistenceContext(AsyncSearchId asyncSearchId, AsyncSearchPersistenceModel asyncSearchPersistenceModel,
+    public AsyncSearchPersistenceContext(String asyncSearchId, AsyncSearchContextId asyncSearchContextId, AsyncSearchPersistenceModel asyncSearchPersistenceModel,
                                          LongSupplier currentTimeSupplier) {
-        super(asyncSearchId.getAsyncSearchContextId(), currentTimeSupplier);
+        super(asyncSearchContextId, currentTimeSupplier);
         Objects.nonNull(asyncSearchId);
+        Objects.nonNull(asyncSearchContextId);
         Objects.nonNull(asyncSearchPersistenceModel);
         this.asyncSearchId = asyncSearchId;
         this.asyncSearchPersistenceModel = asyncSearchPersistenceModel;
@@ -56,7 +57,7 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
     }
 
     @Override
-    public AsyncSearchId getAsyncSearchId() {
+    public String getAsyncSearchId() {
         return asyncSearchId;
     }
 
@@ -77,39 +78,34 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
 
     @Override
     public SearchResponse getSearchResponse() {
-
+        SearchResponse searchResponse = null;
         BytesReference response = asyncSearchPersistenceModel.getResponse();
         if (response != null) {
             try (XContentParser parser = XContentType.JSON.xContent()
                     .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.streamInput())) {
-                return SearchResponse.fromXContent(parser);
+                searchResponse = SearchResponse.fromXContent(parser);
             } catch (IOException e) {
                 logger.error(new ParameterizedMessage("could not parse search response for async search id : {}",
-                        AsyncSearchId.buildAsyncId(asyncSearchId)), e);
-                return null;
+                        asyncSearchId), e);
             }
-        } else {
-            return null;
         }
+        return searchResponse;
     }
 
     @Override
     public ElasticsearchException getSearchError() {
-
+        ElasticsearchException exception = null;
         BytesReference error = asyncSearchPersistenceModel.getError();
         if (error != null) {
             try (XContentParser parser = XContentType.JSON.xContent()
                     .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, error.streamInput())) {
-                return ElasticsearchException.fromXContent(parser);
+                exception = ElasticsearchException.fromXContent(parser);
             } catch (IOException e) {
-                logger.debug(() -> new ParameterizedMessage("could not parse search error for async search id : {}",
-                        AsyncSearchId.buildAsyncId(asyncSearchId)), e);
-                return null;
+                logger.error(() -> new ParameterizedMessage("could not parse search error for async search id : {}",
+                        asyncSearchId), e);
             }
-
-        } else {
-            return null;
         }
+        return exception;
     }
 
     @Override

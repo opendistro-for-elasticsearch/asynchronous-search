@@ -48,7 +48,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     private final Boolean keepOnCompletion;
     private volatile TimeValue keepAlive;
     private final String nodeId;
-    private volatile SetOnce<AsyncSearchId> asyncSearchId;
+    private volatile SetOnce<String> asyncSearchId;
     private final AsyncSearchContextListener contextListener;
     private AtomicBoolean completed;
     private volatile Stage stage;
@@ -80,7 +80,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     }
 
     @Override
-    public AsyncSearchId getAsyncSearchId() {
+    public String getAsyncSearchId() {
         return asyncSearchId.get();
     }
 
@@ -90,7 +90,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.searchTask.set(searchTask);
         this.startTimeMillis = searchTask.getStartTime();
         this.expirationTimeMillis = startTimeMillis + keepAlive.getMillis();
-        this.asyncSearchId.set(new AsyncSearchId(nodeId, searchTask.getId(), getAsyncSearchContextId()));
+        this.asyncSearchId.set(AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, searchTask.getId(), getContextId())));
         this.setStage(Stage.INIT);
     }
 
@@ -157,25 +157,25 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         switch (stage) {
             case INIT:
                 validateAndSetStage(null, stage);
-                contextListener.onNewContext(getAsyncSearchContextId());
+                contextListener.onNewContext(getContextId());
                 break;
             case RUNNING:
                 assert searchTask.get() != null : "search task cannot be null";
-                contextListener.onContextRunning(getAsyncSearchContextId());
+                contextListener.onContextRunning(getContextId());
                 validateAndSetStage(Stage.INIT, stage);
                 break;
             case SUCCEEDED:
                 assert searchTask.get() == null || searchTask.get().isCancelled() == false : "search task is cancelled";
                 validateAndSetStage(Stage.RUNNING, stage);
-                contextListener.onContextCompleted(getAsyncSearchContextId());
+                contextListener.onContextCompleted(getContextId());
                 break;
             case FAILED:
                 validateAndSetStage(Stage.RUNNING, stage);
-                contextListener.onContextFailed(getAsyncSearchContextId());
+                contextListener.onContextFailed(getContextId());
                 break;
             case PERSISTED:
                 validateAndSetStage(Stage.SUCCEEDED, stage);
-                contextListener.onContextPersisted(getAsyncSearchContextId());
+                contextListener.onContextPersisted(getContextId());
                 break;
             case PERSIST_FAILED:
                 validateAndSetStage(Stage.SUCCEEDED, stage);

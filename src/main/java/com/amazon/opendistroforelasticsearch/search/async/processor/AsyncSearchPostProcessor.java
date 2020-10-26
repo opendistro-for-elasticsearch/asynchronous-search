@@ -2,7 +2,6 @@ package com.amazon.opendistroforelasticsearch.search.async.processor;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel;
@@ -80,12 +79,12 @@ public class AsyncSearchPostProcessor {
                 logger.debug("Async search context has been moved to "+ asyncSearchContext.getStage() + "while waiting to acquire permits for post processing");
                 return;
             }
-                asyncSearchPersistenceService.storeResponse(AsyncSearchId.buildAsyncId(asyncSearchContext.getAsyncSearchId()), persistenceModel, ActionListener.wrap(
+                asyncSearchPersistenceService.storeResponse(asyncSearchContext.getAsyncSearchId(), persistenceModel, ActionListener.wrap(
                         (indexResponse) -> {
                             //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
                             asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSISTED);
                             // Clean this up so that new context find results in a resolution from persistent store
-                            asyncSearchActiveStore.freeContext(asyncSearchContext.getAsyncSearchContextId());
+                            asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
                             releasable.close();
                         },
 

@@ -96,7 +96,7 @@ public class AsyncSearchPersistenceService {
                                     getResponse.getSourceAsBytesRef(), Requests.INDEX_CONTENT_TYPE);
                             listener.onResponse(AsyncSearchPersistenceModel.PARSER.apply(parser, null));
                         } catch (IOException e) {
-                            logger.error("Exception occurred finding response", e);
+                            logger.error(() -> new ParameterizedMessage("Exception occurred finding response for id {}", id), e);
                             listener.onFailure(new ResourceNotFoundException(id));
                         }
                     } else {
@@ -104,7 +104,7 @@ public class AsyncSearchPersistenceService {
                     }
                 },
                 exception -> {
-                    logger.error("Failed to get response for async search [" + id + "]", exception);
+                    logger.error(() -> new ParameterizedMessage("Failed to get response for async search id {}", id), exception);
                     listener.onFailure(exception);
                 }));
     }

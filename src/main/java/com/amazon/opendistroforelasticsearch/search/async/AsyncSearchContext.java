@@ -84,11 +84,11 @@ public abstract class AsyncSearchContext {
         return getStage() == Stage.RUNNING;
     }
 
-    public AsyncSearchContextId getAsyncSearchContextId() {
+    public AsyncSearchContextId getContextId() {
         return asyncSearchContextId;
     }
 
-    public abstract AsyncSearchId getAsyncSearchId();
+    public abstract String getAsyncSearchId();
 
     public abstract long getExpirationTimeMillis();
 
@@ -107,7 +107,7 @@ public abstract class AsyncSearchContext {
     }
 
     public AsyncSearchResponse getAsyncSearchResponse() {
-        return new AsyncSearchResponse(AsyncSearchId.buildAsyncId(getAsyncSearchId()), isRunning(), getStartTimeMillis(),
+        return new AsyncSearchResponse(getAsyncSearchId(), isRunning(), getStartTimeMillis(),
                 getExpirationTimeMillis(), getSearchResponse(), getSearchError());
     }
 }

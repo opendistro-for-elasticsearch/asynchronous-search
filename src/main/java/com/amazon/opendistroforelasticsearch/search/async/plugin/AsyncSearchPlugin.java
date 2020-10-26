@@ -124,7 +124,8 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
     public List<Setting<?>> getSettings() {
         return Arrays.asList(
                 AsyncSearchActiveStore.MAX_RUNNING_CONTEXT,
-                AsyncSearchService.MAX_KEEPALIVE_SETTING,
+                AsyncSearchService.MAX_KEEP_ALIVE_SETTING,
+                AsyncSearchService.KEEP_ON_CANCELLATION,
                 AsyncSearchManagementService.RESPONSE_CLEAN_UP_INTERVAL_SETTING,
                 AsyncSearchManagementService.TASK_CANCELLATION_INTERVAL_SETTING
         );

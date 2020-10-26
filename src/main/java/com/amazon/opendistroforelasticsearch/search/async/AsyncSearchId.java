@@ -48,8 +48,9 @@ public class AsyncSearchId {
         return taskId;
     }
 
-    @Override public String toString() {
-        return "[" + node + "][" + asyncSearchContextId + "]";
+    @Override
+    public String toString() {
+        return "[" + node + "]["+ taskId + "][" + asyncSearchContextId + "]";
     }
 
     public static String buildAsyncId(AsyncSearchId asyncSearchId) {
@@ -93,7 +94,8 @@ public class AsyncSearchId {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         AsyncSearchId asyncSearchId = (AsyncSearchId) o;
-        return asyncSearchId.asyncSearchContextId.equals(this.asyncSearchContextId) && asyncSearchId.node.equals(this.node) && asyncSearchId
-            .getTaskId() == this.taskId;
+        return asyncSearchId.asyncSearchContextId.equals(this.asyncSearchContextId)
+                && asyncSearchId.node.equals(this.node)
+                && asyncSearchId.taskId == this.taskId;
     }
 }
