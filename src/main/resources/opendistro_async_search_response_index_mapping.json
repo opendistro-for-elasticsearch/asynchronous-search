@@ -1,0 +1,12 @@
+{
+  "dynamic": "strict",
+  "properties": {
+    "response": {
+      "type": "text"
+    },
+    "expiration_time": {
+      "type": "date",
+      "format": "epoch_millis"
+    }
+  }
+}
