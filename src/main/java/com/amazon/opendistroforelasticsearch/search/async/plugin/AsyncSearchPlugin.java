@@ -133,7 +133,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
-        return Collections.singletonList(new SystemIndexDescriptor(".async_search_response",
+        return Collections.singletonList(new SystemIndexDescriptor(".asynchronous_search_response",
                 "Stores the response for async search"));
     }
 

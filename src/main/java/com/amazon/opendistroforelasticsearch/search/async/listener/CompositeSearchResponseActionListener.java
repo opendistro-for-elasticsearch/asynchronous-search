@@ -19,6 +19,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
@@ -96,8 +97,8 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
         assert partialResultsHolder.successfulShards.get() == searchResponse.getSuccessfulShards() : "successful shards mismatch";
         assert partialResultsHolder.reducePhase.get() == searchResponse.getNumReducePhases() : "reduce phase number mismatch";
         assert partialResultsHolder.clusters.get() == searchResponse.getClusters() : "clusters mismatch";
-        assert Arrays.equals(partialResultsHolder.shardSearchFailures.toArray(
-                new ShardSearchFailure[partialResultsHolder.shardSearchFailures.length()]), searchResponse.getShardFailures())
+        assert Arrays.equals(partialResultsHolder.shardFailures.get().toArray(
+                new ShardSearchFailure[partialResultsHolder.shardFailures.get().length()]), searchResponse.getShardFailures())
                 : "shard failures mismatch";
         assert partialResultsHolder.skippedShards.get() == searchResponse.getSkippedShards() : "skipped shards mismatch";
         assert partialResultsHolder.totalShards.get() == searchResponse.getTotalShards() : "total shards mismatch";
@@ -172,8 +173,6 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
         return actionListenersToBeInvoked;
     }
 
-    public abstract SearchResponse partialResponse();
-
     static class PartialResultsHolder {
         final AtomicInteger reducePhase;
         final AtomicReference<TotalHits> totalHits;
@@ -185,15 +184,14 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
         final AtomicInteger skippedShards;
         final AtomicReference<SearchResponse.Clusters> clusters;
         final AtomicReference<List<SearchShard>> shards;
-        final AtomicArray<ShardSearchFailure> shardSearchFailures;
         final AtomicBoolean hasFetchPhase;
         final long relativeStartMillis;
         final LongSupplier relativeTimeSupplier;
+        final SetOnce<AtomicArray<ShardSearchFailure>> shardFailures;
 
 
         PartialResultsHolder(long relativeStartMillis, LongSupplier relativeTimeSupplier) {
             this.internalAggregations = new AtomicReference<>();
-            this.shardSearchFailures = new AtomicArray<>(0);
             this.totalShards = new AtomicInteger();
             this.successfulShards = new AtomicInteger();
             this.skippedShards = new AtomicInteger();
@@ -206,6 +204,7 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
             this.relativeStartMillis = relativeStartMillis;
             this.shards = new AtomicReference<>();
             this.relativeTimeSupplier = relativeTimeSupplier;
+            this.shardFailures = new SetOnce<>();
         }
     }
 }

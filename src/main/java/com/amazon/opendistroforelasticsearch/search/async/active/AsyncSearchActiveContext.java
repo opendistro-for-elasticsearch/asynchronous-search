@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.active;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -36,6 +37,15 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
+
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.DELETED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.FAILED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.INIT;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.PERSISTED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.PERSIST_FAILED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.RUNNING;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.SUCCEEDED;
+
 
 /**
  * The context representing an ongoing search, keeps track of the underlying {@link SearchTask} and {@link SearchProgressActionListener}
@@ -91,7 +101,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.startTimeMillis = searchTask.getStartTime();
         this.expirationTimeMillis = startTimeMillis + keepAlive.getMillis();
         this.asyncSearchId.set(AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, searchTask.getId(), getContextId())));
-        this.setStage(Stage.INIT);
+        this.stage = INIT;
     }
 
     public SearchTask getTask() {
@@ -155,46 +165,44 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
      */
     public synchronized void setStage(Stage stage) {
         switch (stage) {
-            case INIT:
-                validateAndSetStage(null, stage);
-                contextListener.onNewContext(getContextId());
-                break;
             case RUNNING:
                 assert searchTask.get() != null : "search task cannot be null";
                 contextListener.onContextRunning(getContextId());
-                validateAndSetStage(Stage.INIT, stage);
+                validateAndSetStage(stage, INIT);
                 break;
             case SUCCEEDED:
                 assert searchTask.get() == null || searchTask.get().isCancelled() == false : "search task is cancelled";
-                validateAndSetStage(Stage.RUNNING, stage);
+                //DELETED contexts can succeed concurrently
+                validateAndSetStage(stage, RUNNING, DELETED);
                 contextListener.onContextCompleted(getContextId());
                 break;
             case FAILED:
-                validateAndSetStage(Stage.RUNNING, stage);
+                //DELETED contexts can fail concurrently
+                validateAndSetStage(stage, RUNNING, DELETED);
                 contextListener.onContextFailed(getContextId());
                 break;
             case PERSISTED:
-                validateAndSetStage(Stage.SUCCEEDED, stage);
+                //DELETED contexts don't qualify for persistence
+                validateAndSetStage(stage, SUCCEEDED, FAILED);
                 contextListener.onContextPersisted(getContextId());
                 break;
             case PERSIST_FAILED:
-                validateAndSetStage(Stage.SUCCEEDED, stage);
+                //DELETED contexts don't qualify for persistence
+                validateAndSetStage(stage, SUCCEEDED, FAILED);
                 break;
             case DELETED:
-                //any state except INIT can be moved to DELETED. However since we don't strictly perform DELETES under lock
-                // a DELETE maybe followed by a concurrent DELETE. So DELETES are modelled as an IDEMPOTENT operation
-                this.stage = stage;
+                //any state except INIT can be moved to DELETED.
+                validateAndSetStage(stage, SUCCEEDED, FAILED, SUCCEEDED, PERSIST_FAILED, PERSISTED, RUNNING, DELETED);
                 break;
             default:
                 throw new IllegalArgumentException("Unknown stage [" + stage + "]");
         }
     }
 
-    private void validateAndSetStage(Stage expected, Stage next) {
-        // Once DELETED the stage shouldn't progress any further
-        if (stage != expected) {
-            throw new IllegalStateException("can't move to stage [" + next + "]. current stage: ["
-                    + stage + "] (expected [" + expected + "])");
+    private void validateAndSetStage(Stage next, Stage... from) {
+        if (Arrays.asList(from).contains(stage) == false) {
+            throw new IllegalStateException("can't move to stage [" + next + "], from current stage: ["
+                    + stage + "] (valid states [" + from + "])");
         }
         stage = next;
     }

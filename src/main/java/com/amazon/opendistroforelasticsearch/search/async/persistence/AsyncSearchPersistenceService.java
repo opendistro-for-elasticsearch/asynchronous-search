@@ -44,15 +44,13 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.EXPIRATION_TIME_MILLIS;
-import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.RESPONSE;
-import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.START_TIME_MILLIS;
+import static com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel.*;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
 public class AsyncSearchPersistenceService {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceService.class);
-    private static final String ASYNC_SEARCH_RESPONSE_INDEX_NAME = ".async_search_response";
+    private static final String ASYNC_SEARCH_RESPONSE_INDEX_NAME = ".asynchronous_search_response";
     private static final String MAPPING_TYPE = "_doc";
     private static final BackoffPolicy STORE_BACKOFF_POLICY = BackoffPolicy.exponentialBackoff(timeValueMillis(50), 5);
 
@@ -249,32 +247,29 @@ public class AsyncSearchPersistenceService {
         try {
             XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
             builder.startObject()
-
-                    //props
-                    .startObject("properties")
-
-                    //expiry
-                    .startObject(START_TIME_MILLIS).field("type", "long").endObject()
-                    //expiry
-
-                    //expiry
-                    .startObject(EXPIRATION_TIME_MILLIS).field("type", "long").endObject()
-                    //expiry
-
-                    //response
-                    .startObject(RESPONSE).field("type", "object").field("enabled", "false").endObject()
-                    //response
-
-                    .endObject()
-                    //props
-
-                    .endObject();
-
+                 .startObject("properties")
+                     .startObject(START_TIME_MILLIS)
+                        .field("type", "date")
+                        .field("format", "epoch_millis")
+                     .endObject()
+                     .startObject(EXPIRATION_TIME_MILLIS)
+                        .field("type", "date")
+                        .field("format", "epoch_millis")
+                     .endObject()
+                     .startObject(RESPONSE)
+                        .field("type", "object")
+                        .field("enabled", "false")
+                     .endObject()
+                     .startObject(ERROR)
+                        .field("type", "object")
+                        .field("enabled", "false")
+                     .endObject()
+                 .endObject()
+             .endObject();
             return builder;
         } catch (IOException e) {
             throw new IllegalArgumentException("Async search persistence mapping cannot be read correctly.", e);
         }
-
     }
 
     private boolean indexExists() {

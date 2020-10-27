@@ -20,8 +20,10 @@ import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.action.support.TransportActions;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.io.stream.DelayableWriteable;
+import org.elasticsearch.common.util.concurrent.AtomicArray;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
@@ -40,6 +42,8 @@ import java.util.function.LongSupplier;
  */
 public class AsyncSearchProgressListener extends CompositeSearchResponseActionListener<AsyncSearchResponse> {
 
+    private final Object shardFailuresMutex = new Object();
+
     public AsyncSearchProgressListener(long relativeStartMillis, CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> function,
                                        CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction, Executor executor,
                                        LongSupplier relativeTimeSupplier) {
@@ -51,22 +55,19 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
      * Returns the partial response for the search response.
      * @return the partial search response
      */
-    @Override
     public SearchResponse partialResponse() {
         if (partialResultsHolder.isInitialized.get()) {
             SearchHits searchHits = new SearchHits(SearchHits.EMPTY, partialResultsHolder.totalHits.get(), 0);
             InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits,
-                    partialResultsHolder.internalAggregations.get() == null ?
-                            (partialResultsHolder.delayedInternalAggregations.get() != null ?
-                                    partialResultsHolder.delayedInternalAggregations.get().expand() : null)
-                            : partialResultsHolder.internalAggregations.get(),
+                    partialResultsHolder.internalAggregations.get() == null ? (partialResultsHolder.delayedInternalAggregations.get() != null ?
+                            partialResultsHolder.delayedInternalAggregations.get().expand() : null) : partialResultsHolder.internalAggregations.get(),
                     null, null, false, false, partialResultsHolder.reducePhase.get());
-            ShardSearchFailure[] shardSearchFailures =
-                    partialResultsHolder.shardSearchFailures.toArray(new ShardSearchFailure[partialResultsHolder.shardSearchFailures.length()]);
+            ShardSearchFailure [] shardSearchFailures = partialResultsHolder.shardFailures.get() == null ? ShardSearchFailure.EMPTY_ARRAY :
+                    partialResultsHolder.shardFailures.get().toArray(new ShardSearchFailure[partialResultsHolder.shardFailures.get().length()]);
             long tookInMillis = partialResultsHolder.relativeTimeSupplier.getAsLong() - partialResultsHolder.relativeStartMillis;
             return new SearchResponse(internalSearchResponse, null, partialResultsHolder.totalShards.get(),
-                    partialResultsHolder.successfulShards.get(),
-                    partialResultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures, partialResultsHolder.clusters.get());
+                    partialResultsHolder.successfulShards.get(), partialResultsHolder.skippedShards.get(), tookInMillis, shardSearchFailures,
+                    partialResultsHolder.clusters.get());
         } else {
             return null;
         }
@@ -103,7 +104,7 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
     protected void onFetchFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
         assert partialResultsHolder.hasFetchPhase.get() : "Fetch failure without fetch phase";
         assert shardIndex < partialResultsHolder.totalShards.get();
-        partialResultsHolder.shardSearchFailures.setOnce(shardIndex, new ShardSearchFailure(exc, shardTarget));
+        onSearchFailure(shardIndex, shardTarget, exc);
     }
 
     @Override
@@ -111,14 +112,12 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
         assert partialResultsHolder.hasFetchPhase.get() : "Fetch result without fetch phase";
         assert shardIndex < partialResultsHolder.totalShards.get();
         partialResultsHolder.successfulShards.incrementAndGet();
-        partialResultsHolder.shardSearchFailures.setOnce(shardIndex, null);
     }
 
     @Override
     protected void onQueryFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
         assert shardIndex < partialResultsHolder.totalShards.get();
-        ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
-        partialResultsHolder.shardSearchFailures.setOnce(shardIndex, shardSearchFailure);
+        onSearchFailure(shardIndex, shardTarget, exc);
     }
 
     @Override
@@ -127,7 +126,21 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
         // query and fetch optimization for single shard
         if (partialResultsHolder.hasFetchPhase.get() == false || partialResultsHolder.totalShards.get() == 1) {
             partialResultsHolder.successfulShards.incrementAndGet();
-            partialResultsHolder.shardSearchFailures.setOnce(shardIndex, null);
+        }
+    }
+
+    private void onSearchFailure(int shardIndex, SearchShardTarget shardTarget, Exception e) {
+        AtomicArray<ShardSearchFailure> shardFailures = partialResultsHolder.shardFailures.get();
+        // lazily create shard failures, so we can early build the empty shard failure list in most cases (no failures)
+        if (shardFailures == null) { // this is double checked locking but it's fine since SetOnce uses a volatile read internally
+            synchronized (shardFailuresMutex) {
+                shardFailures = this.partialResultsHolder.shardFailures.get(); // read again otherwise somebody else has created it?
+                if (shardFailures == null) { // still null so we are the first and create a new instance
+                    shardFailures = new AtomicArray<>(partialResultsHolder.totalShards.get());
+                    this.partialResultsHolder.shardFailures.set(shardFailures);
+                }
+                shardFailures.setOnce(shardIndex, new ShardSearchFailure(e, shardTarget));
+            }
         }
     }
 }

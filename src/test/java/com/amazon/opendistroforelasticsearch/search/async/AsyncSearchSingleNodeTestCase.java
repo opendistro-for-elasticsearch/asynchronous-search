@@ -16,7 +16,7 @@ import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDI
 
 
 public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase {
-    static final String INDEX = ".async_search_response";
+    static final String INDEX = ".asynchronous_search_response";
     static final String TEST_INDEX = "index";
 
     @Override

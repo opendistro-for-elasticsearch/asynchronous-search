@@ -23,7 +23,7 @@ import java.util.concurrent.CountDownLatch;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
 public class TestClientUtils {
-    static final String INDEX = ".async_search_response";
+    static final String INDEX = ".asynchronous_search_response";
     static final BackoffPolicy STORE_BACKOFF_POLICY =
             BackoffPolicy.exponentialBackoff(timeValueMillis(250), 20);
 
