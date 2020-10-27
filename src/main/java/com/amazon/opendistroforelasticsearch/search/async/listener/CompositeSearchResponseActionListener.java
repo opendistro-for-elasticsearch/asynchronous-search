@@ -97,7 +97,7 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
         assert partialResultsHolder.reducePhase.get() == searchResponse.getNumReducePhases() : "reduce phase number mismatch";
         assert partialResultsHolder.clusters.get() == searchResponse.getClusters() : "clusters mismatch";
         assert Arrays.equals(partialResultsHolder.shardSearchFailures.toArray(
-                new ShardSearchFailure[partialResultsHolder.failurePos.get()]), searchResponse.getShardFailures())
+                new ShardSearchFailure[partialResultsHolder.shardSearchFailures.length()]), searchResponse.getShardFailures())
                 : "shard failures mismatch";
         assert partialResultsHolder.skippedShards.get() == searchResponse.getSkippedShards() : "skipped shards mismatch";
         assert partialResultsHolder.totalShards.get() == searchResponse.getTotalShards() : "total shards mismatch";
@@ -186,7 +186,6 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
         final AtomicReference<SearchResponse.Clusters> clusters;
         final AtomicReference<List<SearchShard>> shards;
         final AtomicArray<ShardSearchFailure> shardSearchFailures;
-        final AtomicInteger failurePos;
         final AtomicBoolean hasFetchPhase;
         final long relativeStartMillis;
         final LongSupplier relativeTimeSupplier;
@@ -200,7 +199,6 @@ public abstract class CompositeSearchResponseActionListener<T> extends SearchPro
             this.skippedShards = new AtomicInteger();
             this.reducePhase = new AtomicInteger();
             this.isInitialized = new AtomicBoolean(false);
-            this.failurePos = new AtomicInteger(0);
             this.hasFetchPhase = new AtomicBoolean(false);
             this.totalHits = new AtomicReference<>();
             this.clusters = new AtomicReference<>();

@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchTask;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.tasks.TaskId;
 
 import java.util.Map;

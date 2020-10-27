@@ -15,8 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
@@ -29,11 +27,9 @@ import org.elasticsearch.cluster.ClusterStateObserver;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.io.stream.Writeable;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.AbstractRunnable;
 import org.elasticsearch.node.NodeClosedException;
 import org.elasticsearch.tasks.Task;
-import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.ConnectTransportException;
 import org.elasticsearch.transport.RemoteTransportException;
@@ -75,7 +71,7 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
     @Override
     protected void doExecute(Task task, Request request, ActionListener<Response> listener) {
         try {
-            new AsyncSingleAction(request, listener).run();
+            new AsyncForwardAction(request, listener).run();
         } catch (Exception e) {
             listener.onFailure(e);
         }
@@ -83,7 +79,7 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
 
     public abstract void handleRequest(AsyncSearchId asyncSearchId, Request request, ActionListener<Response> listener);
 
-    class AsyncSingleAction extends AbstractRunnable {
+    class AsyncForwardAction extends AbstractRunnable {
 
         private final ActionListener<Response> listener;
         private final Request request;
@@ -91,7 +87,7 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
         private DiscoveryNode targetNode;
         private AsyncSearchId asyncSearchId;
 
-        AsyncSingleAction(Request request, ActionListener<Response> listener) {
+        AsyncForwardAction(Request request, ActionListener<Response> listener) {
             this.request = request;
             this.listener = listener;
             this.asyncSearchId = AsyncSearchId.parseAsyncId(request.getId());
@@ -102,40 +98,36 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
         @Override
         public void onFailure(Exception e) {
             logger.error(new ParameterizedMessage("Failed to dispatch request for action {} ", actionName), e);
-            listener.onFailure(e);
+            handleRequest(asyncSearchId, request, listener);
         }
 
         @Override
         protected void doRun() {
-            try {
-                ClusterState state = observer.setAndGetObservedState();
-                // forward request only if the local node isn't the node coordinating the search and the node coordinating
-                // the search exists in the cluster
-                if (state.nodes().getLocalNode().equals(targetNode) == false && state.nodes().nodeExists(targetNode)) {
-                    transportService.sendRequest(targetNode, actionName, request,
-                            new ActionListenerResponseHandler<Response>(listener, responseReader) {
-                                @Override
-                                public void handleException(final TransportException exp) {
-                                    Throwable cause = exp.unwrapCause();
-                                    if (cause instanceof ConnectTransportException ||
-                                            (exp instanceof RemoteTransportException && cause instanceof NodeClosedException)) {
-                                        // we want to retry here a bit to see if the node connects backs
-                                        logger.debug("connection exception while trying to forward request with action name [{}] to " +
-                                                        "target node [{}], scheduling a retry. Error: [{}]",
-                                                actionName, targetNode, exp.getDetailedMessage());
-                                        //should we re-try on this
-                                    }
-                                    // handle request locally if we were not able to forward the request
-                                    handleRequest(asyncSearchId, request, listener);
+            //should we look at the task status and retry on forwarding the request if the search is still RUNNING based
+            //on task status
+            ClusterState state = observer.setAndGetObservedState();
+            // forward request only if the local node isn't the node coordinating the search and the node coordinating
+            // the search exists in the cluster
+            if (state.nodes().getLocalNode().equals(targetNode) == false && state.nodes().nodeExists(targetNode)) {
+                transportService.sendRequest(targetNode, actionName, request,
+                        new ActionListenerResponseHandler<Response>(listener, responseReader) {
+                            @Override
+                            public void handleException(final TransportException exp) {
+                                Throwable cause = exp.unwrapCause();
+                                if (cause instanceof ConnectTransportException ||
+                                        (exp instanceof RemoteTransportException && cause instanceof NodeClosedException)) {
+                                    // we want to retry here a bit to see if the node connects backs
+                                    logger.debug("connection exception while trying to forward request with action name [{}] to " +
+                                                    "target node [{}], scheduling a retry. Error: [{}]",
+                                            actionName, targetNode, exp.getDetailedMessage());
+                                    //should we re-try on this
                                 }
-                            });
-                } else {
-                    handleRequest(asyncSearchId, request, listener);
-                }
-
-            } catch (Exception e) {
-                logger.error(new ParameterizedMessage("Failed to dispatch request for action {} ", actionName), e);
-                listener.onFailure(e);
+                                // handle request locally if we were not able to forward the request
+                                handleRequest(asyncSearchId, request, listener);
+                            }
+                        });
+            } else {
+                handleRequest(asyncSearchId, request, listener);
             }
         }
     }

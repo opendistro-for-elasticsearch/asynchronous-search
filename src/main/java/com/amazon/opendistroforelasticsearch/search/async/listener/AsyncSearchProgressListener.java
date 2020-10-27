@@ -62,7 +62,7 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
                             : partialResultsHolder.internalAggregations.get(),
                     null, null, false, false, partialResultsHolder.reducePhase.get());
             ShardSearchFailure[] shardSearchFailures =
-                    partialResultsHolder.shardSearchFailures.toArray(new ShardSearchFailure[partialResultsHolder.failurePos.get()]);
+                    partialResultsHolder.shardSearchFailures.toArray(new ShardSearchFailure[partialResultsHolder.shardSearchFailures.length()]);
             long tookInMillis = partialResultsHolder.relativeTimeSupplier.getAsLong() - partialResultsHolder.relativeStartMillis;
             return new SearchResponse(internalSearchResponse, null, partialResultsHolder.totalShards.get(),
                     partialResultsHolder.successfulShards.get(),
@@ -103,8 +103,7 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
     protected void onFetchFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
         assert partialResultsHolder.hasFetchPhase.get() : "Fetch failure without fetch phase";
         assert shardIndex < partialResultsHolder.totalShards.get();
-        partialResultsHolder.shardSearchFailures.setOnce(partialResultsHolder.failurePos.getAndIncrement(),
-                new ShardSearchFailure(exc, shardTarget));
+        partialResultsHolder.shardSearchFailures.setOnce(shardIndex, new ShardSearchFailure(exc, shardTarget));
     }
 
     @Override
@@ -112,13 +111,14 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
         assert partialResultsHolder.hasFetchPhase.get() : "Fetch result without fetch phase";
         assert shardIndex < partialResultsHolder.totalShards.get();
         partialResultsHolder.successfulShards.incrementAndGet();
+        partialResultsHolder.shardSearchFailures.setOnce(shardIndex, null);
     }
 
     @Override
     protected void onQueryFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
         assert shardIndex < partialResultsHolder.totalShards.get();
         ShardSearchFailure shardSearchFailure = new ShardSearchFailure(exc, shardTarget);
-        partialResultsHolder.shardSearchFailures.setOnce(partialResultsHolder.failurePos.getAndIncrement(), shardSearchFailure);
+        partialResultsHolder.shardSearchFailures.setOnce(shardIndex, shardSearchFailure);
     }
 
     @Override
@@ -127,6 +127,7 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
         // query and fetch optimization for single shard
         if (partialResultsHolder.hasFetchPhase.get() == false || partialResultsHolder.totalShards.get() == 1) {
             partialResultsHolder.successfulShards.incrementAndGet();
+            partialResultsHolder.shardSearchFailures.setOnce(shardIndex, null);
         }
     }
 }
