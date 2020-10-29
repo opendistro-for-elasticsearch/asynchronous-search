@@ -22,6 +22,7 @@ import java.util.Optional;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchRejectedException;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchStage;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -30,7 +31,6 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.CollectionUtils;
 import org.elasticsearch.common.util.concurrent.ConcurrentMapLong;
 
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.DELETED;
 
 public class AsyncSearchActiveStore {
 
@@ -82,7 +82,7 @@ public class AsyncSearchActiveStore {
         if (asyncSearchContext != null) {
             logger.debug("Removing {} from context map", asyncSearchContextId);
             activeContexts.remove(asyncSearchContextId.getId());
-            asyncSearchContext.advanceStage(DELETED);
+            asyncSearchContext.advanceStage(AsyncSearchStage.DELETED);
             return true;
         }
         return false;

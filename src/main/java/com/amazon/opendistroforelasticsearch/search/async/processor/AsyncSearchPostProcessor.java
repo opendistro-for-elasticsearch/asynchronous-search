@@ -2,6 +2,7 @@ package com.amazon.opendistroforelasticsearch.search.async.processor;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchStage;
 import com.amazon.opendistroforelasticsearch.search.async.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.persistence.AsyncSearchPersistenceModel;
@@ -75,21 +76,21 @@ public class AsyncSearchPostProcessor {
         // acquire all permits non-blocking
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
             // check again after acquiring permit if the context has been deleted mean while
-            if (asyncSearchContext.getAsyncSearchStage() == AsyncSearchContext.Stage.DELETED) {
+            if (asyncSearchContext.getAsyncSearchStage() == AsyncSearchStage.DELETED) {
                 logger.debug("Async search context has been moved to "+ asyncSearchContext.getAsyncSearchStage() + "while waiting to acquire permits for post processing");
                 return;
             }
                 asyncSearchPersistenceService.storeResponse(asyncSearchContext.getAsyncSearchId(), persistenceModel, ActionListener.wrap(
                         (indexResponse) -> {
                             //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
-                            asyncSearchContext.advanceStage(AsyncSearchContext.Stage.PERSISTED);
+                            asyncSearchContext.advanceStage(AsyncSearchStage.PERSISTED);
                             // Clean this up so that new context find results in a resolution from persistent store
                             asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
                             releasable.close();
                         },
 
                         (e) -> {
-                            asyncSearchContext.advanceStage(AsyncSearchContext.Stage.PERSIST_FAILED);
+                            asyncSearchContext.advanceStage(AsyncSearchStage.PERSIST_FAILED);
                             //TODO should we wait or retry after some time or after an event
                             logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
                             releasable.close();

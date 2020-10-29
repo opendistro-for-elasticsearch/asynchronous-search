@@ -20,10 +20,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 
-import com.amazon.opendistroforelasticsearch.search.async.*;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextPermit;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchStage;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
@@ -46,16 +50,16 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchActiveContext.class);
 
-    private volatile SetOnce<SearchTask> searchTask;
+    private final SetOnce<SearchTask> searchTask;
     private volatile long expirationTimeMillis;
     private volatile long startTimeMillis;
     private final Boolean keepOnCompletion;
-    private volatile TimeValue keepAlive;
+    private final TimeValue keepAlive;
     private final String nodeId;
-    private volatile SetOnce<String> asyncSearchId;
-    private AtomicBoolean completed;
-    private AtomicReference<ElasticsearchException> error;
-    private AtomicReference<SearchResponse> searchResponse;
+    private final SetOnce<String> asyncSearchId;
+    private final AtomicBoolean completed;
+    private final AtomicReference<ElasticsearchException> error;
+    private final AtomicReference<SearchResponse> searchResponse;
     private final AsyncSearchContextPermit asyncSearchContextPermit;
     private volatile AsyncSearchStage asyncSearchStage;
     private final AsyncSearchContextListener contextListener;
@@ -155,12 +159,13 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     /**
      * Atomically validates and updates the state of the search
      *
-     * @param nextAsyncSearchStage asyncSearchStage to set
+     * @param nextAsyncSearchStage asyncSearchStage to advance
      */
     public synchronized void advanceStage(AsyncSearchStage nextAsyncSearchStage) {
         AsyncSearchStage currentAsyncSearchStage = asyncSearchStage;
         if (currentAsyncSearchStage == null) {
-            assert nextAsyncSearchStage == AsyncSearchStage.INIT : "only next asyncSearchStage "+ nextAsyncSearchStage +" is allowed when the current asyncSearchStage is null";
+            assert nextAsyncSearchStage == AsyncSearchStage.INIT : "only next asyncSearchStage "+ nextAsyncSearchStage +" " +
+                    "is allowed when the current asyncSearchStage is null";
         }
         if (currentAsyncSearchStage != null && asyncSearchStage.nextTransitions().contains(nextAsyncSearchStage) == false) {
             throw new IllegalStateException("can't move to asyncSearchStage [" + nextAsyncSearchStage + "], from current asyncSearchStage: ["
@@ -171,7 +176,8 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
             try {
                 asyncSearchStage.onTransition(contextListener, getContextId());
             } catch (Exception ex) {
-
+                logger.error(() -> new ParameterizedMessage("Failed to execute context listener for transition " +
+                        "from stage {} to stage {}", currentAsyncSearchStage, nextAsyncSearchStage), ex);
             }
         }
     }

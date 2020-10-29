@@ -20,7 +20,7 @@ interface TransitionProcessor<T> {
  */
 public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
     /**
-     * At the start of the search, before the {@link SearchTask starts to run}
+     * At the start of the search, before the {@link SearchTask} starts to run
      */
     INIT {
         @Override

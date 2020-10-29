@@ -54,8 +54,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.PERSISTED;
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext.Stage.RUNNING;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
@@ -139,7 +137,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             asyncSearchContextOptional.get().setTask(searchTask);
-            advanceStage = () -> asyncSearchContextOptional.get().advanceStage(RUNNING);
+            advanceStage = () -> asyncSearchContextOptional.get().advanceStage(AsyncSearchStage.RUNNING);
         }
         return advanceStage;
     }
@@ -235,7 +233,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             asyncSearchActiveContext.acquireContextPermit(ActionListener.wrap(
                     releasable -> {
                         // At this point it's possible that the response would have been persisted to system index
-                        if (asyncSearchActiveContext.getAsyncSearchStage() == PERSISTED) {
+                        if (asyncSearchActiveContext.getAsyncSearchStage() == AsyncSearchStage.PERSISTED) {
                             persistenceService.updateExpirationTimeAndGet(id, requestedExpirationTime, ActionListener.wrap((actionResponse) ->
                                  listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId, actionResponse, currentTimeSupplier)),
                                     listener::onFailure));
@@ -294,7 +292,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         public void run() {
             try {
                 for (AsyncSearchActiveContext asyncSearchActiveContext : asyncSearchActiveStore.getAllContexts().values()) {
-                    AsyncSearchActiveContext.Stage stage = asyncSearchActiveContext.getAsyncSearchStage();
+                    AsyncSearchStage stage = asyncSearchActiveContext.getAsyncSearchStage();
                     if (stage != null && (asyncSearchActiveContext.retainedStages().contains(stage) == false || asyncSearchActiveContext.isExpired())) {
                         asyncSearchActiveStore.freeContext(asyncSearchActiveContext.getContextId());
                     }
