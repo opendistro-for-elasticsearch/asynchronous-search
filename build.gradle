@@ -49,7 +49,7 @@ compileTestJava {
     }
 }
 esplugin {
-    name 'async_search_plugin'
+    name 'asynchronous_search_plugin'
     description "Provides support for async search"
     classname 'com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin'
     //extendedPlugins = ['opendistro-job-scheduler']
@@ -86,7 +86,10 @@ testClusters.integTest {
 
 
 }
+test {
+    enabled = true
 
+}
 
 integTest {
     runner {

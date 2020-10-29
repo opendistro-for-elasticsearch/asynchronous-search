@@ -15,9 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.response;
 
+import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.Strings;
@@ -28,8 +30,13 @@ import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.aggregations.InternalAggregations;
+import org.elasticsearch.search.internal.InternalSearchResponse;
 
 import java.io.IOException;
+import java.util.function.Supplier;
 
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -43,10 +50,10 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     private static final ParseField ERROR = new ParseField("error");
 
 
-    private String id;
-    private boolean isRunning;
-    private long startTimeMillis;
-    private long expirationTimeMillis;
+    private final String id;
+    private final boolean isRunning;
+    private final long startTimeMillis;
+    private final long expirationTimeMillis;
     @Nullable
     private SearchResponse searchResponse;
     @Nullable
@@ -76,21 +83,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         this.expirationTimeMillis = expirationTimeMillis;
         this.searchResponse = searchResponse;
         this.error = error;
-    }
-
-    public AsyncSearchResponse(AsyncSearchResponse response, long expirationTimeMillis) {
-        this.id = response.getId();
-        this.isRunning = response.isRunning();
-        this.startTimeMillis = response.getStartTimeMillis();
-        this.expirationTimeMillis = expirationTimeMillis;
-        this.searchResponse = response.getSearchResponse();
-        this.error = response.getError();
-
-    }
-
-    public AsyncSearchResponse(SearchResponse response, long expirationTimeMillis) {
-        this.expirationTimeMillis = expirationTimeMillis;
-        this.searchResponse = response;
     }
 
     @Override
@@ -147,7 +139,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
 
     @Override
     public RestStatus status() {
-        return searchResponse == null ? RestStatus.NOT_FOUND : searchResponse.status();
+        return searchResponse != null || error != null ? RestStatus.OK : RestStatus.NOT_FOUND;
     }
 
     @Override
@@ -196,5 +188,9 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
             }
         }
         return new AsyncSearchResponse(id, isRunning, startTimeMillis, expirationTimeMillis, searchResponse, error);
+    }
+
+    public static AsyncSearchResponse empty(String id, SearchResponse searchResponse, ElasticsearchException exception) {
+        return new AsyncSearchResponse(id, false, -1, -1, searchResponse, exception);
     }
 }

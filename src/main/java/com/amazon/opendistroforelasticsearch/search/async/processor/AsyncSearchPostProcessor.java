@@ -71,25 +71,25 @@ public class AsyncSearchPostProcessor {
     private void postProcess(AsyncSearchActiveContext asyncSearchContext, AsyncSearchPersistenceModel persistenceModel) {
         //assert we are not post processing on any other thread pool
         assert Thread.currentThread().getName().contains(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
-        assert asyncSearchContext.retainedStages().contains(asyncSearchContext.getStage()) : "found stage "+ asyncSearchContext.getStage() + "that shouldn't be retained";
+        assert asyncSearchContext.retainedStages().contains(asyncSearchContext.getAsyncSearchStage()) : "found stage "+ asyncSearchContext.getAsyncSearchStage() + "that shouldn't be retained";
         // acquire all permits non-blocking
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
             // check again after acquiring permit if the context has been deleted mean while
-            if (asyncSearchContext.getStage() == AsyncSearchContext.Stage.DELETED) {
-                logger.debug("Async search context has been moved to "+ asyncSearchContext.getStage() + "while waiting to acquire permits for post processing");
+            if (asyncSearchContext.getAsyncSearchStage() == AsyncSearchContext.Stage.DELETED) {
+                logger.debug("Async search context has been moved to "+ asyncSearchContext.getAsyncSearchStage() + "while waiting to acquire permits for post processing");
                 return;
             }
                 asyncSearchPersistenceService.storeResponse(asyncSearchContext.getAsyncSearchId(), persistenceModel, ActionListener.wrap(
                         (indexResponse) -> {
                             //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
-                            asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSISTED);
+                            asyncSearchContext.advanceStage(AsyncSearchContext.Stage.PERSISTED);
                             // Clean this up so that new context find results in a resolution from persistent store
                             asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
                             releasable.close();
                         },
 
                         (e) -> {
-                            asyncSearchContext.setStage(AsyncSearchContext.Stage.PERSIST_FAILED);
+                            asyncSearchContext.advanceStage(AsyncSearchContext.Stage.PERSIST_FAILED);
                             //TODO should we wait or retry after some time or after an event
                             logger.error("Failed to persist final response for {}", asyncSearchContext.getAsyncSearchId(), e);
                             releasable.close();

@@ -24,39 +24,44 @@ public interface AsyncSearchContextListener {
 
     /**
      * Executed when a new async search context was created
-     *
-     * @param context the created context
      */
-    default void onNewContext(AsyncSearchContextId context) {
+    default void onNewContext(AsyncSearchContextId contextId) {
     }
 
     /**
-     * Executed when a previously created async search context is running.
-     *
-     * @param context the freed search context
+     * Executed when a previously created async search context completes.
      */
-    default void onContextCompleted(AsyncSearchContextId context) {
+    default void onContextCompleted(AsyncSearchContextId contextId) {
     }
 
     /**
-     *
-     * @param contextId contextId
+     *  Executed when a previously created async search context fails.
      */
     default void onContextFailed(AsyncSearchContextId contextId) {
     }
 
     /**
-     *
-     * @param asyncSearchContextId contextId
+     * Executed when a previously created async search context is persisted.
      */
-    default void onContextPersisted(AsyncSearchContextId asyncSearchContextId) {
+    default void onContextPersisted(AsyncSearchContextId contextId) {
     }
 
     /**
-     *
-     * @param asyncSearchContextId contextId
+     * Executed when a previously created async search context fails persisting.
      */
-    default void onContextRunning(AsyncSearchContextId asyncSearchContextId) {
+    default void onContextPersistFailed(AsyncSearchContextId contextId) {
+    }
+
+    /**
+     * Executed when a previously created async search context is deleted.
+     */
+    default void onContextDeleted(AsyncSearchContextId contextId) {
+    }
+
+    /**
+     * Executed when a previously created async search context is running.
+     */
+    default void onContextRunning(AsyncSearchContextId contextId) {
 
     }
 }

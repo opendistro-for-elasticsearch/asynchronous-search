@@ -113,7 +113,6 @@ public class AsyncSearchTimeoutWrapper {
         public void onResponse(Response response) {
             if (complete.compareAndSet(false, true)) {
                 cancel();
-                logger.info("Invoking onResponse after cancel");
                 actionListener.onResponse(response);
             }
         }

@@ -82,7 +82,7 @@ public class AsyncSearchActiveStore {
         if (asyncSearchContext != null) {
             logger.debug("Removing {} from context map", asyncSearchContextId);
             activeContexts.remove(asyncSearchContextId.getId());
-            asyncSearchContext.setStage(DELETED);
+            asyncSearchContext.advanceStage(DELETED);
             return true;
         }
         return false;

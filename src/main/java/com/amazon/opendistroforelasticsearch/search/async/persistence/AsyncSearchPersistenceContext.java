@@ -109,7 +109,7 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
     }
 
     @Override
-    public Stage getStage() {
+    public Stage getAsyncSearchStage() {
         return Stage.PERSISTED;
     }
 

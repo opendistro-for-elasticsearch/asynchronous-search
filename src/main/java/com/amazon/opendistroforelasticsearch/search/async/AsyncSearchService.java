@@ -126,8 +126,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartTimeMillis,
                 (response) -> asyncSearchPostProcessor.processSearchResponse(response, asyncSearchContextId),
-                (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId),
-                threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME), threadPool::relativeTimeInMillis);
+                (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId), threadPool);
         AsyncSearchActiveContext asyncSearchContext = new AsyncSearchActiveContext(asyncSearchContextId, clusterService.localNode().getId(),
                 keepAlive, keepOnCompletion, threadPool, currentTimeSupplier, progressActionListener, statsListener);
         asyncSearchActiveStore.putContext(asyncSearchContextId, asyncSearchContext);
@@ -140,7 +139,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             asyncSearchContextOptional.get().setTask(searchTask);
-            advanceStage = () -> asyncSearchContextOptional.get().setStage(RUNNING);
+            advanceStage = () -> asyncSearchContextOptional.get().advanceStage(RUNNING);
         }
         return advanceStage;
     }
@@ -236,7 +235,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             asyncSearchActiveContext.acquireContextPermit(ActionListener.wrap(
                     releasable -> {
                         // At this point it's possible that the response would have been persisted to system index
-                        if (asyncSearchActiveContext.getStage() == PERSISTED) {
+                        if (asyncSearchActiveContext.getAsyncSearchStage() == PERSISTED) {
                             persistenceService.updateExpirationTimeAndGet(id, requestedExpirationTime, ActionListener.wrap((actionResponse) ->
                                  listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId, actionResponse, currentTimeSupplier)),
                                     listener::onFailure));
@@ -295,7 +294,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         public void run() {
             try {
                 for (AsyncSearchActiveContext asyncSearchActiveContext : asyncSearchActiveStore.getAllContexts().values()) {
-                    AsyncSearchActiveContext.Stage stage = asyncSearchActiveContext.getStage();
+                    AsyncSearchActiveContext.Stage stage = asyncSearchActiveContext.getAsyncSearchStage();
                     if (stage != null && (asyncSearchActiveContext.retainedStages().contains(stage) == false || asyncSearchActiveContext.isExpired())) {
                         asyncSearchActiveStore.freeContext(asyncSearchActiveContext.getContextId());
                     }

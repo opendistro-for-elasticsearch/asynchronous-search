@@ -19,52 +19,14 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchRe
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.util.set.Sets;
 
-import java.util.Collections;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.LongSupplier;
 
 
 public abstract class AsyncSearchContext {
-
-    /**
-     * The state of the async search.
-     */
-    public enum Stage {
-        /**
-         * At the start of the search, before the {@link SearchTask starts to run}
-         */
-        INIT,
-        /**
-         * The search state actually has been started
-         */
-        RUNNING,
-        /**
-         * The search has completed successfully
-         */
-        SUCCEEDED,
-        /**
-         * The search execution has failed
-         */
-        FAILED,
-        /**
-         * The context has been persisted to system index
-         */
-        PERSISTED,
-        /**
-         * The context has failed to persist to system index
-         */
-        PERSIST_FAILED,
-        /**
-         * The context has been deleted
-         */
-        DELETED
-
-    }
 
     protected final AsyncSearchContextId asyncSearchContextId;
     protected final LongSupplier currentTimeSupplier;
@@ -78,10 +40,10 @@ public abstract class AsyncSearchContext {
 
     public @Nullable SearchProgressActionListener getSearchProgressActionListener() { return searchProgressActionListener; }
 
-    public abstract Stage getStage();
+    public abstract AsyncSearchStage getAsyncSearchStage();
 
     public boolean isRunning() {
-        return getStage() == Stage.RUNNING;
+        return getAsyncSearchStage() == AsyncSearchStage.RUNNING;
     }
 
     public AsyncSearchContextId getContextId() {
@@ -102,8 +64,8 @@ public abstract class AsyncSearchContext {
         return getExpirationTimeMillis() < currentTimeSupplier.getAsLong();
     }
 
-    public Set<Stage> retainedStages() {
-        return Collections.unmodifiableSet(Sets.newHashSet(Stage.INIT, Stage.RUNNING, Stage.SUCCEEDED, Stage.FAILED));
+    public Set<AsyncSearchStage> retainedStages() {
+        return Collections.unmodifiableSet(Sets.newHashSet(AsyncSearchStage.INIT, AsyncSearchStage.RUNNING, AsyncSearchStage.SUCCEEDED, AsyncSearchStage.FAILED));
     }
 
     public AsyncSearchResponse getAsyncSearchResponse() {

@@ -17,10 +17,10 @@ package com.amazon.opendistroforelasticsearch.search.async.listener;
 
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.ShardSearchFailure;
-import org.elasticsearch.action.support.TransportActions;
 import org.elasticsearch.common.CheckedFunction;
 import org.elasticsearch.common.io.stream.DelayableWriteable;
 import org.elasticsearch.common.util.concurrent.AtomicArray;
@@ -28,26 +28,31 @@ import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.SearchShardTarget;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.internal.InternalSearchResponse;
+import org.elasticsearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 
 
 /***
- * The implementation of {@link CompositeSearchResponseActionListener} responsible for updating the partial results of a single async
+ * The implementation of {@link CompositeSearchProgressActionListener} responsible for updating the partial results of a single async
  * search request. All partial results are updated atomically.
  */
-public class AsyncSearchProgressListener extends CompositeSearchResponseActionListener<AsyncSearchResponse> {
+public class AsyncSearchProgressListener extends CompositeSearchProgressActionListener<AsyncSearchResponse> {
 
     private final Object shardFailuresMutex = new Object();
+    private final PartialResultsHolder partialResultsHolder;
 
     public AsyncSearchProgressListener(long relativeStartMillis, CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> function,
-                                       CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction, Executor executor,
-                                       LongSupplier relativeTimeSupplier) {
-        super(function, failureFunction, executor, relativeStartMillis, relativeTimeSupplier);
+                                       CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction, ThreadPool threadPool) {
+        super(function, failureFunction, threadPool);
+        this.partialResultsHolder = new PartialResultsHolder(relativeStartMillis, threadPool::relativeTimeInMillis);
     }
 
 
@@ -141,6 +146,56 @@ public class AsyncSearchProgressListener extends CompositeSearchResponseActionLi
                 }
                 shardFailures.setOnce(shardIndex, new ShardSearchFailure(e, shardTarget));
             }
+        }
+    }
+
+    @Override
+    protected void assertResponse(SearchResponse searchResponse) {
+        //assert partial results match actual results on search completion
+        assert partialResultsHolder.successfulShards.get() == searchResponse.getSuccessfulShards() : "successful shards mismatch";
+        assert partialResultsHolder.reducePhase.get() == searchResponse.getNumReducePhases() : "reduce phase number mismatch";
+        assert partialResultsHolder.clusters.get() == searchResponse.getClusters() : "clusters mismatch";
+        assert Arrays.equals(partialResultsHolder.shardFailures.get().toArray(
+                new ShardSearchFailure[partialResultsHolder.shardFailures.get().length()]), searchResponse.getShardFailures())
+                : "shard failures mismatch";
+        assert partialResultsHolder.skippedShards.get() == searchResponse.getSkippedShards() : "skipped shards mismatch";
+        assert partialResultsHolder.totalShards.get() == searchResponse.getTotalShards() : "total shards mismatch";
+        assert partialResultsHolder.internalAggregations.get() == searchResponse.getAggregations();
+        assert partialResultsHolder.totalHits.get() == searchResponse.getHits().getTotalHits();
+    }
+
+    static class PartialResultsHolder {
+        final AtomicInteger reducePhase;
+        final AtomicReference<TotalHits> totalHits;
+        final AtomicReference<InternalAggregations> internalAggregations;
+        final AtomicReference<DelayableWriteable.Serialized<InternalAggregations>> delayedInternalAggregations;
+        final AtomicBoolean isInitialized;
+        final AtomicInteger totalShards;
+        final AtomicInteger successfulShards;
+        final AtomicInteger skippedShards;
+        final AtomicReference<SearchResponse.Clusters> clusters;
+        final AtomicReference<List<SearchShard>> shards;
+        final AtomicBoolean hasFetchPhase;
+        final long relativeStartMillis;
+        final LongSupplier relativeTimeSupplier;
+        final SetOnce<AtomicArray<ShardSearchFailure>> shardFailures;
+
+
+        PartialResultsHolder(long relativeStartMillis, LongSupplier relativeTimeSupplier) {
+            this.internalAggregations = new AtomicReference<>();
+            this.totalShards = new AtomicInteger();
+            this.successfulShards = new AtomicInteger();
+            this.skippedShards = new AtomicInteger();
+            this.reducePhase = new AtomicInteger();
+            this.isInitialized = new AtomicBoolean(false);
+            this.hasFetchPhase = new AtomicBoolean(false);
+            this.totalHits = new AtomicReference<>();
+            this.clusters = new AtomicReference<>();
+            this.delayedInternalAggregations = new AtomicReference<>();
+            this.relativeStartMillis = relativeStartMillis;
+            this.shards = new AtomicReference<>();
+            this.relativeTimeSupplier = relativeTimeSupplier;
+            this.shardFailures = new SetOnce<>();
         }
     }
 }
