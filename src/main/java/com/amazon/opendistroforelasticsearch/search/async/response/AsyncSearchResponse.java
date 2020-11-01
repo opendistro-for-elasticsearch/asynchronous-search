@@ -36,6 +36,7 @@ import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.internal.InternalSearchResponse;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -145,6 +146,28 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     @Override
     public String toString() {
         return Strings.toString(this);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, isRunning, startTimeMillis, expirationTimeMillis, searchResponse, error);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        AsyncSearchResponse other = (AsyncSearchResponse) o;
+        return  id == other.id &&
+                isRunning== other.isRunning &&
+                startTimeMillis == other.startTimeMillis &&
+                expirationTimeMillis == other.expirationTimeMillis &&
+                searchResponse == other.searchResponse &&
+                error == other.error;
     }
 
     public static AsyncSearchResponse fromXContent(XContentParser parser) throws IOException {

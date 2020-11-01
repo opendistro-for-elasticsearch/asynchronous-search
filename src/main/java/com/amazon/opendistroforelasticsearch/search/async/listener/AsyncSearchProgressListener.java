@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
+import com.amazon.opendistroforelasticsearch.jobscheduler.repackage.com.cronutils.utils.VisibleForTesting;
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.SetOnce;
@@ -34,6 +36,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -50,9 +53,10 @@ public class AsyncSearchProgressListener extends CompositeSearchProgressActionLi
     private final PartialResultsHolder partialResultsHolder;
 
     public AsyncSearchProgressListener(long relativeStartMillis, CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> function,
-                                       CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction, ThreadPool threadPool) {
-        super(function, failureFunction, threadPool);
-        this.partialResultsHolder = new PartialResultsHolder(relativeStartMillis, threadPool::relativeTimeInMillis);
+                                       CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction, ExecutorService executorService,
+                                       LongSupplier relativeTimeSupplier) {
+        super(function, failureFunction, executorService);
+        this.partialResultsHolder = new PartialResultsHolder(relativeStartMillis, relativeTimeSupplier);
     }
 
 
@@ -62,11 +66,11 @@ public class AsyncSearchProgressListener extends CompositeSearchProgressActionLi
      */
     public SearchResponse partialResponse() {
         if (partialResultsHolder.isInitialized.get()) {
-            SearchHits searchHits = new SearchHits(SearchHits.EMPTY, partialResultsHolder.totalHits.get(), 0);
+            SearchHits searchHits = new SearchHits(SearchHits.EMPTY, partialResultsHolder.totalHits.get(), Float.NaN);
             InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits,
                     partialResultsHolder.internalAggregations.get() == null ? (partialResultsHolder.delayedInternalAggregations.get() != null ?
                             partialResultsHolder.delayedInternalAggregations.get().expand() : null) : partialResultsHolder.internalAggregations.get(),
-                    null, null, false, false, partialResultsHolder.reducePhase.get());
+                    null, null, false, null, partialResultsHolder.reducePhase.get());
             ShardSearchFailure [] shardSearchFailures = partialResultsHolder.shardFailures.get() == null ? ShardSearchFailure.EMPTY_ARRAY :
                     partialResultsHolder.shardFailures.get().toArray(new ShardSearchFailure[partialResultsHolder.shardFailures.get().length()]);
             long tookInMillis = partialResultsHolder.relativeTimeSupplier.getAsLong() - partialResultsHolder.relativeStartMillis;
@@ -149,19 +153,9 @@ public class AsyncSearchProgressListener extends CompositeSearchProgressActionLi
         }
     }
 
-    @Override
-    protected void assertResponse(SearchResponse searchResponse) {
-        //assert partial results match actual results on search completion
-        assert partialResultsHolder.successfulShards.get() == searchResponse.getSuccessfulShards() : "successful shards mismatch";
-        assert partialResultsHolder.reducePhase.get() == searchResponse.getNumReducePhases() : "reduce phase number mismatch";
-        assert partialResultsHolder.clusters.get() == searchResponse.getClusters() : "clusters mismatch";
-        assert Arrays.equals(partialResultsHolder.shardFailures.get().toArray(
-                new ShardSearchFailure[partialResultsHolder.shardFailures.get().length()]), searchResponse.getShardFailures())
-                : "shard failures mismatch";
-        assert partialResultsHolder.skippedShards.get() == searchResponse.getSkippedShards() : "skipped shards mismatch";
-        assert partialResultsHolder.totalShards.get() == searchResponse.getTotalShards() : "total shards mismatch";
-        assert partialResultsHolder.internalAggregations.get() == searchResponse.getAggregations();
-        assert partialResultsHolder.totalHits.get() == searchResponse.getHits().getTotalHits();
+    @VisibleForTesting
+    PartialResultsHolder getPartialResultsHolder() {
+        return partialResultsHolder;
     }
 
     static class PartialResultsHolder {

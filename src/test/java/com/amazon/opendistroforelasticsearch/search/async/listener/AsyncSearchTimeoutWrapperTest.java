@@ -13,7 +13,6 @@
  *   permissions and limitations under the License.
  */
 
-
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import org.elasticsearch.action.ActionListener;

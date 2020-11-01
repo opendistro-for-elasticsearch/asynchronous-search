@@ -124,7 +124,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartTimeMillis,
                 (response) -> asyncSearchPostProcessor.processSearchResponse(response, asyncSearchContextId),
-                (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId), threadPool);
+                (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId), threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME),
+                threadPool::relativeTimeInMillis);
         AsyncSearchActiveContext asyncSearchContext = new AsyncSearchActiveContext(asyncSearchContextId, clusterService.localNode().getId(),
                 keepAlive, keepOnCompletion, threadPool, currentTimeSupplier, progressActionListener, statsListener);
         asyncSearchActiveStore.putContext(asyncSearchContextId, asyncSearchContext);

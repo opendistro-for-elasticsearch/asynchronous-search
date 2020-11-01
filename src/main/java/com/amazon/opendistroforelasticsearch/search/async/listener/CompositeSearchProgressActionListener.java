@@ -28,6 +28,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 /***
@@ -36,21 +37,21 @@ import java.util.function.Consumer;
  * invoked once. If the search completes before the listener was added,
  **/
 
-public abstract class CompositeSearchProgressActionListener<T> extends SearchProgressActionListener {
+public class CompositeSearchProgressActionListener<T> extends SearchProgressActionListener {
 
     private final List<ActionListener<T>> actionListeners;
     private final CheckedFunction<SearchResponse, T, IOException> responseFunction;
     private final CheckedFunction<Exception, T, IOException> failureFunction;
-    private final ThreadPool threadPool;
+    private final Executor executor;
     private volatile boolean complete;
 
     private final Logger logger = LogManager.getLogger(getClass());
 
     CompositeSearchProgressActionListener(CheckedFunction<SearchResponse, T, IOException> responseFunction,
                                           CheckedFunction<Exception, T, IOException> failureFunction,
-                                          ThreadPool threadPool) {
+                                          Executor executor) {
         this.responseFunction = responseFunction;
-        this.threadPool = threadPool;
+        this.executor = executor;
         this.failureFunction = failureFunction;
         this.actionListeners = new ArrayList<>(1);
     }
@@ -82,12 +83,11 @@ public abstract class CompositeSearchProgressActionListener<T> extends SearchPro
     @Override
     public void onResponse(SearchResponse searchResponse) {
         //immediately fork to a separate thread pool
-        threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(() -> {
+        executor.execute(() -> {
         T result = null;
             List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
             if (actionListenersToBeInvoked != null) {
                 try {
-                    assertResponse(searchResponse);
                     result = responseFunction.apply(searchResponse);
                 } catch (Exception ex) {
                     for (ActionListener<T> listener : actionListenersToBeInvoked) {
@@ -97,6 +97,7 @@ public abstract class CompositeSearchProgressActionListener<T> extends SearchPro
                             logger.error(() -> new ParameterizedMessage("search response on failure listener [{}] failed", listener), e);
                         }
                     }
+                    return;
                 }
                 for (ActionListener<T> listener : actionListenersToBeInvoked) {
                     try {
@@ -116,23 +117,28 @@ public abstract class CompositeSearchProgressActionListener<T> extends SearchPro
     @Override
     public void onFailure(Exception exception) {
         //immediately fork to a separate thread pool
-        threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(() -> {
+        executor.execute(() -> {
             T result = null;
             List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
+            logger.info("actionListenersToBeInvoked 1 {}", actionListenersToBeInvoked);
             if (actionListenersToBeInvoked != null) {
                 try {
                     result = failureFunction.apply(exception);
                 } catch (Exception ex) {
                     for (ActionListener<T> listener : actionListenersToBeInvoked) {
                         try {
+                            logger.info("actionListenersToBeInvoked 2 {}", actionListenersToBeInvoked);
                             listener.onFailure(ex);
                         } catch (Exception e) {
                             logger.error(() -> new ParameterizedMessage("search response on failure listener [{}] failed", listener), e);
                         }
                     }
+                    return;
                 }
+                logger.info("actionListenersToBeInvoked 3 {}", actionListenersToBeInvoked);
                 for (ActionListener<T> listener : actionListenersToBeInvoked) {
                     try {
+                        logger.info("actionListenersToBeInvoked 4 {}", actionListenersToBeInvoked);
                         listener.onResponse(result);
                     } catch (Exception e) {
                         try {
@@ -157,6 +163,4 @@ public abstract class CompositeSearchProgressActionListener<T> extends SearchPro
         }
         return actionListenersToBeInvoked;
     }
-
-    protected abstract void assertResponse(SearchResponse searchResponse);
 }
