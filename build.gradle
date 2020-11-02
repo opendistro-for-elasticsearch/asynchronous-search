@@ -12,13 +12,27 @@ buildscript {
 
     dependencies {
         classpath "${es_group}.gradle:build-tools:${es_version}"
+        classpath "org.jacoco:org.jacoco.agent:0.8.5"
     }
 }
+//****************************************************************************/
+// Build configurations
+//****************************************************************************/
 
 apply plugin: 'java'
-apply plugin: 'elasticsearch.esplugin'
+apply plugin: 'jacoco'
 apply plugin: 'elasticsearch.testclusters'
 apply plugin: 'idea'
+apply plugin: 'elasticsearch.esplugin'
+
+def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
+def usingMultiNode = project.properties.containsKey('numNodes')
+// Only apply jacoco test coverage if we are running a local single node cluster
+if (!usingRemoteCluster) {
+    if (!usingMultiNode) {
+        apply from: 'build-tools/plugin-coverage.gradle'
+    }
+}
 
 ext {
     projectSubstitutions = [:]
@@ -41,13 +55,15 @@ dependencies {
     }
     compileOnly ("org.elasticsearch.plugin:transport-netty4-client:7.8.1")
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.9.0.0"
 }
 compileTestJava {
     classpath = classpath.filter{ File file ->
         !file.name.equals( "hamcrest-core-1.3.jar" )
     }
 }
+
+check.dependsOn jacocoTestReport
+
 esplugin {
     name 'asynchronous_search_plugin'
     description "Provides support for asynchronous search"
@@ -91,34 +107,32 @@ test {
 
 }
 
-integTest {
-    runner {
-        systemProperty 'tests.security.manager', 'false'
-        systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
+integTest.runner {
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
 
-        systemProperty "https", System.getProperty("https")
-        systemProperty "user", System.getProperty("user")
-        systemProperty "password", System.getProperty("password")
+    systemProperty "https", System.getProperty("https")
+    systemProperty "user", System.getProperty("user")
+    systemProperty "password", System.getProperty("password")
 
-        // The 'doFirst' delays till execution time.
-        doFirst {
-            // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
-            // use longer timeouts for requests.
-            def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
-            systemProperty 'cluster.debug', isDebuggingCluster
-            // Set number of nodes system property to be used in tests
-            systemProperty 'cluster.number_of_nodes', "${_numNodes}"
-            // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
-            // not being written, the waitForAllConditions ensures it's written
-            getClusters().forEach { cluster ->
-                cluster.waitForAllConditions()
-            }
+    // The 'doFirst' delays till execution time.
+    doFirst {
+        // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
+        // use longer timeouts for requests.
+        def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
+        systemProperty 'cluster.debug', isDebuggingCluster
+        // Set number of nodes system property to be used in tests
+        systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+        // not being written, the waitForAllConditions ensures it's written
+        getClusters().forEach { cluster ->
+            cluster.waitForAllConditions()
         }
+    }
 
-        // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
-        if (System.getProperty("test.debug") != null) {
-            jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-        }
+    // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
+    if (System.getProperty("test.debug") != null) {
+        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     }
 }
 
