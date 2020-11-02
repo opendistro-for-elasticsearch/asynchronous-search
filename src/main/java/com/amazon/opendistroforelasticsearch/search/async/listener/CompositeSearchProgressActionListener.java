@@ -50,7 +50,7 @@ public class CompositeSearchProgressActionListener<T> extends SearchProgressActi
         this.responseFunction = responseFunction;
         this.executor = executor;
         this.failureFunction = failureFunction;
-        this.actionListeners = new ArrayList<>(1);
+        this.actionListeners = new ArrayList<>();
     }
 
     /***

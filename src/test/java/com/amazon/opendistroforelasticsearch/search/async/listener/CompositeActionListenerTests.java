@@ -20,6 +20,7 @@ import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.CheckedFunction;
+import org.elasticsearch.common.collect.Tuple;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.InternalAggregations;
@@ -67,102 +68,170 @@ public class CompositeActionListenerTests extends ESTestCase {
                 new ElasticsearchException(mockSearchException));
     }
 
-    public void testListenerOnResponse() throws InterruptedException {
-        CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> responseFunction =
-                (r) -> {
-                    assertTrue(responseRef.compareAndSet(null, r));
-                    return mockAsyncSearchResp;
-                };
-        CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction =
-                (e) -> {
-                    assertTrue(exceptionRef.compareAndSet(null, e));
-                    return mockAsyncSearchFailResp;
-                };
-        verifyListener(responseFunction, failureFunction, false);
-    }
-
-    public void testListenerOnFailure() throws InterruptedException {
-        CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> responseFunction =
-                (r) -> {
-                    assertTrue(responseRef.compareAndSet(null, r));
-                    throw mockPostProcessingException;
-                };
-        CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction =
-                (e) -> {
-                    assertTrue(exceptionRef.compareAndSet(null, e));
-                    throw mockPostProcessingException;
-                };
-        verifyListener(responseFunction, failureFunction, true);
-    }
-
-    public void verifyListener(CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> responseFunction,
-                               CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction,
-                               boolean onFailure) throws InterruptedException {
+    public void testListenerOnResponseForSuccessfulSearch() throws InterruptedException {
         TestThreadPool threadPool = null;
         try {
-            final AtomicBoolean onSearchResponse = new AtomicBoolean(false);
-            threadPool = new TestThreadPool(getClass().getName());
             final int numListeners = randomIntBetween(1, 20);
-            final CountDownLatch latch = new CountDownLatch(numListeners);
-            final List<AtomicReference<AsyncSearchResponse>> responseList = new ArrayList<>();
-            final List<AtomicReference<Exception>> exceptionList = new ArrayList<>();
-
+            threadPool = new TestThreadPool(getClass().getName());
+            CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> responseFunction =
+                    (r) -> {
+                        assertTrue(responseRef.compareAndSet(null, r));
+                        return mockAsyncSearchResp;
+                    };
+            CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction =
+                    (e) -> {
+                        assertTrue(exceptionRef.compareAndSet(null, e));
+                        return mockAsyncSearchFailResp;
+                    };
             CompositeSearchProgressActionListener<AsyncSearchResponse> progressActionListener =
-                   new CompositeSearchProgressActionListener<AsyncSearchResponse>(responseFunction, failureFunction, threadPool.generic());
+                    new CompositeSearchProgressActionListener<AsyncSearchResponse>(responseFunction, failureFunction, threadPool.generic());
+            Tuple<List<AtomicReference<AsyncSearchResponse>>, List<AtomicReference<Exception>>> respTuple =
+                    processListeners(progressActionListener, () -> progressActionListener.onResponse(mockSearchResponse), numListeners);
+
+            List<AtomicReference<AsyncSearchResponse>> responseList = respTuple.v1();
+            List<AtomicReference<Exception>> exceptionList = respTuple.v2();
+            //assert all response listeners that were added were invoked
+            assertEquals(numListeners, responseList.size());
+            assertEquals(0, exceptionList.size());
+            assertEquals(null, exceptionRef.get());
+            assertEquals(mockSearchResponse, responseRef.get());
 
             for (int i = 0; i < numListeners; i++) {
-                progressActionListener.addOrExecuteListener(createMockListener(responseList, exceptionList, latch));
-            }
-
-            if (randomBoolean()) {
-                progressActionListener.onFailure(mockSearchException);
-            } else {
-                assertTrue(onSearchResponse.compareAndSet(false, true));
-                progressActionListener.onResponse(mockSearchResponse);
-            }
-            //wait for all listeners to be executed since on response is forked to a separate thread pool
-            latch.await();
-            //assert all response listeners that were added were invoked
-
-            //assert search response assertions were invoked
-            if (onFailure) {
-                assertEquals(numListeners, exceptionList.size());
-                if (onSearchResponse.get()) {
-                    for (int i = 0; i < numListeners; i++) {
-                        //assert all response listeners that were added were invoked with the search response
-                        assertEquals(mockPostProcessingException, exceptionList.get(i).get());
-                        assertEquals(mockSearchResponse, responseRef.get());
-                    }
-                } else {
-                    //assert search response function was invoked with the same exception on response
-                    assertEquals(mockSearchException, exceptionRef.get());
-                    for (int i = 0; i < numListeners; i++) {
-                        //assert all response listeners that were added were invoked with the exception response
-                        assertEquals(mockPostProcessingException, exceptionList.get(i).get());
-                    }
-                }
-
-            } else {
-                assertEquals(numListeners, responseList.size());
-                if (onSearchResponse.get()) {
-                    for (int i = 0; i < numListeners; i++) {
-                        //assert all response listeners that were added were invoked with the search response
-                        assertEquals(mockAsyncSearchResp, responseList.get(i).get());
-                        assertEquals(mockSearchResponse, responseRef.get());
-                    }
-                } else {
-                    //assert search response function was invoked with the same exception on response
-                    assertEquals(mockSearchException, exceptionRef.get());
-                    for (int i = 0; i < numListeners; i++) {
-                        //assert all response listeners that were added were invoked with the exception response
-                        assertEquals(mockAsyncSearchFailResp, responseList.get(i).get());
-                    }
-                }
+                //assert all response listeners that were added were invoked with the search response
+                assertEquals(mockAsyncSearchResp, responseList.get(i).get());
             }
         } finally {
             ThreadPool.terminate(threadPool, 100, TimeUnit.MILLISECONDS);
         }
     }
+
+    public void testListenerOnResponseForFailedSearch() throws InterruptedException {
+        TestThreadPool threadPool = null;
+        try {
+            final int numListeners = randomIntBetween(1, 20);
+            threadPool = new TestThreadPool(getClass().getName());
+            CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> responseFunction =
+                    (r) -> {
+                        assertTrue(responseRef.compareAndSet(null, r));
+                        return mockAsyncSearchResp;
+                    };
+            CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction =
+                    (e) -> {
+                        assertTrue(exceptionRef.compareAndSet(null, e));
+                        return mockAsyncSearchFailResp;
+                    };
+            CompositeSearchProgressActionListener<AsyncSearchResponse> progressActionListener =
+                    new CompositeSearchProgressActionListener<AsyncSearchResponse>(responseFunction, failureFunction, threadPool.generic());
+            Tuple<List<AtomicReference<AsyncSearchResponse>>, List<AtomicReference<Exception>>> respTuple =
+                    processListeners(progressActionListener, () -> progressActionListener.onFailure(mockSearchException), numListeners);
+
+            List<AtomicReference<AsyncSearchResponse>> responseList = respTuple.v1();
+            List<AtomicReference<Exception>> exceptionList = respTuple.v2();
+            //assert all response listeners that were added were invoked
+            assertEquals(numListeners, responseList.size());
+            assertEquals(0, exceptionList.size());
+            assertEquals(mockSearchException, exceptionRef.get());
+            assertEquals(null, responseRef.get());
+
+            for (int i = 0; i < numListeners; i++) {
+                //assert all response listeners that were added were invoked with the search response
+                assertEquals(mockAsyncSearchFailResp, responseList.get(i).get());
+            }
+        } finally {
+            ThreadPool.terminate(threadPool, 100, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    public void testListenerOnFailureForFailedSearch() throws InterruptedException {
+        TestThreadPool threadPool = null;
+        try {
+            final int numListeners = randomIntBetween(1, 20);
+            threadPool = new TestThreadPool(getClass().getName());
+            CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> responseFunction =
+                    (r) -> {
+                        assertTrue(responseRef.compareAndSet(null, r));
+                        throw mockPostProcessingException;
+                    };
+            CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction =
+                    (e) -> {
+                        assertTrue(exceptionRef.compareAndSet(null, e));
+                        throw mockPostProcessingException;
+                    };
+            CompositeSearchProgressActionListener<AsyncSearchResponse> progressActionListener =
+                    new CompositeSearchProgressActionListener<AsyncSearchResponse>(responseFunction, failureFunction, threadPool.generic());
+            Tuple<List<AtomicReference<AsyncSearchResponse>>, List<AtomicReference<Exception>>> respTuple =
+                    processListeners(progressActionListener, () -> progressActionListener.onFailure(mockSearchException), numListeners);
+
+            List<AtomicReference<AsyncSearchResponse>> responseList = respTuple.v1();
+            List<AtomicReference<Exception>> exceptionList = respTuple.v2();
+            //assert all response listeners that were added were invoked
+            assertEquals(0, responseList.size());
+            assertEquals(numListeners, exceptionList.size());
+            assertEquals(mockSearchException, exceptionRef.get());
+            assertEquals(null, responseRef.get());
+
+            for (int i = 0; i < numListeners; i++) {
+                //assert all response listeners that were added were invoked with the search response
+                assertEquals(mockPostProcessingException, exceptionList.get(i).get());
+            }
+        } finally {
+            ThreadPool.terminate(threadPool, 100, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    public void testListenerOnFailureForSuccessfulSearch() throws InterruptedException {
+        TestThreadPool threadPool = null;
+        try {
+            final int numListeners = randomIntBetween(1, 20);
+            threadPool = new TestThreadPool(getClass().getName());
+            CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> responseFunction =
+                    (r) -> {
+                        assertTrue(responseRef.compareAndSet(null, r));
+                        throw mockPostProcessingException;
+                    };
+            CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction =
+                    (e) -> {
+                        assertTrue(exceptionRef.compareAndSet(null, e));
+                        throw mockPostProcessingException;
+                    };
+            CompositeSearchProgressActionListener<AsyncSearchResponse> progressActionListener =
+                    new CompositeSearchProgressActionListener<AsyncSearchResponse>(responseFunction, failureFunction, threadPool.generic());
+            Tuple<List<AtomicReference<AsyncSearchResponse>>, List<AtomicReference<Exception>>> respTuple =
+                    processListeners(progressActionListener, () -> progressActionListener.onResponse(mockSearchResponse), numListeners);
+
+            List<AtomicReference<AsyncSearchResponse>> responseList = respTuple.v1();
+            List<AtomicReference<Exception>> exceptionList = respTuple.v2();
+            //assert all response listeners that were added were invoked
+            assertEquals(0, responseList.size());
+            assertEquals(numListeners, exceptionList.size());
+            assertEquals(null, exceptionRef.get());
+            assertEquals(mockSearchResponse, responseRef.get());
+
+            for (int i = 0; i < numListeners; i++) {
+                //assert all response listeners that were added were invoked with the search response
+                assertEquals(mockPostProcessingException, exceptionList.get(i).get());
+            }
+        } finally {
+            ThreadPool.terminate(threadPool, 100, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    public Tuple<List<AtomicReference<AsyncSearchResponse>>, List<AtomicReference<Exception>>> processListeners(
+            CompositeSearchProgressActionListener<AsyncSearchResponse> progressActionListener, Runnable listenerAction,
+            int numListeners) throws InterruptedException {
+        final CountDownLatch latch = new CountDownLatch(numListeners);
+        final List<AtomicReference<AsyncSearchResponse>> responseList = new ArrayList<>();
+        final List<AtomicReference<Exception>> exceptionList = new ArrayList<>();
+
+        for (int i = 0; i < numListeners; i++) {
+            progressActionListener.addOrExecuteListener(createMockListener(responseList, exceptionList, latch));
+        }
+        listenerAction.run();
+        //wait for all listeners to be executed since on response is forked to a separate thread pool
+        latch.await();
+        return new Tuple<>(responseList, exceptionList);
+    }
+
 
     private PrioritizedActionListener<AsyncSearchResponse> createMockListener(List<AtomicReference<AsyncSearchResponse>> responseList,
                                                                               List<AtomicReference<Exception>> exceptionList,
@@ -197,4 +266,3 @@ public class CompositeActionListenerTests extends ESTestCase {
         };
     }
 }
-

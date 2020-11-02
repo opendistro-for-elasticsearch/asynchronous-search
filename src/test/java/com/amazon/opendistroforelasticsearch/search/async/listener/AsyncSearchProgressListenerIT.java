@@ -22,10 +22,12 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
 import org.elasticsearch.action.search.SearchTask;
-import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.common.CheckedFunction;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
@@ -66,6 +68,66 @@ public class AsyncSearchProgressListenerIT extends ESSingleNodeTestCase {
         client().prepareIndex("test", "type1", "1").setSource("field1", "the quick brown fox jumps");
         SearchRequest searchRequest = new SearchRequest("test").source(new SearchSourceBuilder().query(queryStringQuery("")));
         testCase((NodeClient) client(), searchRequest);
+    }
+
+    public void testSearchProgressSimple() throws Exception {
+        for (SearchType searchType : SearchType.values()) {
+            SearchRequest request = new SearchRequest("index-*")
+                    .searchType(searchType)
+                    .source(new SearchSourceBuilder().size(0));
+            testCase((NodeClient) client(), request);
+        }
+    }
+
+    public void testSearchProgressWithHits() throws Exception {
+        for (SearchType searchType : SearchType.values()) {
+            SearchRequest request = new SearchRequest("index-*")
+                    .searchType(searchType)
+                    .source(
+                            new SearchSourceBuilder()
+                                    .size(10)
+                    );
+            testCase((NodeClient) client(), request);
+        }
+    }
+
+    public void testSearchProgressWithAggs() throws Exception {
+        for (SearchType searchType : SearchType.values()) {
+            SearchRequest request = new SearchRequest("index-*")
+                    .searchType(searchType)
+                    .source(
+                            new SearchSourceBuilder()
+                                    .size(0)
+                                    .aggregation(AggregationBuilders.max("max").field("number"))
+                    );
+            testCase((NodeClient) client(), request);
+        }
+    }
+
+    public void testSearchProgressWithHitsAndAggs() throws Exception {
+        for (SearchType searchType : SearchType.values()) {
+            SearchRequest request = new SearchRequest("index-*")
+                    .searchType(searchType)
+                    .source(
+                            new SearchSourceBuilder()
+                                    .size(10)
+                                    .aggregation(AggregationBuilders.max("max").field("number"))
+                    );
+            testCase((NodeClient) client(), request);
+        }
+    }
+
+    public void testSearchProgressWithQuery() throws Exception {
+        for (SearchType searchType : SearchType.values()) {
+            SearchRequest request = new SearchRequest("index-*")
+                    .searchType(searchType)
+                    .source(
+                            new SearchSourceBuilder()
+                                    .size(10)
+                                    .query(QueryBuilders.termQuery("foo", "bar"))
+                    );
+            testCase((NodeClient) client(), request);
+        }
     }
 
     public void testSearchProgressWithShardSort() throws Exception {
@@ -117,18 +179,15 @@ public class AsyncSearchProgressListenerIT extends ESSingleNodeTestCase {
 
             // TODO verify took time
             // assertEquals(responseRef.get(), listener.partialResponse());
-            assertEquals(responseRef.get().getSuccessfulShards(), listener.getPartialResultsHolder().successfulShards.get());
-            assertEquals(responseRef.get().getNumReducePhases(), listener.getPartialResultsHolder().reducePhase.get());
-            assertEquals(responseRef.get().getClusters(), listener.getPartialResultsHolder().clusters.get());
-            assertEquals(responseRef.get().getSkippedShards(), listener.getPartialResultsHolder().skippedShards.get());
-            assertEquals(responseRef.get().getTotalShards(), listener.getPartialResultsHolder().totalShards.get());
-            assertEquals(responseRef.get().getSuccessfulShards(), listener.getPartialResultsHolder().successfulShards.get());
-            assertEquals(responseRef.get().getAggregations(), listener.getPartialResultsHolder().internalAggregations.get());
-            assertEquals(responseRef.get().getHits().getTotalHits(), listener.getPartialResultsHolder().totalHits.get());
-            if (responseRef.get().getShardFailures() != ShardSearchFailure.EMPTY_ARRAY) {
-                assertArrayEquals(responseRef.get().getShardFailures(), listener.getPartialResultsHolder().shardFailures.get().toArray(
-                        new ShardSearchFailure[listener.getPartialResultsHolder().shardFailures.get().length()]));
-            }
+            assertEquals(responseRef.get().getSuccessfulShards(), listener.partialResponse().getSuccessfulShards());
+            assertEquals(responseRef.get().getNumReducePhases(), listener.partialResponse().getNumReducePhases());
+            assertEquals(responseRef.get().getClusters(), listener.partialResponse().getClusters());
+            assertEquals(responseRef.get().getSkippedShards(), listener.partialResponse().getSkippedShards());
+            assertEquals(responseRef.get().getTotalShards(), listener.partialResponse().getTotalShards());
+            assertEquals(responseRef.get().getSuccessfulShards(), listener.partialResponse().getSuccessfulShards());
+            assertEquals(responseRef.get().getAggregations(), listener.partialResponse().getAggregations());
+            assertEquals(responseRef.get().getHits().getTotalHits(), listener.partialResponse().getHits().getTotalHits());
+            assertArrayEquals(responseRef.get().getShardFailures(), listener.partialResponse().getShardFailures());
         } finally {
             ThreadPool.terminate(threadPool, 100, TimeUnit.MILLISECONDS);
         }

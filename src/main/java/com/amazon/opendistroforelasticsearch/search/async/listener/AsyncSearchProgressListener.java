@@ -152,11 +152,6 @@ public class AsyncSearchProgressListener extends CompositeSearchProgressActionLi
         }
     }
 
-    //visible for testing
-    PartialResultsHolder getPartialResultsHolder() {
-        return partialResultsHolder;
-    }
-
     static class PartialResultsHolder {
         final AtomicInteger reducePhase;
         final AtomicReference<TotalHits> totalHits;
