@@ -99,12 +99,12 @@ public class CompositeActionListenerTest extends ESTestCase {
                                CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction, boolean onFailure) throws InterruptedException {
         TestThreadPool threadPool = null;
         try {
-            AtomicBoolean onSearchResponse = new AtomicBoolean(false);
+            final AtomicBoolean onSearchResponse = new AtomicBoolean(false);
             threadPool = new TestThreadPool(getClass().getName());
             final int numListeners = randomIntBetween(1, 20);
             final CountDownLatch latch = new CountDownLatch(numListeners);
-            List<AtomicReference<AsyncSearchResponse>> responseList = new ArrayList<>();
-            List<AtomicReference<Exception>> exceptionList = new ArrayList<>();
+            final List<AtomicReference<AsyncSearchResponse>> responseList = new ArrayList<>();
+            final List<AtomicReference<Exception>> exceptionList = new ArrayList<>();
 
             CompositeSearchProgressActionListener progressActionListener = new CompositeSearchProgressActionListener(
                     responseFunction, failureFunction, threadPool.generic());

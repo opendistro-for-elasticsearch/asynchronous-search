@@ -84,7 +84,7 @@ public class CompositeSearchProgressActionListener<T> extends SearchProgressActi
     public void onResponse(SearchResponse searchResponse) {
         //immediately fork to a separate thread pool
         executor.execute(() -> {
-        T result = null;
+        T result;
             List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
             if (actionListenersToBeInvoked != null) {
                 try {
@@ -118,16 +118,14 @@ public class CompositeSearchProgressActionListener<T> extends SearchProgressActi
     public void onFailure(Exception exception) {
         //immediately fork to a separate thread pool
         executor.execute(() -> {
-            T result = null;
+            T result;
             List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
-            logger.info("actionListenersToBeInvoked 1 {}", actionListenersToBeInvoked);
             if (actionListenersToBeInvoked != null) {
                 try {
                     result = failureFunction.apply(exception);
                 } catch (Exception ex) {
                     for (ActionListener<T> listener : actionListenersToBeInvoked) {
                         try {
-                            logger.info("actionListenersToBeInvoked 2 {}", actionListenersToBeInvoked);
                             listener.onFailure(ex);
                         } catch (Exception e) {
                             logger.error(() -> new ParameterizedMessage("search response on failure listener [{}] failed", listener), e);
@@ -135,10 +133,8 @@ public class CompositeSearchProgressActionListener<T> extends SearchProgressActi
                     }
                     return;
                 }
-                logger.info("actionListenersToBeInvoked 3 {}", actionListenersToBeInvoked);
                 for (ActionListener<T> listener : actionListenersToBeInvoked) {
                     try {
-                        logger.info("actionListenersToBeInvoked 4 {}", actionListenersToBeInvoked);
                         listener.onResponse(result);
                     } catch (Exception e) {
                         try {
