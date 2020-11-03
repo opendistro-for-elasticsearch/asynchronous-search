@@ -42,6 +42,7 @@ afterEvaluate {
         license 'ASL-2.0'
         maintainer 'OpenDistro for Elasticsearch Team <opendistro@amazon.com>'
         url 'https://opendistro.github.io/for-elasticsearch/downloads.html'
+        //TODO update the doc endpoint once ready
         summary '''
          Open Distro for Elasticsearch Asynchronous Search.
          Reference documentation can be found at https://opendistro.github.io/for-elasticsearch-docs/.

@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.indices.SystemIndexDescriptor;
 import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.Plugin;
@@ -43,11 +44,13 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
     }
 
 
+    //TODO Revisit these once we performance test the feature
     @Override
     public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
+        final int availableProcessors = EsExecutors.allocatedProcessors(settings);
         List<ExecutorBuilder<?>> executorBuilders = new ArrayList<>();
-        executorBuilders.add(new ScalingExecutorBuilder(OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, 1, 5,
-                TimeValue.timeValueMinutes(30)));
+        executorBuilders.add(new ScalingExecutorBuilder(OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, 1,
+                Math.min(2 * availableProcessors, Math.max(128, 512)), TimeValue.timeValueMinutes(30)));
         return executorBuilders;
     }
 }

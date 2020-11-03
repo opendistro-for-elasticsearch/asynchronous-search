@@ -15,15 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.common.CheckedFunction;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -31,25 +25,17 @@ import java.util.concurrent.Executor;
 /***
  * The implementation of {@link SearchProgressActionListener} responsible for maintaining a list of {@link PrioritizedActionListener}
  * to be invoked when a full response is available. The implementation guarantees that the listener once added will exactly be
- * invoked once. If the search completes before the listener was added,
+ * invoked once. If the search completes before the listener was added, the listener is immediately invoked
  **/
 
-public class CompositeSearchProgressActionListener<T> extends SearchProgressActionListener {
+public class CompositeSearchProgressActionListener<T> implements ActionListener<T> {
 
     private final List<ActionListener<T>> actionListeners;
-    private final CheckedFunction<SearchResponse, T, IOException> responseFunction;
-    private final CheckedFunction<Exception, T, IOException> failureFunction;
     private final Executor executor;
     private volatile boolean complete;
 
-    private final Logger logger = LogManager.getLogger(getClass());
-
-    CompositeSearchProgressActionListener(CheckedFunction<SearchResponse, T, IOException> responseFunction,
-                                          CheckedFunction<Exception, T, IOException> failureFunction,
-                                          Executor executor) {
-        this.responseFunction = responseFunction;
+    CompositeSearchProgressActionListener(Executor executor) {
         this.executor = executor;
-        this.failureFunction = failureFunction;
         this.actionListeners = new ArrayList<>();
     }
 
@@ -68,7 +54,7 @@ public class CompositeSearchProgressActionListener<T> extends SearchProgressActi
         this.actionListeners.remove(listener);
     }
 
-    private synchronized boolean addListener(PrioritizedActionListener<T> listener) {
+    private synchronized boolean addListener(ActionListener<T> listener) {
         if (complete == false) {
             this.actionListeners.add(listener);
             return true;
@@ -78,35 +64,12 @@ public class CompositeSearchProgressActionListener<T> extends SearchProgressActi
 
 
     @Override
-    public void onResponse(SearchResponse searchResponse) {
+    public void onResponse(T response) {
         //immediately fork to a separate thread pool
         executor.execute(() -> {
-        T result;
-            List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
+            Iterable<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
             if (actionListenersToBeInvoked != null) {
-                try {
-                    result = responseFunction.apply(searchResponse);
-                } catch (Exception ex) {
-                    for (ActionListener<T> listener : actionListenersToBeInvoked) {
-                        try {
-                            listener.onFailure(ex);
-                        } catch (Exception e) {
-                            logger.error(() -> new ParameterizedMessage("search response on failure listener [{}] failed", listener), e);
-                        }
-                    }
-                    return;
-                }
-                for (ActionListener<T> listener : actionListenersToBeInvoked) {
-                    try {
-                        listener.onResponse(result);
-                    } catch (Exception e) {
-                        try {
-                            listener.onFailure(e);
-                        } catch (Exception ex) {
-                            logger.error(() -> new ParameterizedMessage("search response on failure listener [{}] failed", listener), ex);
-                        }
-                    }
-                }
+                ActionListener.onResponse(actionListenersToBeInvoked, response);
             }
         });
     }
@@ -115,37 +78,14 @@ public class CompositeSearchProgressActionListener<T> extends SearchProgressActi
     public void onFailure(Exception exception) {
         //immediately fork to a separate thread pool
         executor.execute(() -> {
-            T result;
-            List<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
+            Iterable<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
             if (actionListenersToBeInvoked != null) {
-                try {
-                    result = failureFunction.apply(exception);
-                } catch (Exception ex) {
-                    for (ActionListener<T> listener : actionListenersToBeInvoked) {
-                        try {
-                            listener.onFailure(ex);
-                        } catch (Exception e) {
-                            logger.error(() -> new ParameterizedMessage("search response on failure listener [{}] failed", listener), e);
-                        }
-                    }
-                    return;
-                }
-                for (ActionListener<T> listener : actionListenersToBeInvoked) {
-                    try {
-                        listener.onResponse(result);
-                    } catch (Exception e) {
-                        try {
-                            listener.onFailure(e);
-                        } catch (Exception ex) {
-                            logger.error(() -> new ParameterizedMessage("search response on failure listener [{}] failed", listener), ex);
-                        }
-                    }
-                }
+                ActionListener.onFailure(actionListenersToBeInvoked, exception);
             }
         });
     }
 
-    private List<ActionListener<T>> finalizeListeners() {
+    private Iterable<ActionListener<T>> finalizeListeners() {
         List<ActionListener<T>> actionListenersToBeInvoked = null;
         synchronized (this) {
             if (complete == false) {

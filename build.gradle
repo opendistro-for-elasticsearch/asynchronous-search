@@ -40,7 +40,7 @@ ext {
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
-group 'com.amazonaws.elasticsearch'
+group 'com.amazon.opendistroforelasticsearch'
 version es_version
 
 sourceCompatibility = 1.9
@@ -97,14 +97,9 @@ test {
 File repo = file("$buildDir/testclusters/repo")
 def _numNodes = findProperty('numNodes') as Integer ?: 1
 
-testClusters.integTest {
-    testDistribution = "OSS"
 
-
-}
 test {
     enabled = true
-
 }
 
 integTest.runner {
@@ -156,16 +151,6 @@ testClusters.integTest {
         def firstPlugin = plugins.get(0)
         plugins.remove(0)
         plugins.add(firstPlugin)
-    }
-}
-
-run {
-    doFirst {
-        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
-        // not being written, the waitForAllConditions ensures it's written
-        getClusters().forEach { cluster ->
-            cluster.waitForAllConditions()
-        }
     }
 }
 

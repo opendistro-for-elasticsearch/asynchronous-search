@@ -79,6 +79,15 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         this.error = error;
     }
 
+    public AsyncSearchResponse(StreamInput in) throws IOException {
+        this.id = in.readString();
+        this.isRunning = in.readBoolean();
+        this.startTimeMillis = in.readLong();
+        this.expirationTimeMillis = in.readLong();
+        this.searchResponse = in.readOptionalWriteable(SearchResponse::new);
+        this.error = in.readBoolean() ? in.readException() :  null;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(id);
@@ -92,15 +101,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         } else {
             out.writeBoolean(false);
         }
-    }
-
-    public AsyncSearchResponse(StreamInput in) throws IOException {
-        this.id = in.readString();
-        this.isRunning = in.readBoolean();
-        this.startTimeMillis = in.readLong();
-        this.expirationTimeMillis = in.readLong();
-        this.searchResponse = in.readOptionalWriteable(SearchResponse::new);
-        this.error = in.readBoolean() ? in.readException() :  null;
     }
 
     @Override
@@ -206,6 +206,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         return new AsyncSearchResponse(id, isRunning, startTimeMillis, expirationTimeMillis, searchResponse, error);
     }
 
+    //visible for testing
     public static AsyncSearchResponse empty(String id, SearchResponse searchResponse, ElasticsearchException exception) {
         return new AsyncSearchResponse(id, false, -1, -1, searchResponse, exception);
     }

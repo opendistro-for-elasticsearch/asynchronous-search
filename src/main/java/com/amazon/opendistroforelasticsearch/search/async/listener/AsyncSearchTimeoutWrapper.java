@@ -93,16 +93,14 @@ public class AsyncSearchTimeoutWrapper {
         }
 
         void cancel() {
-            if (cancellable != null) {
+            if (cancellable != null && cancellable.isCancelled() == false) {
                 cancellable.cancel();
             }
         }
 
         @Override
         public void run() {
-            if (complete.compareAndSet(false, true)) {
-                timeoutConsumer.accept(this);
-            }
+            executeImmediately();
         }
 
         @Override

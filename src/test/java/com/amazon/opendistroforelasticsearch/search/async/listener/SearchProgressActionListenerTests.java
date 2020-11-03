@@ -42,10 +42,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 
-public class CompositeActionListenerTests extends ESTestCase {
+public class SearchProgressActionListenerTests extends ESTestCase {
 
-    private AtomicReference<SearchResponse> responseRef = new AtomicReference<>();
-    private AtomicReference<Exception> exceptionRef = new AtomicReference<>();
+    private final AtomicReference<SearchResponse> responseRef = new AtomicReference<>();
+    private final AtomicReference<Exception> exceptionRef = new AtomicReference<>();
     private Exception mockSearchException;
     private IOException mockPostProcessingException;
     private SearchResponse mockSearchResponse;
@@ -83,8 +83,9 @@ public class CompositeActionListenerTests extends ESTestCase {
                         assertTrue(exceptionRef.compareAndSet(null, e));
                         return mockAsyncSearchFailResp;
                     };
-            CompositeSearchProgressActionListener<AsyncSearchResponse> progressActionListener =
-                    new CompositeSearchProgressActionListener<AsyncSearchResponse>(responseFunction, failureFunction, threadPool.generic());
+            AsyncSearchProgressListener progressActionListener =
+                    new AsyncSearchProgressListener(randomLong(), responseFunction, failureFunction, threadPool.generic(),
+                            ESTestCase::randomLong);
             Tuple<List<AtomicReference<AsyncSearchResponse>>, List<AtomicReference<Exception>>> respTuple =
                     processListeners(progressActionListener, () -> progressActionListener.onResponse(mockSearchResponse), numListeners);
 
@@ -93,7 +94,7 @@ public class CompositeActionListenerTests extends ESTestCase {
             //assert all response listeners that were added were invoked
             assertEquals(numListeners, responseList.size());
             assertEquals(0, exceptionList.size());
-            assertEquals(null, exceptionRef.get());
+            assertNull(exceptionRef.get());
             assertEquals(mockSearchResponse, responseRef.get());
 
             for (int i = 0; i < numListeners; i++) {
@@ -120,8 +121,9 @@ public class CompositeActionListenerTests extends ESTestCase {
                         assertTrue(exceptionRef.compareAndSet(null, e));
                         return mockAsyncSearchFailResp;
                     };
-            CompositeSearchProgressActionListener<AsyncSearchResponse> progressActionListener =
-                    new CompositeSearchProgressActionListener<AsyncSearchResponse>(responseFunction, failureFunction, threadPool.generic());
+            AsyncSearchProgressListener progressActionListener =
+                    new AsyncSearchProgressListener(randomLong(), responseFunction, failureFunction, threadPool.generic(),
+                            ESTestCase::randomLong);
             Tuple<List<AtomicReference<AsyncSearchResponse>>, List<AtomicReference<Exception>>> respTuple =
                     processListeners(progressActionListener, () -> progressActionListener.onFailure(mockSearchException), numListeners);
 
@@ -131,7 +133,7 @@ public class CompositeActionListenerTests extends ESTestCase {
             assertEquals(numListeners, responseList.size());
             assertEquals(0, exceptionList.size());
             assertEquals(mockSearchException, exceptionRef.get());
-            assertEquals(null, responseRef.get());
+            assertNull(responseRef.get());
 
             for (int i = 0; i < numListeners; i++) {
                 //assert all response listeners that were added were invoked with the search response
@@ -157,8 +159,9 @@ public class CompositeActionListenerTests extends ESTestCase {
                         assertTrue(exceptionRef.compareAndSet(null, e));
                         throw mockPostProcessingException;
                     };
-            CompositeSearchProgressActionListener<AsyncSearchResponse> progressActionListener =
-                    new CompositeSearchProgressActionListener<AsyncSearchResponse>(responseFunction, failureFunction, threadPool.generic());
+            AsyncSearchProgressListener progressActionListener =
+                    new AsyncSearchProgressListener(randomLong(), responseFunction, failureFunction, threadPool.generic(),
+                            ESTestCase::randomLong);
             Tuple<List<AtomicReference<AsyncSearchResponse>>, List<AtomicReference<Exception>>> respTuple =
                     processListeners(progressActionListener, () -> progressActionListener.onFailure(mockSearchException), numListeners);
 
@@ -194,8 +197,9 @@ public class CompositeActionListenerTests extends ESTestCase {
                         assertTrue(exceptionRef.compareAndSet(null, e));
                         throw mockPostProcessingException;
                     };
-            CompositeSearchProgressActionListener<AsyncSearchResponse> progressActionListener =
-                    new CompositeSearchProgressActionListener<AsyncSearchResponse>(responseFunction, failureFunction, threadPool.generic());
+            AsyncSearchProgressListener progressActionListener =
+                    new AsyncSearchProgressListener(randomLong(), responseFunction, failureFunction, threadPool.generic(),
+                            ESTestCase::randomLong);
             Tuple<List<AtomicReference<AsyncSearchResponse>>, List<AtomicReference<Exception>>> respTuple =
                     processListeners(progressActionListener, () -> progressActionListener.onResponse(mockSearchResponse), numListeners);
 
@@ -204,7 +208,7 @@ public class CompositeActionListenerTests extends ESTestCase {
             //assert all response listeners that were added were invoked
             assertEquals(0, responseList.size());
             assertEquals(numListeners, exceptionList.size());
-            assertEquals(null, exceptionRef.get());
+            assertNull(exceptionRef.get());
             assertEquals(mockSearchResponse, responseRef.get());
 
             for (int i = 0; i < numListeners; i++) {
@@ -217,14 +221,15 @@ public class CompositeActionListenerTests extends ESTestCase {
     }
 
     public Tuple<List<AtomicReference<AsyncSearchResponse>>, List<AtomicReference<Exception>>> processListeners(
-            CompositeSearchProgressActionListener<AsyncSearchResponse> progressActionListener, Runnable listenerAction,
+            AsyncSearchProgressListener progressActionListener, Runnable listenerAction,
             int numListeners) throws InterruptedException {
         final CountDownLatch latch = new CountDownLatch(numListeners);
         final List<AtomicReference<AsyncSearchResponse>> responseList = new ArrayList<>();
         final List<AtomicReference<Exception>> exceptionList = new ArrayList<>();
 
         for (int i = 0; i < numListeners; i++) {
-            progressActionListener.addOrExecuteListener(createMockListener(responseList, exceptionList, latch));
+            progressActionListener.searchProgressActionListener().addOrExecuteListener(createMockListener(responseList, exceptionList,
+                    latch));
         }
         listenerAction.run();
         //wait for all listeners to be executed since on response is forked to a separate thread pool
