@@ -149,27 +149,8 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
 
         CountDownLatch getLatch = new CountDownLatch(1);
         persistenceService.getResponse(asyncSearchResponse.getId(), ActionListener.wrap(r -> {
-                verifyPersistenceModel(newPersistenceModel, r, getLatch);
+            verifyPersistenceModel(newPersistenceModel, r, getLatch);
         }, e -> failure(getLatch)));
-        getLatch.await();
-    }
-
-    public void testGetExpiredDocThrowsRnf() throws InterruptedException, IOException {
-        TransportService transportService = getInstanceFromNode(TransportService.class);
-        AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
-        AsyncSearchResponse asyncSearchResponse = getAsyncSearchResponse();
-
-        AsyncSearchId asyncSearchId = generateNewAsyncSearchId(transportService);
-        AsyncSearchResponse newAsyncSearchResponse = new AsyncSearchResponse(AsyncSearchId.buildAsyncId(asyncSearchId),
-                asyncSearchResponse.isRunning(),
-                asyncSearchResponse.getStartTimeMillis(),
-                System.currentTimeMillis(),
-                asyncSearchResponse.getSearchResponse(),
-                asyncSearchResponse.getError());
-        createDoc(persistenceService, newAsyncSearchResponse);
-        CountDownLatch getLatch = new CountDownLatch(1);
-        persistenceService.getResponse(newAsyncSearchResponse.getId(),
-                ActionListener.wrap(r -> failure(getLatch), e -> assertRnf(getLatch, e)));
         getLatch.await();
     }
 

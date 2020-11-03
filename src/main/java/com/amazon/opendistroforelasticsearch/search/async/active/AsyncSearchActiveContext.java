@@ -22,7 +22,7 @@ import java.util.function.LongSupplier;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextPermit;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextPermits;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchStage;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import org.apache.logging.log4j.LogManager;
@@ -60,7 +60,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     private final AtomicBoolean completed;
     private final AtomicReference<ElasticsearchException> error;
     private final AtomicReference<SearchResponse> searchResponse;
-    private final AsyncSearchContextPermit asyncSearchContextPermit;
+    private final AsyncSearchContextPermits asyncSearchContextPermits;
     private volatile AsyncSearchStage asyncSearchStage;
     private final AsyncSearchContextListener contextListener;
 
@@ -78,7 +78,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.asyncSearchId = new SetOnce<>();
         this.contextListener = contextListener;
         this.completed = new AtomicBoolean(false);
-        this.asyncSearchContextPermit = new AsyncSearchContextPermit(asyncSearchContextId, threadPool);
+        this.asyncSearchContextPermits = new AsyncSearchContextPermits(asyncSearchContextId, threadPool);
     }
 
     @Override
@@ -183,11 +183,11 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     }
 
     public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
-        asyncSearchContextPermit.asyncAcquirePermit(onPermitAcquired, timeout, reason);
+        asyncSearchContextPermits.asyncAcquirePermit(onPermitAcquired, timeout, reason);
     }
 
     public void acquireAllContextPermits(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
-        asyncSearchContextPermit.asyncAcquireAllPermits(onPermitAcquired, timeout, reason);
+        asyncSearchContextPermits.asyncAcquireAllPermits(onPermitAcquired, timeout, reason);
     }
 
     @Override
@@ -206,7 +206,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
                 ", keepOnCompletion=" + keepOnCompletion +
                 ", keepAlive=" + keepAlive +
                 ", asyncSearchStage=" + asyncSearchStage +
-                ", asyncSearchContextPermit=" + asyncSearchContextPermit +
+                ", asyncSearchContextPermit=" + asyncSearchContextPermits +
                 ", progressActionListener=" + searchProgressActionListener +
                 '}';
     }

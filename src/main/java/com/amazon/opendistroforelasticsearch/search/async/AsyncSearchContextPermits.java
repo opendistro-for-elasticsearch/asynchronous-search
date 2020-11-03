@@ -14,7 +14,6 @@
  */
 
 package com.amazon.opendistroforelasticsearch.search.async;
-import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -34,26 +33,26 @@ import java.util.concurrent.TimeUnit;
  * persistence store. Each mutating operation acquires a single permit while the {@link AsyncSearchPostProcessor} acquires
  * all permits before it transitions context to the index
  */
-public class AsyncSearchContextPermit {
+public class AsyncSearchContextPermits {
 
     private static final int TOTAL_PERMITS = Integer.MAX_VALUE;
-    private final Semaphore mutex;
+    final Semaphore semaphore;
     private final AsyncSearchContextId asyncSearchContextId;
     private String lockDetails;
     private final ThreadPool threadPool;
-    private static final Logger logger = LogManager.getLogger(AsyncSearchContextPermit.class);
+    private static final Logger logger = LogManager.getLogger(AsyncSearchContextPermits.class);
 
-    public AsyncSearchContextPermit(AsyncSearchContextId asyncSearchContextId, ThreadPool threadPool) {
+    public AsyncSearchContextPermits(AsyncSearchContextId asyncSearchContextId, ThreadPool threadPool) {
         this.asyncSearchContextId = asyncSearchContextId;
         this.threadPool = threadPool;
-        this.mutex = new Semaphore(TOTAL_PERMITS, true);
+        this.semaphore = new Semaphore(TOTAL_PERMITS, true);
     }
 
     private Releasable acquirePermits(int permits, TimeValue timeout, final String details) throws RuntimeException {
         try {
-            if (mutex.tryAcquire(permits, timeout.getMillis(), TimeUnit.MILLISECONDS)) {
+            if (semaphore.tryAcquire(permits, timeout.getMillis(), TimeUnit.MILLISECONDS)) {
                 this.lockDetails = details;
-                final RunOnce release = new RunOnce(() -> mutex.release(1));
+                final RunOnce release = new RunOnce(() -> semaphore.release(permits));
                 return release::run;
             } else {
                 throw new RuntimeException("obtaining context lock"+ asyncSearchContextId +"timed out after " + timeout.getMillis() + "ms, " +
@@ -66,7 +65,7 @@ public class AsyncSearchContextPermit {
     }
 
     private void asyncAcquirePermit(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout,  String reason)  {
-        threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(new AbstractRunnable() {
+        threadPool.executor(ThreadPool.Names.GENERIC).execute(new AbstractRunnable() {
             @Override
             public void onFailure(final Exception e) {
                 logger.debug(() -> new ParameterizedMessage("Failed to acquire permit {} for {}", permits, reason), e);
@@ -77,7 +76,7 @@ public class AsyncSearchContextPermit {
             protected void doRun()  {
                 final Releasable releasable = acquirePermits(permits, timeout, reason);
                 logger.debug("Successfully acquired permit {} for {}", permits, reason);
-                onAcquired.onResponse(releasable::close);
+                onAcquired.onResponse(releasable);
             }
         });
     }

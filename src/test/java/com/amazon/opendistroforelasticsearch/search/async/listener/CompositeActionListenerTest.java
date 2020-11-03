@@ -106,8 +106,9 @@ public class CompositeActionListenerTest extends ESTestCase {
             final List<AtomicReference<AsyncSearchResponse>> responseList = new ArrayList<>();
             final List<AtomicReference<Exception>> exceptionList = new ArrayList<>();
 
-            CompositeSearchProgressActionListener progressActionListener = new CompositeSearchProgressActionListener(
-                    responseFunction, failureFunction, threadPool.generic());
+            CompositeSearchProgressActionListener<AsyncSearchResponse> progressActionListener =
+                    new CompositeSearchProgressActionListener<>(
+                            responseFunction, failureFunction, threadPool.generic());
 
             for (int i = 0; i < numListeners; i++) {
                 progressActionListener.addOrExecuteListener(createMockListener(responseList, exceptionList, latch));

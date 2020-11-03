@@ -59,7 +59,7 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
      * Construct a {@linkplain AsyncSearchPersistenceModel} for a search that completed with an error.
      */
     public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis, Exception error) throws IOException {
-        this(startTimeMillis, expirationTimeMillis, toXContent(error), null);
+        this(startTimeMillis, expirationTimeMillis, null, toXContent(error));
     }
 
     /**
