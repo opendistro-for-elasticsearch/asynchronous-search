@@ -20,7 +20,6 @@ import org.elasticsearch.action.search.SearchProgressActionListener;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executor;
 
 /***
  * The implementation of {@link SearchProgressActionListener} responsible for maintaining a list of {@link PrioritizedActionListener}
@@ -31,11 +30,9 @@ import java.util.concurrent.Executor;
 public class CompositeSearchProgressActionListener<T> implements ActionListener<T> {
 
     private final List<ActionListener<T>> actionListeners;
-    private final Executor executor;
     private volatile boolean complete;
 
-    CompositeSearchProgressActionListener(Executor executor) {
-        this.executor = executor;
+    CompositeSearchProgressActionListener() {
         this.actionListeners = new ArrayList<>();
     }
 
@@ -65,24 +62,18 @@ public class CompositeSearchProgressActionListener<T> implements ActionListener<
 
     @Override
     public void onResponse(T response) {
-        //immediately fork to a separate thread pool
-        executor.execute(() -> {
-            Iterable<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
-            if (actionListenersToBeInvoked != null) {
-                ActionListener.onResponse(actionListenersToBeInvoked, response);
-            }
-        });
+        Iterable<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
+        if (actionListenersToBeInvoked != null) {
+            ActionListener.onResponse(actionListenersToBeInvoked, response);
+        }
     }
 
     @Override
     public void onFailure(Exception exception) {
-        //immediately fork to a separate thread pool
-        executor.execute(() -> {
-            Iterable<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
-            if (actionListenersToBeInvoked != null) {
-                ActionListener.onFailure(actionListenersToBeInvoked, exception);
-            }
-        });
+        Iterable<ActionListener<T>> actionListenersToBeInvoked = finalizeListeners();
+        if (actionListenersToBeInvoked != null) {
+            ActionListener.onFailure(actionListenersToBeInvoked, exception);
+        }
     }
 
     private Iterable<ActionListener<T>> finalizeListeners() {

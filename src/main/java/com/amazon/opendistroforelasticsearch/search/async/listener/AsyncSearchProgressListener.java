@@ -45,17 +45,19 @@ import java.util.function.LongSupplier;
 public class AsyncSearchProgressListener extends SearchProgressActionListener {
 
     private final PartialResultsHolder partialResultsHolder;
-    private final CompositeSearchProgressActionListener<AsyncSearchResponse> searchResponseActionListener;
+    private final CompositeSearchProgressActionListener<AsyncSearchResponse> searchProgressActionListener;
     private final CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> successFunction;
     private final CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction;
+    private final ExecutorService executor;
 
     public AsyncSearchProgressListener(long relativeStartMillis, CheckedFunction<SearchResponse, AsyncSearchResponse,
             IOException> successFunction, CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction,
-                                       ExecutorService executorService, LongSupplier relativeTimeSupplier) {
+                                       ExecutorService executor, LongSupplier relativeTimeSupplier) {
         this.successFunction = successFunction;
         this.failureFunction = failureFunction;
+        this.executor = executor;
         this.partialResultsHolder = new PartialResultsHolder(relativeStartMillis, relativeTimeSupplier);
-        this.searchResponseActionListener = new CompositeSearchProgressActionListener<AsyncSearchResponse>(executorService);
+        this.searchProgressActionListener = new CompositeSearchProgressActionListener<AsyncSearchResponse>();
     }
 
 
@@ -143,29 +145,33 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
     }
 
     public CompositeSearchProgressActionListener<AsyncSearchResponse> searchProgressActionListener() {
-        return searchResponseActionListener;
+        return searchProgressActionListener;
     }
 
     @Override
     public void onResponse(SearchResponse searchResponse) {
-        AsyncSearchResponse result;
-        try {
-            result = successFunction.apply(searchResponse);
-            searchResponseActionListener.onResponse(result);
-        } catch (Exception ex) {
-            searchResponseActionListener.onFailure(ex);
-        }
+        executor.execute(() -> {
+            AsyncSearchResponse result;
+            try {
+                result = successFunction.apply(searchResponse);
+                searchProgressActionListener.onResponse(result);
+            } catch (Exception ex) {
+                searchProgressActionListener.onFailure(ex);
+            }
+        });
     }
 
     @Override
     public void onFailure(Exception e) {
-        AsyncSearchResponse result;
-        try {
-            result = failureFunction.apply(e);
-            searchResponseActionListener.onResponse(result);
-        } catch (Exception ex) {
-            searchResponseActionListener.onFailure(ex);
-        }
+        executor.execute(() -> {
+            AsyncSearchResponse result;
+            try {
+                result = failureFunction.apply(e);
+                searchProgressActionListener.onResponse(result);
+            } catch (Exception ex) {
+                searchProgressActionListener.onFailure(ex);
+            }
+        });
     }
 
     static class PartialResultsHolder {
@@ -211,16 +217,25 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
                         internalAggregations.get() == null ? (delayedInternalAggregations.get() != null
                                 ? delayedInternalAggregations.get().expand() : null) : internalAggregations.get(),
                         null, null, false, null, reducePhase.get());
-                ShardSearchFailure [] shardSearchFailures = shardFailures.get() == null ? ShardSearchFailure.EMPTY_ARRAY :
-                        shardFailures.get().toArray(
-                                new ShardSearchFailure[shardFailures.get().length()]);
                 long tookInMillis = relativeTimeSupplier.getAsLong() - relativeStartMillis;
                 return new SearchResponse(internalSearchResponse, null, totalShards.get(),
-                        successfulShards.get(), skippedShards.get(), tookInMillis,
-                        shardSearchFailures, clusters.get());
+                        successfulShards.get(), skippedShards.get(), tookInMillis, buildShardFailures(), clusters.get());
             } else {
                 return null;
             }
+        }
+
+        ShardSearchFailure[] buildShardFailures() {
+            AtomicArray<ShardSearchFailure> shardFailures = this.shardFailures.get();
+            if (shardFailures == null) {
+                return ShardSearchFailure.EMPTY_ARRAY;
+            }
+            List<ShardSearchFailure> entries = shardFailures.asList();
+            ShardSearchFailure[] failures = new ShardSearchFailure[entries.size()];
+            for (int i = 0; i < failures.length; i++) {
+                failures[i] = entries.get(i);
+            }
+            return failures;
         }
     }
 }

@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 
@@ -226,10 +227,11 @@ public class SearchProgressActionListenerTests extends ESTestCase {
         final CountDownLatch latch = new CountDownLatch(numListeners);
         final List<AtomicReference<AsyncSearchResponse>> responseList = new ArrayList<>();
         final List<AtomicReference<Exception>> exceptionList = new ArrayList<>();
+        final AtomicInteger immediateExecution = new AtomicInteger();
 
         for (int i = 0; i < numListeners; i++) {
             progressActionListener.searchProgressActionListener().addOrExecuteListener(createMockListener(responseList, exceptionList,
-                    latch));
+                    immediateExecution, latch));
         }
         listenerAction.run();
         //wait for all listeners to be executed since on response is forked to a separate thread pool
@@ -240,6 +242,7 @@ public class SearchProgressActionListenerTests extends ESTestCase {
 
     private PrioritizedActionListener<AsyncSearchResponse> createMockListener(List<AtomicReference<AsyncSearchResponse>> responseList,
                                                                               List<AtomicReference<Exception>> exceptionList,
+                                                                              AtomicInteger immediateExecution,
                                                                               CountDownLatch latch) {
 
         final AtomicBoolean completed = new AtomicBoolean();
@@ -250,6 +253,7 @@ public class SearchProgressActionListenerTests extends ESTestCase {
             @Override
             public void executeImmediately() {
                 assertTrue(completed.compareAndSet(false, true));
+                immediateExecution.incrementAndGet();
                 latch.countDown();
             }
 

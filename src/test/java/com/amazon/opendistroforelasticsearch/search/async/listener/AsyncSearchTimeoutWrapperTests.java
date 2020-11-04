@@ -14,6 +14,7 @@
  */
 
 package com.amazon.opendistroforelasticsearch.search.async.listener;
+
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.coordination.DeterministicTaskQueue;
