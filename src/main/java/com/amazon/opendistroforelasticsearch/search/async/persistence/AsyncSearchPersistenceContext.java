@@ -43,7 +43,8 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
     private final String asyncSearchId;
     private final AsyncSearchPersistenceModel asyncSearchPersistenceModel;
 
-    public AsyncSearchPersistenceContext(String asyncSearchId, AsyncSearchContextId asyncSearchContextId, AsyncSearchPersistenceModel asyncSearchPersistenceModel,
+    public AsyncSearchPersistenceContext(String asyncSearchId, AsyncSearchContextId asyncSearchContextId,
+                                         AsyncSearchPersistenceModel asyncSearchPersistenceModel,
                                          LongSupplier currentTimeSupplier) {
         super(asyncSearchContextId, currentTimeSupplier);
         Objects.requireNonNull(asyncSearchId);

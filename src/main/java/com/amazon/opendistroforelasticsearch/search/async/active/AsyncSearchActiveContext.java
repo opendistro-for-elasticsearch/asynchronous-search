@@ -15,16 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.active;
 
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.LongSupplier;
-
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextPermits;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchStage;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchStage;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -38,13 +35,15 @@ import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
-
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 
 
 /**
- * The context representing an ongoing search, keeps track of the underlying {@link SearchTask} and {@link SearchProgressActionListener}
+ * The context representing an ongoing search, keeps track of the underlying {@link SearchTask}
+ * and {@link SearchProgressActionListener}
  */
 public class AsyncSearchActiveContext extends AsyncSearchContext {
 
@@ -64,8 +63,10 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     private volatile AsyncSearchStage asyncSearchStage;
     private final AsyncSearchContextListener contextListener;
 
-    public AsyncSearchActiveContext(AsyncSearchContextId asyncSearchContextId, String nodeId, TimeValue keepAlive, boolean keepOnCompletion,
-                                    ThreadPool threadPool, LongSupplier currentTimeSupplier, AsyncSearchProgressListener searchProgressActionListener,
+    public AsyncSearchActiveContext(AsyncSearchContextId asyncSearchContextId, String nodeId,
+                                    TimeValue keepAlive, boolean keepOnCompletion,
+                                    ThreadPool threadPool, LongSupplier currentTimeSupplier,
+                                    AsyncSearchProgressListener searchProgressActionListener,
                                     AsyncSearchContextListener contextListener) {
         super(asyncSearchContextId, currentTimeSupplier);
         this.keepOnCompletion = keepOnCompletion;
@@ -127,12 +128,13 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
             advanceStage(AsyncSearchStage.SUCCEEDED);
         }
     }
+
     @Override
     public SearchResponse getSearchResponse() {
         if (completed.get()) {
             return searchResponse.get();
         } else {
-            return ((AsyncSearchProgressListener)searchProgressActionListener).partialResponse();
+            return ((AsyncSearchProgressListener) searchProgressActionListener).partialResponse();
         }
     }
 
@@ -160,12 +162,13 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     public synchronized void advanceStage(AsyncSearchStage nextAsyncSearchStage) {
         AsyncSearchStage currentAsyncSearchStage = asyncSearchStage;
         if (currentAsyncSearchStage == null) {
-            assert nextAsyncSearchStage == AsyncSearchStage.INIT : "only next asyncSearchStage "+ nextAsyncSearchStage +" " +
+            assert nextAsyncSearchStage == AsyncSearchStage.INIT : "only next asyncSearchStage " + nextAsyncSearchStage + " " +
                     "is allowed when the current asyncSearchStage is null";
         }
         if (currentAsyncSearchStage != null && asyncSearchStage.nextTransitions().contains(nextAsyncSearchStage) == false) {
-            throw new IllegalStateException("can't move to asyncSearchStage [" + nextAsyncSearchStage + "], from current asyncSearchStage: ["
-                    + currentAsyncSearchStage + "] (valid states [" + currentAsyncSearchStage.nextTransitions() + "])");
+            throw new IllegalStateException(
+                    "can't move to asyncSearchStage [" + nextAsyncSearchStage + "], from current asyncSearchStage: ["
+                            + currentAsyncSearchStage + "] (valid states [" + currentAsyncSearchStage.nextTransitions() + "])");
         }
         asyncSearchStage = nextAsyncSearchStage;
         if (currentAsyncSearchStage != nextAsyncSearchStage) {
@@ -189,6 +192,11 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     @Override
     public int hashCode() {
         return Objects.hash(asyncSearchId, completed, error, searchResponse, keepAlive, asyncSearchStage);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return super.equals(obj);
     }
 
     @Override

@@ -6,15 +6,6 @@ import org.elasticsearch.common.util.set.Sets;
 
 import java.util.Set;
 
-interface TransitionProcessor<T> {
-
-    /** The valid transitions from the current {@link AsyncSearchStage}*/
-    Set<T> nextTransitions();
-
-    /**Listeners to be invoked */
-    void onTransition(AsyncSearchContextListener contextListener, AsyncSearchContextId asyncSearchContextId);
-}
-
 /**
  * The state of the async search.
  */
@@ -28,6 +19,10 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
             return Sets.newHashSet(RUNNING);
         }
 
+        /**
+         * @param contextListener Listener to be notified on transition
+         * @param asyncSearchContextId context which has undergone the transition
+         */
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
                                  AsyncSearchContextId asyncSearchContextId) {
@@ -42,6 +37,11 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
         public Set<AsyncSearchStage> nextTransitions() {
             return Sets.newHashSet(SUCCEEDED, FAILED, DELETED);
         }
+
+        /**
+         * @param contextListener Listener to be notified on transition
+         * @param asyncSearchContextId context which has undergone the transition
+         */
 
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
@@ -58,6 +58,11 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
             return Sets.newHashSet(PERSISTED, PERSIST_FAILED, DELETED);
         }
 
+        /**
+         * @param contextListener Listener to be notified on transition
+         * @param asyncSearchContextId context which has undergone the transition
+         */
+
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
                                  AsyncSearchContextId asyncSearchContextId) {
@@ -72,6 +77,11 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
         public Set<AsyncSearchStage> nextTransitions() {
             return Sets.newHashSet(PERSISTED, PERSIST_FAILED, DELETED);
         }
+
+        /**
+         * @param contextListener Listener to be notified on transition
+         * @param asyncSearchContextId context which has undergone the transition
+         */
 
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
@@ -88,6 +98,11 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
             return Sets.newHashSet(DELETED);
         }
 
+        /**
+         * @param contextListener Listener to be notified on transition
+         * @param asyncSearchContextId context which has undergone the transition
+         */
+
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
                                  AsyncSearchContextId asyncSearchContextId) {
@@ -103,6 +118,11 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
             return Sets.newHashSet(DELETED);
         }
 
+        /**
+         * @param contextListener Listener to be notified on transition
+         * @param asyncSearchContextId context which has undergone the transition
+         */
+
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
                                  AsyncSearchContextId asyncSearchContextId) {
@@ -117,6 +137,11 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
         public Set<AsyncSearchStage> nextTransitions() {
             return Sets.newHashSet(DELETED);
         }
+
+        /**
+         * @param contextListener Listener to be notified on transition
+         * @param asyncSearchContextId context which has undergone the transition
+         */
 
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,

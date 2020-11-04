@@ -22,7 +22,9 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.util.set.Sets;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.LongSupplier;
 
 
@@ -38,7 +40,10 @@ public abstract class AsyncSearchContext {
         this.currentTimeSupplier = currentTimeSupplier;
     }
 
-    public @Nullable SearchProgressActionListener getSearchProgressActionListener() { return searchProgressActionListener; }
+    public @Nullable
+    SearchProgressActionListener getSearchProgressActionListener() {
+        return searchProgressActionListener;
+    }
 
     public abstract AsyncSearchStage getAsyncSearchStage();
 
@@ -56,16 +61,20 @@ public abstract class AsyncSearchContext {
 
     public abstract long getStartTimeMillis();
 
-    public abstract @Nullable SearchResponse getSearchResponse();
+    public abstract @Nullable
+    SearchResponse getSearchResponse();
 
-    public abstract @Nullable ElasticsearchException getSearchError();
+    public abstract @Nullable
+    ElasticsearchException getSearchError();
 
     public boolean isExpired() {
         return getExpirationTimeMillis() < currentTimeSupplier.getAsLong();
     }
 
     public Set<AsyncSearchStage> retainedStages() {
-        return Collections.unmodifiableSet(Sets.newHashSet(AsyncSearchStage.INIT, AsyncSearchStage.RUNNING, AsyncSearchStage.SUCCEEDED, AsyncSearchStage.FAILED));
+        return Collections.unmodifiableSet(
+                Sets.newHashSet(
+                        AsyncSearchStage.INIT, AsyncSearchStage.RUNNING, AsyncSearchStage.SUCCEEDED, AsyncSearchStage.FAILED));
     }
 
     public AsyncSearchResponse getAsyncSearchResponse() {

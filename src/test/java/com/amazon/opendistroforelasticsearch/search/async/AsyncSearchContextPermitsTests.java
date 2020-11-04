@@ -38,8 +38,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.instanceOf;
 
-//FIXME : If not suffixed with IT tests aren't running.
-public class AsyncSearchContextPermitsIT extends ESTestCase {
+public class AsyncSearchContextPermitsTests extends ESTestCase {
 
     private static ThreadPool threadPool;
 
@@ -55,8 +54,10 @@ public class AsyncSearchContextPermitsIT extends ESTestCase {
                         .put("thread_pool." + ThreadPool.Names.WRITE + ".queue_size", writeThreadPoolQueueSize)
                         .build());
         assertThat(threadPool.executor(ThreadPool.Names.WRITE), instanceOf(EsThreadPoolExecutor.class));
-        assertThat(((EsThreadPoolExecutor) threadPool.executor(ThreadPool.Names.WRITE)).getCorePoolSize(), equalTo(writeThreadPoolSize));
-        assertThat(((EsThreadPoolExecutor) threadPool.executor(ThreadPool.Names.WRITE)).getMaximumPoolSize(), equalTo(writeThreadPoolSize));
+        assertThat(((EsThreadPoolExecutor) threadPool.executor(ThreadPool.Names.WRITE)).getCorePoolSize(),
+                equalTo(writeThreadPoolSize));
+        assertThat(((EsThreadPoolExecutor) threadPool.executor(ThreadPool.Names.WRITE)).getMaximumPoolSize(),
+                equalTo(writeThreadPoolSize));
         assertThat(((EsThreadPoolExecutor) threadPool.executor(ThreadPool.Names.WRITE)).getQueue().remainingCapacity(),
                 equalTo(writeThreadPoolQueueSize));
     }
@@ -69,7 +70,8 @@ public class AsyncSearchContextPermitsIT extends ESTestCase {
 
     @Before
     public void createAsyncSearchContextPermit() {
-        permits = new AsyncSearchContextPermits(new AsyncSearchContextId(UUID.randomUUID().toString(), randomNonNegativeLong()), threadPool);
+        permits = new AsyncSearchContextPermits(new AsyncSearchContextId(UUID.randomUUID().toString(),
+                randomNonNegativeLong()), threadPool);
     }
 
     @After
@@ -132,7 +134,8 @@ public class AsyncSearchContextPermitsIT extends ESTestCase {
                 assertNotNull(future.get(1, TimeUnit.MINUTES));
             } catch (ExecutionException e) {
 
-                assertThat(e.getCause(), either(instanceOf(DummyException.class)).or(instanceOf(EsRejectedExecutionException.class)));
+                assertThat(e.getCause(), either(instanceOf(DummyException.class))
+                        .or(instanceOf(EsRejectedExecutionException.class)));
             }
         }
 
@@ -288,7 +291,8 @@ public class AsyncSearchContextPermitsIT extends ESTestCase {
         final CountDownLatch operationLatch = new CountDownLatch(1);
         final CountDownLatch operationCompleteLatch = new CountDownLatch(1);
 
-        final Thread thread = new Thread(controlledAcquire(barrier, operationExecutingLatch, operationLatch, operationCompleteLatch));
+        final Thread thread = new Thread(controlledAcquire(barrier, operationExecutingLatch,
+                operationLatch, operationCompleteLatch));
         thread.start();
 
         barrier.await();

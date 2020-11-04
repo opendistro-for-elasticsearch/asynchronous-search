@@ -6,7 +6,14 @@ import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.bytes.BytesReference;
-import org.elasticsearch.common.xcontent.*;
+import org.elasticsearch.common.xcontent.InstantiatingObjectParser;
+import org.elasticsearch.common.xcontent.ObjectParserHelper;
+import org.elasticsearch.common.xcontent.ParserConstructor;
+import org.elasticsearch.common.xcontent.ToXContent;
+import org.elasticsearch.common.xcontent.ToXContentObject;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.common.xcontent.XContentHelper;
 
 import java.io.IOException;
 import java.util.Map;
@@ -38,7 +45,7 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
 
     static {
         InstantiatingObjectParser.Builder<AsyncSearchPersistenceModel, Void>
-            parser = InstantiatingObjectParser.builder("stored_response", true, AsyncSearchPersistenceModel.class);
+                parser = InstantiatingObjectParser.builder("stored_response", true, AsyncSearchPersistenceModel.class);
         parser.declareLong(constructorArg(), new ParseField(START_TIME_MILLIS));
         parser.declareLong(constructorArg(), new ParseField(EXPIRATION_TIME_MILLIS));
         ObjectParserHelper<AsyncSearchPersistenceModel, Void> parserHelper = new ObjectParserHelper<>();
@@ -48,7 +55,8 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
     }
 
     @ParserConstructor
-    public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis, BytesReference response, BytesReference error) {
+    public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis,
+                                       BytesReference response, BytesReference error) {
         this.startTimeMillis = startTimeMillis;
         this.expirationTimeMillis = expirationTimeMillis;
         this.response = response;
@@ -57,6 +65,11 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
 
     /**
      * Construct a {@linkplain AsyncSearchPersistenceModel} for a search that completed with an error.
+     *
+     * @param startTimeMillis      start time in millis
+     * @param expirationTimeMillis expiration time in millis
+     * @param error                error from the completed search request
+     * @throws IOException when there is a serialization issue
      */
     public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis, Exception error) throws IOException {
         this(startTimeMillis, expirationTimeMillis, null, toXContent(error));
@@ -64,9 +77,15 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
 
     /**
      * Construct a {@linkplain AsyncSearchPersistenceModel} for a search that completed succeeded with a response.
+     *
+     * @param startTimeMillis      start time in millis
+     * @param expirationTimeMillis expiration time in millis
+     * @param response             search response from the completed search request
+     * @throws IOException when there is a serialization issue
      */
     public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis, ToXContent response) throws IOException {
-        this(startTimeMillis, expirationTimeMillis, XContentHelper.toXContent(response, Requests.INDEX_CONTENT_TYPE, false), null);
+        this(startTimeMillis, expirationTimeMillis,
+                XContentHelper.toXContent(response, Requests.INDEX_CONTENT_TYPE, false), null);
     }
 
     public long getStartTimeMillis() {
@@ -148,8 +167,10 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         AsyncSearchPersistenceModel persistenceModel = (AsyncSearchPersistenceModel) o;
         return startTimeMillis == persistenceModel.startTimeMillis
                 && expirationTimeMillis == persistenceModel.expirationTimeMillis

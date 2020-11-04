@@ -55,8 +55,9 @@ public class AsyncSearchContextPermits {
                 final RunOnce release = new RunOnce(() -> semaphore.release(permits));
                 return release::run;
             } else {
-                throw new RuntimeException("obtaining context lock" + asyncSearchContextId + "timed out after " + timeout.getMillis() + "ms, " +
-                        "previous lock details: [" + lockDetails + "] trying to lock for [" + details + "]");
+                throw new RuntimeException(
+                        "obtaining context lock" + asyncSearchContextId + "timed out after " + timeout.getMillis() + "ms, " +
+                                "previous lock details: [" + lockDetails + "] trying to lock for [" + details + "]");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -64,11 +65,13 @@ public class AsyncSearchContextPermits {
         }
     }
 
-    private void asyncAcquirePermit(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason) {
+    private void asyncAcquirePermit(
+            int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason) {
         threadPool.executor(ThreadPool.Names.GENERIC).execute(new AbstractRunnable() {
             @Override
             public void onFailure(final Exception e) {
-                logger.debug(() -> new ParameterizedMessage("Failed to acquire permit {} for {}", permits, reason), e);
+                logger.debug(() -> new ParameterizedMessage("Failed to acquire permit {} for {}",
+                        permits, reason), e);
                 onAcquired.onFailure(e);
             }
 
@@ -82,8 +85,9 @@ public class AsyncSearchContextPermits {
     }
 
     /***
-     * Acquire the permit in an async fashion so as to not block the thread while acquiring. The {@link ActionListener} is invoked if
-     * the mutex was successfully acquired within the timeout. The caller has a responsibility of executing the {@link Releasable}
+     * Acquire the permit in an async fashion so as to not block the thread while acquiring.
+     * The {@link ActionListener} is invoked if the mutex was successfully acquired within the timeout. The caller has a
+     * responsibility of executing the {@link Releasable}
      * on completion or failure of the operation run within the permit
      *
      * @param onAcquired the releasable that must be invoked
@@ -95,8 +99,9 @@ public class AsyncSearchContextPermits {
     }
 
     /***
-     * Acquire all the permits in an async fashion so as to not block the thread while acquiring. The {@link ActionListener} is invoked if
-     * the mutex was successfully acquired within the timeout. The caller has a responsibility of executing the {@link Releasable}
+     * Acquire all the permits in an async fashion so as to not block the thread while acquiring.
+     * The {@link ActionListener} is invoked if the mutex was successfully acquired within the timeout. The caller has a
+     * responsibility of executing the {@link Releasable}
      * on completion or failure of the operation run within the permit
      *
      * @param onAcquired the releasable that must be invoked
