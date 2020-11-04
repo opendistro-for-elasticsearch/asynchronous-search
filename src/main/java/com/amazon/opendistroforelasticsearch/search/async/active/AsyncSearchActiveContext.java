@@ -74,7 +74,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.searchResponse = new AtomicReference<>();
         this.keepAlive = keepAlive;
         this.nodeId = nodeId;
-        this.searchProgressActionListener = searchProgressActionListener;
+        this.asyncSearchProgressListener = searchProgressActionListener;
         this.searchTask = new SetOnce<>();
         this.asyncSearchId = new SetOnce<>();
         this.contextListener = contextListener;
@@ -95,7 +95,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
 
     public void setTask(SearchTask searchTask) {
         Objects.requireNonNull(searchTask);
-        searchTask.setProgressListener(searchProgressActionListener);
+        searchTask.setProgressListener(asyncSearchProgressListener);
         this.searchTask.set(searchTask);
         this.startTimeMillis = searchTask.getStartTime();
         this.expirationTimeMillis = startTimeMillis + keepAlive.getMillis();
@@ -134,7 +134,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         if (completed.get()) {
             return searchResponse.get();
         } else {
-            return ((AsyncSearchProgressListener) searchProgressActionListener).partialResponse();
+            return asyncSearchProgressListener.partialResponse();
         }
     }
 
@@ -211,7 +211,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
                 ", keepAlive=" + keepAlive +
                 ", asyncSearchStage=" + asyncSearchStage +
                 ", asyncSearchContextPermit=" + asyncSearchContextPermits +
-                ", progressActionListener=" + searchProgressActionListener +
+                ", progressActionListener=" + asyncSearchProgressListener +
                 '}';
     }
 }
