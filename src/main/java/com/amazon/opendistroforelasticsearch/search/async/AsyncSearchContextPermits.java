@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -67,7 +68,7 @@ public class AsyncSearchContextPermits {
 
     private void asyncAcquirePermit(
             int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason) {
-        threadPool.executor(ThreadPool.Names.GENERIC).execute(new AbstractRunnable() {
+        threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(new AbstractRunnable() {
             @Override
             public void onFailure(final Exception e) {
                 logger.debug(() -> new ParameterizedMessage("Failed to acquire permit {} for {}",

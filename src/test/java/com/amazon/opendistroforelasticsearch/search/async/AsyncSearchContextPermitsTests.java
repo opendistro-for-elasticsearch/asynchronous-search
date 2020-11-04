@@ -1,14 +1,16 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.PlainActionFuture;
 import org.elasticsearch.common.CheckedRunnable;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
-import org.elasticsearch.common.util.concurrent.EsThreadPoolExecutor;
 import org.elasticsearch.test.ESTestCase;
+import org.elasticsearch.threadpool.ScalingExecutorBuilder;
 import org.elasticsearch.threadpool.TestThreadPool;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.threadpool.ThreadPoolStats;
@@ -48,18 +50,17 @@ public class AsyncSearchContextPermitsTests extends ESTestCase {
     public static void setupThreadPool() {
         int writeThreadPoolSize = randomIntBetween(1, 2);
         int writeThreadPoolQueueSize = randomIntBetween(1, 2);
-        threadPool = new TestThreadPool("IndexShardOperationPermitsTests",
-                Settings.builder()
-                        .put("thread_pool." + ThreadPool.Names.WRITE + ".size", writeThreadPoolSize)
-                        .put("thread_pool." + ThreadPool.Names.WRITE + ".queue_size", writeThreadPoolQueueSize)
-                        .build());
-        assertThat(threadPool.executor(ThreadPool.Names.WRITE), instanceOf(EsThreadPoolExecutor.class));
-        assertThat(((EsThreadPoolExecutor) threadPool.executor(ThreadPool.Names.WRITE)).getCorePoolSize(),
-                equalTo(writeThreadPoolSize));
-        assertThat(((EsThreadPoolExecutor) threadPool.executor(ThreadPool.Names.WRITE)).getMaximumPoolSize(),
-                equalTo(writeThreadPoolSize));
-        assertThat(((EsThreadPoolExecutor) threadPool.executor(ThreadPool.Names.WRITE)).getQueue().remainingCapacity(),
-                equalTo(writeThreadPoolQueueSize));
+        Settings settings = Settings.builder()
+                .put("thread_pool." + AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME
+                        + ".size", writeThreadPoolSize)
+                .put("thread_pool." + AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME
+                        + ".queue_size", writeThreadPoolQueueSize)
+                .build();
+        final int availableProcessors = EsExecutors.allocatedProcessors(settings);
+        ScalingExecutorBuilder scalingExecutorBuilder =
+                new ScalingExecutorBuilder(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, 1,
+                        Math.min(2 * availableProcessors, Math.max(128, 512)), TimeValue.timeValueMinutes(30));
+        threadPool = new TestThreadPool("IndexShardOperationPermitsTests", settings, scalingExecutorBuilder);
     }
 
     @AfterClass
