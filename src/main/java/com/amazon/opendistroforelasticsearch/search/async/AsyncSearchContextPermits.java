@@ -14,7 +14,7 @@
  */
 
 package com.amazon.opendistroforelasticsearch.search.async;
-import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 /***
  * The permit needed by any mutating operation on {@link AsyncSearchContext} while it is being moved over to the
- * persistence store. Each mutating operation acquires a single permit while the {@link AsyncSearchPostProcessor} acquires
+ * persistence store. Each mutating operation acquires a single permit while the AsyncSearchPostProcessor acquires
  * all permits before it transitions context to the index
  */
 public class AsyncSearchContextPermits {
@@ -55,8 +55,8 @@ public class AsyncSearchContextPermits {
                 final RunOnce release = new RunOnce(() -> semaphore.release(permits));
                 return release::run;
             } else {
-                throw new RuntimeException("obtaining context lock"+ asyncSearchContextId +"timed out after " + timeout.getMillis() + "ms, " +
-                                "previous lock details: [" + lockDetails + "] trying to lock for [" + details + "]");
+                throw new RuntimeException("obtaining context lock" + asyncSearchContextId + "timed out after " + timeout.getMillis() + "ms, " +
+                        "previous lock details: [" + lockDetails + "] trying to lock for [" + details + "]");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -64,7 +64,7 @@ public class AsyncSearchContextPermits {
         }
     }
 
-    private void asyncAcquirePermit(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout,  String reason)  {
+    private void asyncAcquirePermit(int permits, final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason) {
         threadPool.executor(ThreadPool.Names.GENERIC).execute(new AbstractRunnable() {
             @Override
             public void onFailure(final Exception e) {
@@ -73,7 +73,7 @@ public class AsyncSearchContextPermits {
             }
 
             @Override
-            protected void doRun()  {
+            protected void doRun() {
                 final Releasable releasable = acquirePermits(permits, timeout, reason);
                 logger.debug("Successfully acquired permit {} for {}", permits, reason);
                 onAcquired.onResponse(releasable);
@@ -90,7 +90,7 @@ public class AsyncSearchContextPermits {
      * @param timeout the timeout within which the permit must be acquired or deemed failed
      * @param reason the reason for acquiring the permit
      */
-    public void asyncAcquirePermit(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
+    public void asyncAcquirePermit(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason) {
         asyncAcquirePermit(1, onAcquired, timeout, reason);
     }
 
@@ -103,7 +103,7 @@ public class AsyncSearchContextPermits {
      * @param timeout the timeout within which the permit must be acquired or deemed failed
      * @param reason the reason for acquiring the permit
      */
-    public void asyncAcquireAllPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason)  {
+    public void asyncAcquireAllPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason) {
         asyncAcquirePermit(TOTAL_PERMITS, onAcquired, timeout, reason);
     }
 }
