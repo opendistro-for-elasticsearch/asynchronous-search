@@ -6,6 +6,7 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchRe
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
@@ -23,8 +24,9 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
 
 
     /**
-     * async search persistence model serializes search response to BytesReference. We verify that de-serializing the
-     * bytesreference yields the same object.
+     * async search persistence context serializes search response into {@linkplain BytesReference}. We verify that de-serializing
+     * the
+     * {@linkplain BytesReference} yields the same object.
      *
      * @throws IOException when there is a serialization issue
      */
@@ -45,8 +47,8 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
     }
 
     /**
-     * async search persistence model serializes search response to BytesReference. We verify that de-serializing the
-     * bytesreference yields the same object.
+     * async search persistence model serializes exception into {@linkplain BytesReference}. We verify that de-serializing the
+     * {@linkplain BytesReference} yields the same object.
      *
      * @throws IOException when there is a serialization issue
      */
