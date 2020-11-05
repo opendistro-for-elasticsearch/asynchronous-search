@@ -23,11 +23,12 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentType;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -80,34 +81,34 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
 
     @Override
     public SearchResponse getSearchResponse() {
-        SearchResponse searchResponse = null;
         BytesReference response = asyncSearchPersistenceModel.getResponse();
         if (response != null) {
-            try (XContentParser parser = XContentType.JSON.xContent()
-                    .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.streamInput())) {
-                searchResponse = SearchResponse.fromXContent(parser);
+            try (XContentParser parser = XContentHelper.createParser(NamedXContentRegistry.EMPTY,
+                    LoggingDeprecationHandler.INSTANCE, response, Requests.INDEX_CONTENT_TYPE)) {
+                return SearchResponse.fromXContent(parser);
             } catch (IOException e) {
                 logger.error(new ParameterizedMessage("could not parse search response for async search id : {}",
                         asyncSearchId), e);
             }
         }
-        return searchResponse;
+        return null;
     }
 
     @Override
     public ElasticsearchException getSearchError() {
-        ElasticsearchException exception = null;
+
         BytesReference error = asyncSearchPersistenceModel.getError();
         if (error != null) {
-            try (XContentParser parser = XContentType.JSON.xContent()
-                    .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, error.streamInput())) {
-                exception = ElasticsearchException.fromXContent(parser);
+            try (XContentParser parser = XContentHelper.createParser(NamedXContentRegistry.EMPTY,
+                    LoggingDeprecationHandler.INSTANCE, error, Requests.INDEX_CONTENT_TYPE)) {
+                parser.nextToken();
+                return ElasticsearchException.fromXContent(parser);
             } catch (IOException e) {
                 logger.error(() -> new ParameterizedMessage("could not parse search error for async search id : {}",
                         asyncSearchId), e);
             }
         }
-        return exception;
+        return null;
     }
 
     @Override

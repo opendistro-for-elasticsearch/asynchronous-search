@@ -18,20 +18,27 @@ package com.amazon.opendistroforelasticsearch.search.async.response;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.Strings;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.StatusToXContentObject;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.rest.RestStatus;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Objects;
 
+import static java.util.Collections.emptyMap;
+import static org.elasticsearch.common.xcontent.XContentHelper.convertToMap;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 public class AsyncSearchResponse extends ActionResponse implements StatusToXContentObject {
@@ -85,7 +92,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         this.startTimeMillis = in.readLong();
         this.expirationTimeMillis = in.readLong();
         this.searchResponse = in.readOptionalWriteable(SearchResponse::new);
-        this.error = in.readBoolean() ? in.readException() :  null;
+        this.error = in.readBoolean() ? in.readException() : null;
     }
 
     @Override
@@ -155,12 +162,43 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
             return false;
         }
         AsyncSearchResponse other = (AsyncSearchResponse) o;
-        return  id == other.id &&
-                isRunning== other.isRunning &&
-                startTimeMillis == other.startTimeMillis &&
-                expirationTimeMillis == other.expirationTimeMillis &&
-                searchResponse == other.searchResponse &&
-                error == other.error;
+        try {
+            return id == other.id &&
+                    isRunning == other.isRunning &&
+                    startTimeMillis == other.startTimeMillis &&
+                    expirationTimeMillis == other.expirationTimeMillis
+                    && Objects.equals(getErrorAsMap(error), getErrorAsMap(other.error))
+                    && Objects.equals(getResponseAsMap(searchResponse), getResponseAsMap(other.searchResponse));
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private Map<String, Object> getErrorAsMap(ElasticsearchException exception) throws IOException {
+        if (exception != null) {
+            BytesReference error;
+            try (XContentBuilder builder = XContentFactory.contentBuilder(Requests.INDEX_CONTENT_TYPE)) {
+                builder.startObject();
+                ElasticsearchException.generateThrowableXContent(builder, ToXContent.EMPTY_PARAMS, exception);
+                builder.endObject();
+                error = BytesReference.bytes(builder);
+                return convertToMap(error, false, Requests.INDEX_CONTENT_TYPE).v2();
+            }
+        } else {
+            return emptyMap();
+        }
+    }
+
+    private Map<String, Object> getResponseAsMap(SearchResponse searchResponse) throws IOException {
+        if (searchResponse != null) {
+            BytesReference response = XContentHelper.toXContent(searchResponse, Requests.INDEX_CONTENT_TYPE, true);
+            if (response == null) {
+                return emptyMap();
+            }
+            return convertToMap(response, false, Requests.INDEX_CONTENT_TYPE).v2();
+        } else {
+            return null;
+        }
     }
 
     public static AsyncSearchResponse fromXContent(XContentParser parser) throws IOException {

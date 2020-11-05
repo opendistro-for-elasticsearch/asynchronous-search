@@ -32,7 +32,7 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
     public static final String EXPIRATION_TIME_MILLIS = "expiration_time_millis";
     public static final String START_TIME_MILLIS = "start_time_millis";
     public static final String RESPONSE = "search_response";
-    public static final String ERROR = "search_error";
+    public static final String ERROR = "error";
 
     private final long expirationTimeMillis;
     private final long startTimeMillis;
@@ -71,7 +71,8 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
      * @param error                error from the completed search request
      * @throws IOException when there is a serialization issue
      */
-    public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis, Exception error) throws IOException {
+    public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis,
+                                       ElasticsearchException error) throws IOException {
         this(startTimeMillis, expirationTimeMillis, null, toXContent(error));
     }
 
@@ -85,7 +86,7 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
      */
     public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis, ToXContent response) throws IOException {
         this(startTimeMillis, expirationTimeMillis,
-                XContentHelper.toXContent(response, Requests.INDEX_CONTENT_TYPE, false), null);
+                XContentHelper.toXContent(response, Requests.INDEX_CONTENT_TYPE, true), null);
     }
 
     public long getStartTimeMillis() {
@@ -114,16 +115,16 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
     public XContentBuilder innerToXContent(XContentBuilder builder, Params params) throws IOException {
         builder.field(START_TIME_MILLIS, startTimeMillis);
         builder.field(EXPIRATION_TIME_MILLIS, expirationTimeMillis);
-        if (error != null) {
-            XContentHelper.writeRawField(ERROR, error, Requests.INDEX_CONTENT_TYPE, builder, params);
-        }
         if (response != null) {
             XContentHelper.writeRawField(RESPONSE, response, Requests.INDEX_CONTENT_TYPE, builder, params);
+        }
+        if (error != null) {
+            XContentHelper.writeRawField(ERROR, error, Requests.INDEX_CONTENT_TYPE, builder, params);
         }
         return builder;
     }
 
-    private static BytesReference toXContent(Exception error) throws IOException {
+    private static BytesReference toXContent(ElasticsearchException error) throws IOException {
         try (XContentBuilder builder = XContentFactory.contentBuilder(Requests.INDEX_CONTENT_TYPE)) {
             builder.startObject();
             ElasticsearchException.generateThrowableXContent(builder, ToXContent.EMPTY_PARAMS, error);
