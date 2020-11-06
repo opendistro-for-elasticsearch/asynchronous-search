@@ -58,13 +58,24 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
                 randomNonNegativeLong(), asyncSearchContextId));
         long expirationTimeMillis = randomNonNegativeLong();
         long startTimeMillis = randomNonNegativeLong();
-        IndexNotFoundException exception = new IndexNotFoundException("test");
+        RuntimeException exception = new RuntimeException("test");
         AsyncSearchPersistenceContext asyncSearchPersistenceContext =
                 new AsyncSearchPersistenceContext(id, asyncSearchContextId, new AsyncSearchPersistenceModel(startTimeMillis,
                         expirationTimeMillis, exception), System::currentTimeMillis);
-        assertEquals(asyncSearchPersistenceContext.getAsyncSearchResponse(), new AsyncSearchResponse(id, false,
+        AsyncSearchResponse response = new AsyncSearchResponse(id, false,
                 startTimeMillis,
-                expirationTimeMillis, null, exception));
+                expirationTimeMillis, null, exception);
+        AsyncSearchResponse parsed = asyncSearchPersistenceContext.getAsyncSearchResponse();
+
+        /*
+         * we cannot compare the cause, because it will be wrapped and serialized in an outer
+         * ElasticSearchException best effort: try to check that the original
+         * message appears somewhere in the rendered xContent.
+         */
+        String originalMsg = parsed.getError().getCause().getMessage();
+        assertEquals(originalMsg,
+                "Elasticsearch exception [type=runtime_exception, reason=test]");
+
     }
 
     protected SearchResponse getMockSearchResponse() {

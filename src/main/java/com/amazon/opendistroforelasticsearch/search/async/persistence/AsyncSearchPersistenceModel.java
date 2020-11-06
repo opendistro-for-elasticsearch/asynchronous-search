@@ -72,7 +72,7 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
      * @throws IOException when there is a serialization issue
      */
     public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis,
-                                       ElasticsearchException error) throws IOException {
+                                       Exception error) throws IOException {
         this(startTimeMillis, expirationTimeMillis, null, toXContent(error));
     }
 
@@ -124,7 +124,7 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
         return builder;
     }
 
-    private static BytesReference toXContent(ElasticsearchException error) throws IOException {
+    private static BytesReference toXContent(Exception error) throws IOException {
         try (XContentBuilder builder = XContentFactory.contentBuilder(Requests.INDEX_CONTENT_TYPE)) {
             builder.startObject();
             ElasticsearchException.generateThrowableXContent(builder, ToXContent.EMPTY_PARAMS, error);
