@@ -60,20 +60,14 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     @Nullable
     private ElasticsearchException error;
 
-    public boolean isRunning() {
-        return isRunning;
-    }
-
-    public long getStartTimeMillis() {
-        return startTimeMillis;
-    }
-
-    public SearchResponse getSearchResponse() {
-        return searchResponse;
-    }
-
-    public ElasticsearchException getError() {
-        return error;
+    public AsyncSearchResponse(String id, boolean isRunning, long startTimeMillis, long expirationTimeMillis,
+                               SearchResponse searchResponse, Exception error) {
+        this.id = id;
+        this.isRunning = isRunning;
+        this.startTimeMillis = startTimeMillis;
+        this.expirationTimeMillis = expirationTimeMillis;
+        this.searchResponse = searchResponse;
+        this.error = error == null ? null : new ElasticsearchException(error);
     }
 
     public AsyncSearchResponse(String id, boolean isRunning, long startTimeMillis, long expirationTimeMillis,
@@ -130,6 +124,22 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         return builder;
     }
 
+    public boolean isRunning() {
+        return isRunning;
+    }
+
+    public long getStartTimeMillis() {
+        return startTimeMillis;
+    }
+
+    public SearchResponse getSearchResponse() {
+        return searchResponse;
+    }
+
+    public ElasticsearchException getError() {
+        return error;
+    }
+
     public long getExpirationTimeMillis() {
         return expirationTimeMillis;
     }
@@ -163,7 +173,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         }
         AsyncSearchResponse other = (AsyncSearchResponse) o;
         try {
-            return id == other.id &&
+            return id.equals(other.id) &&
                     isRunning == other.isRunning &&
                     startTimeMillis == other.startTimeMillis &&
                     expirationTimeMillis == other.expirationTimeMillis

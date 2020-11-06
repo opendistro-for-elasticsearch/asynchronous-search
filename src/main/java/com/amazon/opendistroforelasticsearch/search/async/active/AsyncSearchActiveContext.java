@@ -26,7 +26,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.apache.lucene.util.SetOnce;
-import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
@@ -39,6 +39,9 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
+
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchStage.DELETED;
+import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchStage.INIT;
 
 
 /**
@@ -57,7 +60,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     private final String nodeId;
     private final SetOnce<String> asyncSearchId;
     private final AtomicBoolean completed;
-    private final AtomicReference<ElasticsearchException> error;
+    private final AtomicReference<Exception> error;
     private final AtomicReference<SearchResponse> searchResponse;
     private final AsyncSearchContextPermits asyncSearchContextPermits;
     private volatile AsyncSearchStage asyncSearchStage;
@@ -100,7 +103,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.startTimeMillis = searchTask.getStartTime();
         this.expirationTimeMillis = startTimeMillis + keepAlive.getMillis();
         this.asyncSearchId.set(AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, searchTask.getId(), getContextId())));
-        advanceStage(AsyncSearchStage.INIT);
+        advanceStage(INIT);
     }
 
     public SearchTask getTask() {
@@ -117,15 +120,20 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
 
     public void processSearchFailure(Exception e) {
         if (completed.compareAndSet(false, true)) {
-            error.set(new ElasticsearchException(e));
+            error.set(e);
             advanceStage(AsyncSearchStage.FAILED);
+        } else {
+            throw new IllegalStateException("Cannot process search failure event. Search has already completed.");
         }
     }
 
     public void processSearchResponse(SearchResponse response) {
-        if (completed.compareAndSet(false, true)) {
+        boolean completable = completed.compareAndSet(false, true);
+        if (completable) {
             this.searchResponse.compareAndSet(null, response);
             advanceStage(AsyncSearchStage.SUCCEEDED);
+        } else {
+            throw new IllegalStateException("Cannot process search failure event. Search has already completed.");
         }
     }
 
@@ -139,7 +147,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     }
 
     @Override
-    public ElasticsearchException getSearchError() {
+    public Exception getSearchError() {
         return error.get();
     }
 
@@ -161,11 +169,16 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
      */
     public synchronized void advanceStage(AsyncSearchStage nextAsyncSearchStage) {
         AsyncSearchStage currentAsyncSearchStage = asyncSearchStage;
-        if (currentAsyncSearchStage == null) {
-            assert nextAsyncSearchStage == AsyncSearchStage.INIT : "only next asyncSearchStage " + nextAsyncSearchStage + " " +
-                    "is allowed when the current asyncSearchStage is null";
-        }
-        if (currentAsyncSearchStage != null && asyncSearchStage.nextTransitions().contains(nextAsyncSearchStage) == false) {
+
+        if (currentAsyncSearchStage == null && nextAsyncSearchStage != INIT) {
+            throw new IllegalStateException("only next asyncSearchStage " + INIT +
+                    " is allowed when the current asyncSearchStage is null");
+        } else if (currentAsyncSearchStage != null &&
+                asyncSearchStage.nextTransitions().contains(nextAsyncSearchStage) == false) {
+            // Handle concurrent deletes race condition
+            if (currentAsyncSearchStage == DELETED && nextAsyncSearchStage == DELETED) {
+                throw new ResourceNotFoundException(getAsyncSearchId());
+            }
             throw new IllegalStateException(
                     "can't move to asyncSearchStage [" + nextAsyncSearchStage + "], from current asyncSearchStage: ["
                             + currentAsyncSearchStage + "] (valid states [" + currentAsyncSearchStage.nextTransitions() + "])");

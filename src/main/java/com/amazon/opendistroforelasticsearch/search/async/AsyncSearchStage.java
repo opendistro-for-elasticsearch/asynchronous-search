@@ -4,6 +4,7 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchCo
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.util.set.Sets;
 
+import java.util.Collections;
 import java.util.Set;
 
 /**
@@ -130,12 +131,12 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
         }
     },
     /**
-     * The context has been deleted
+     * The context has been deleted. Terminal stage.
      */
     DELETED {
         @Override
         public Set<AsyncSearchStage> nextTransitions() {
-            return Sets.newHashSet(DELETED);
+            return Collections.emptySet();
         }
 
         /**

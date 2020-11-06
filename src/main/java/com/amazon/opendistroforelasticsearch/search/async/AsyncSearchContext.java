@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.search.async;
 
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
-import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.util.set.Sets;
@@ -65,7 +64,7 @@ public abstract class AsyncSearchContext {
     SearchResponse getSearchResponse();
 
     public abstract @Nullable
-    ElasticsearchException getSearchError();
+    Exception getSearchError();
 
     public boolean isExpired() {
         return getExpirationTimeMillis() < currentTimeSupplier.getAsLong();

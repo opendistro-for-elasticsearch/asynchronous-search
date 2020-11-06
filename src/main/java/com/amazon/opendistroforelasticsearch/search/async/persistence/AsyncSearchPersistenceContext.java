@@ -95,7 +95,7 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
     }
 
     @Override
-    public ElasticsearchException getSearchError() {
+    public Exception getSearchError() {
 
         BytesReference error = asyncSearchPersistenceModel.getError();
         if (error != null) {

@@ -22,7 +22,6 @@ import java.util.UUID;
 
 public class AsyncSearchPersistenceContextTests extends ESTestCase {
 
-
     /**
      * async search persistence context serializes search response into {@linkplain BytesReference}. We verify that de-serializing
      * the
@@ -78,3 +77,4 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
                 ShardSearchFailure.EMPTY_ARRAY, SearchResponse.Clusters.EMPTY);
     }
 }
+
