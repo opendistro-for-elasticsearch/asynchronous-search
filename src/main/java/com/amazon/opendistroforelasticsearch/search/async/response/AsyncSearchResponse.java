@@ -160,7 +160,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, isRunning, startTimeMillis, expirationTimeMillis, searchResponse, error);
+        return Objects.hash(id, isRunning, startTimeMillis, expirationTimeMillis, searchResponse.toString(), error);
     }
 
     @Override

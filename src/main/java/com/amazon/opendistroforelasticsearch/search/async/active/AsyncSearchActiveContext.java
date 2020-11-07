@@ -37,7 +37,6 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchStage.DELETED;
@@ -60,8 +59,8 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     private final String nodeId;
     private final SetOnce<String> asyncSearchId;
     private final AtomicBoolean completed;
-    private final AtomicReference<Exception> error;
-    private final AtomicReference<SearchResponse> searchResponse;
+    private final SetOnce<Exception> error;
+    private final SetOnce<SearchResponse> searchResponse;
     private final AsyncSearchContextPermits asyncSearchContextPermits;
     private volatile AsyncSearchStage asyncSearchStage;
     private final AsyncSearchContextListener contextListener;
@@ -73,8 +72,8 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
                                     AsyncSearchContextListener contextListener) {
         super(asyncSearchContextId, currentTimeSupplier);
         this.keepOnCompletion = keepOnCompletion;
-        this.error = new AtomicReference<>();
-        this.searchResponse = new AtomicReference<>();
+        this.error = new SetOnce<>();
+        this.searchResponse = new SetOnce<>();
         this.keepAlive = keepAlive;
         this.nodeId = nodeId;
         this.asyncSearchProgressListener = searchProgressActionListener;
@@ -123,17 +122,19 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
             error.set(e);
             advanceStage(AsyncSearchStage.FAILED);
         } else {
-            throw new IllegalStateException("Cannot process search failure event. Search has already completed.");
+            throw new IllegalStateException("Cannot process search failure event for ["
+                    + asyncSearchContextId + "] . Search has already completed.");
         }
     }
 
     public void processSearchResponse(SearchResponse response) {
-        boolean completable = completed.compareAndSet(false, true);
-        if (completable) {
-            this.searchResponse.compareAndSet(null, response);
+
+        if (completed.compareAndSet(false, true)) {
+            this.searchResponse.set(response);
             advanceStage(AsyncSearchStage.SUCCEEDED);
         } else {
-            throw new IllegalStateException("Cannot process search failure event. Search has already completed.");
+            throw new IllegalStateException("Cannot process search response event for ["
+                    + asyncSearchContextId + "] . Search has already completed.");
         }
     }
 
@@ -208,8 +209,18 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        return super.equals(obj);
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) o;
+        return this.asyncSearchId.equals(asyncSearchActiveContext.asyncSearchId)
+                && this.completed == asyncSearchActiveContext.completed
+                && this.error.equals(asyncSearchActiveContext.error)
+                && this.searchResponse.equals(asyncSearchActiveContext.searchResponse)
+                && this.keepAlive.equals(asyncSearchActiveContext.keepAlive)
+                && this.asyncSearchStage.equals(asyncSearchActiveContext.asyncSearchStage);
     }
 
     @Override
