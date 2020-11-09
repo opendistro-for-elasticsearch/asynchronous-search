@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.stage;
 
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchActiveContextId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.util.set.Sets;
@@ -23,12 +23,12 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
 
         /**
          * @param contextListener Listener to be notified on transition
-         * @param asyncSearchContextId context which has undergone the transition
+         * @param asyncSearchActiveContextId context which has undergone the transition
          */
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
-                                 AsyncSearchContextId asyncSearchContextId) {
-            contextListener.onNewContext(asyncSearchContextId);
+                                 AsyncSearchActiveContextId asyncSearchActiveContextId) {
+            contextListener.onNewContext(asyncSearchActiveContextId);
         }
     },
     /**
@@ -42,13 +42,13 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
 
         /**
          * @param contextListener Listener to be notified on transition
-         * @param asyncSearchContextId context which has undergone the transition
+         * @param asyncSearchActiveContextId context which has undergone the transition
          */
 
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
-                                 AsyncSearchContextId asyncSearchContextId) {
-            contextListener.onContextRunning(asyncSearchContextId);
+                                 AsyncSearchActiveContextId asyncSearchActiveContextId) {
+            contextListener.onContextRunning(asyncSearchActiveContextId);
         }
     },
     /**
@@ -62,13 +62,13 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
 
         /**
          * @param contextListener Listener to be notified on transition
-         * @param asyncSearchContextId context which has undergone the transition
+         * @param asyncSearchActiveContextId context which has undergone the transition
          */
 
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
-                                 AsyncSearchContextId asyncSearchContextId) {
-            contextListener.onContextCompleted(asyncSearchContextId);
+                                 AsyncSearchActiveContextId asyncSearchActiveContextId) {
+            contextListener.onContextCompleted(asyncSearchActiveContextId);
         }
     },
     /**
@@ -82,13 +82,13 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
 
         /**
          * @param contextListener Listener to be notified on transition
-         * @param asyncSearchContextId context which has undergone the transition
+         * @param asyncSearchActiveContextId context which has undergone the transition
          */
 
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
-                                 AsyncSearchContextId asyncSearchContextId) {
-            contextListener.onContextFailed(asyncSearchContextId);
+                                 AsyncSearchActiveContextId asyncSearchActiveContextId) {
+            contextListener.onContextFailed(asyncSearchActiveContextId);
         }
     },
     /**
@@ -102,13 +102,13 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
 
         /**
          * @param contextListener Listener to be notified on transition
-         * @param asyncSearchContextId context which has undergone the transition
+         * @param asyncSearchActiveContextId context which has undergone the transition
          */
 
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
-                                 AsyncSearchContextId asyncSearchContextId) {
-            contextListener.onContextPersisted(asyncSearchContextId);
+                                 AsyncSearchActiveContextId asyncSearchActiveContextId) {
+            contextListener.onContextPersisted(asyncSearchActiveContextId);
         }
     },
     /**
@@ -122,13 +122,13 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
 
         /**
          * @param contextListener Listener to be notified on transition
-         * @param asyncSearchContextId context which has undergone the transition
+         * @param asyncSearchActiveContextId context which has undergone the transition
          */
 
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
-                                 AsyncSearchContextId asyncSearchContextId) {
-            contextListener.onContextPersistFailed(asyncSearchContextId);
+                                 AsyncSearchActiveContextId asyncSearchActiveContextId) {
+            contextListener.onContextPersistFailed(asyncSearchActiveContextId);
         }
     },
     /**
@@ -142,13 +142,13 @@ public enum AsyncSearchStage implements TransitionProcessor<AsyncSearchStage> {
 
         /**
          * @param contextListener Listener to be notified on transition
-         * @param asyncSearchContextId context which has undergone the transition
+         * @param asyncSearchActiveContextId context which has undergone the transition
          */
 
         @Override
         public void onTransition(AsyncSearchContextListener contextListener,
-                                 AsyncSearchContextId asyncSearchContextId) {
-            contextListener.onContextDeleted(asyncSearchContextId);
+                                 AsyncSearchActiveContextId asyncSearchActiveContextId) {
+            contextListener.onContextDeleted(asyncSearchActiveContextId);
         }
     };
 }

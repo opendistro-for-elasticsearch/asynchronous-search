@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchActiveContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits;
 import com.amazon.opendistroforelasticsearch.search.async.context.stage.AsyncSearchStage;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
@@ -64,12 +64,12 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     private volatile AsyncSearchStage asyncSearchStage;
     private final AsyncSearchContextListener contextListener;
 
-    public AsyncSearchActiveContext(AsyncSearchContextId asyncSearchContextId, String nodeId,
+    public AsyncSearchActiveContext(AsyncSearchActiveContextId asyncSearchActiveContextId, String nodeId,
                                     TimeValue keepAlive, boolean keepOnCompletion,
                                     ThreadPool threadPool, LongSupplier currentTimeSupplier,
                                     AsyncSearchProgressListener searchProgressActionListener,
                                     AsyncSearchContextListener contextListener) {
-        super(asyncSearchContextId, currentTimeSupplier);
+        super(asyncSearchActiveContextId, currentTimeSupplier);
         this.keepOnCompletion = keepOnCompletion;
         this.error = new SetOnce<>();
         this.searchResponse = new SetOnce<>();
@@ -80,7 +80,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.asyncSearchId = new SetOnce<>();
         this.contextListener = contextListener;
         this.completed = new AtomicBoolean(false);
-        this.asyncSearchContextPermits = new AsyncSearchContextPermits(asyncSearchContextId, threadPool);
+        this.asyncSearchContextPermits = new AsyncSearchContextPermits(asyncSearchActiveContextId, threadPool);
     }
 
     @Override
@@ -118,7 +118,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
             advanceStage(AsyncSearchStage.FAILED);
         } else {
             throw new IllegalStateException("Cannot process search failure event for ["
-                    + asyncSearchContextId + "] . Search has already completed.");
+                    + asyncSearchActiveContextId + "] . Search has already completed.");
         }
     }
 
@@ -129,7 +129,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
             advanceStage(AsyncSearchStage.SUCCEEDED);
         } else {
             throw new IllegalStateException("Cannot process search response event for ["
-                    + asyncSearchContextId + "] . Search has already completed.");
+                    + asyncSearchActiveContextId + "] . Search has already completed.");
         }
     }
 

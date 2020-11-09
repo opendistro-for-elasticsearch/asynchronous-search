@@ -30,13 +30,13 @@ import java.util.function.LongSupplier;
 
 public abstract class AsyncSearchContext {
 
-    protected final AsyncSearchContextId asyncSearchContextId;
+    protected final AsyncSearchActiveContextId asyncSearchActiveContextId;
     protected final LongSupplier currentTimeSupplier;
     protected volatile AsyncSearchProgressListener asyncSearchProgressListener;
 
-    public AsyncSearchContext(AsyncSearchContextId asyncSearchContextId, LongSupplier currentTimeSupplier) {
-        Objects.requireNonNull(asyncSearchContextId);
-        this.asyncSearchContextId = asyncSearchContextId;
+    public AsyncSearchContext(AsyncSearchActiveContextId asyncSearchActiveContextId, LongSupplier currentTimeSupplier) {
+        Objects.requireNonNull(asyncSearchActiveContextId);
+        this.asyncSearchActiveContextId = asyncSearchActiveContextId;
         this.currentTimeSupplier = currentTimeSupplier;
     }
 
@@ -51,8 +51,8 @@ public abstract class AsyncSearchContext {
         return getAsyncSearchStage() == AsyncSearchStage.RUNNING;
     }
 
-    public AsyncSearchContextId getContextId() {
-        return asyncSearchContextId;
+    public AsyncSearchActiveContextId getContextId() {
+        return asyncSearchActiveContextId;
     }
 
     public abstract String getAsyncSearchId();

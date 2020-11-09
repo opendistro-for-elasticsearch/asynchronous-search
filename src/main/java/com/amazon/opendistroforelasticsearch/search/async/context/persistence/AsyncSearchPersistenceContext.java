@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.persistence;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchActiveContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.stage.AsyncSearchStage;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -44,12 +44,12 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
     private final String asyncSearchId;
     private final AsyncSearchPersistenceModel asyncSearchPersistenceModel;
 
-    public AsyncSearchPersistenceContext(String asyncSearchId, AsyncSearchContextId asyncSearchContextId,
+    public AsyncSearchPersistenceContext(String asyncSearchId, AsyncSearchActiveContextId asyncSearchActiveContextId,
                                          AsyncSearchPersistenceModel asyncSearchPersistenceModel,
                                          LongSupplier currentTimeSupplier) {
-        super(asyncSearchContextId, currentTimeSupplier);
+        super(asyncSearchActiveContextId, currentTimeSupplier);
         Objects.requireNonNull(asyncSearchId);
-        Objects.requireNonNull(asyncSearchContextId);
+        Objects.requireNonNull(asyncSearchActiveContextId);
         Objects.requireNonNull(asyncSearchPersistenceModel);
         this.asyncSearchId = asyncSearchId;
         this.asyncSearchPersistenceModel = asyncSearchPersistenceModel;

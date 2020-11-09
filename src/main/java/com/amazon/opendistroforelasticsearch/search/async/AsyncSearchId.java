@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchActiveContextId;
 import org.apache.lucene.store.ByteArrayDataInput;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
@@ -26,20 +26,20 @@ import java.util.Objects;
 public class AsyncSearchId {
 
     // UUID + ID generator for uniqueness
-    private final AsyncSearchContextId asyncSearchContextId;
+    private final AsyncSearchActiveContextId asyncSearchActiveContextId;
     // coordinator node id
     private final String node;
     // the search task id
     private final long taskId;
 
-    public AsyncSearchId(String node, long taskId, AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchId(String node, long taskId, AsyncSearchActiveContextId asyncSearchActiveContextId) {
         this.node = node;
         this.taskId = taskId;
-        this.asyncSearchContextId = asyncSearchContextId;
+        this.asyncSearchActiveContextId = asyncSearchActiveContextId;
     }
 
-    public AsyncSearchContextId getAsyncSearchContextId() {
-        return asyncSearchContextId;
+    public AsyncSearchActiveContextId getAsyncSearchActiveContextId() {
+        return asyncSearchActiveContextId;
     }
 
     public String getNode() {
@@ -52,15 +52,15 @@ public class AsyncSearchId {
 
     @Override
     public String toString() {
-        return "[" + node + "][" + taskId + "][" + asyncSearchContextId + "]";
+        return "[" + node + "][" + taskId + "][" + asyncSearchActiveContextId + "]";
     }
 
     public static String buildAsyncId(AsyncSearchId asyncSearchId) {
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             out.writeString(asyncSearchId.getNode());
             out.writeLong(asyncSearchId.getTaskId());
-            out.writeString(asyncSearchId.getAsyncSearchContextId().getContextId());
-            out.writeLong(asyncSearchId.getAsyncSearchContextId().getId());
+            out.writeString(asyncSearchId.getAsyncSearchActiveContextId().getContextId());
+            out.writeLong(asyncSearchId.getAsyncSearchActiveContextId().getId());
             return Base64.getUrlEncoder().encodeToString(BytesReference.toBytes(out.bytes()));
         } catch (Exception e) {
             throw new IllegalArgumentException("Cannot build async search id", e);
@@ -78,7 +78,7 @@ public class AsyncSearchId {
             if (in.getPosition() != bytes.length) {
                 throw new IllegalArgumentException("Not all bytes were read");
             }
-            return new AsyncSearchId(node, taskId, new AsyncSearchContextId(contextId, id));
+            return new AsyncSearchId(node, taskId, new AsyncSearchActiveContextId(contextId, id));
         } catch (Exception e) {
             throw new IllegalArgumentException("Cannot parse async search id", e);
         }
@@ -86,7 +86,7 @@ public class AsyncSearchId {
 
     @Override
     public int hashCode() {
-        return Objects.hash(this.asyncSearchContextId, this.node, this.taskId);
+        return Objects.hash(this.asyncSearchActiveContextId, this.node, this.taskId);
     }
 
     @Override
@@ -96,7 +96,7 @@ public class AsyncSearchId {
         if (o == null || getClass() != o.getClass())
             return false;
         AsyncSearchId asyncSearchId = (AsyncSearchId) o;
-        return asyncSearchId.asyncSearchContextId.equals(this.asyncSearchContextId)
+        return asyncSearchId.asyncSearchActiveContextId.equals(this.asyncSearchActiveContextId)
                 && asyncSearchId.node.equals(this.node)
                 && asyncSearchId.taskId == this.taskId;
     }

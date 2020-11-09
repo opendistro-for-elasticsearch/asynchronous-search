@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.permits;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchActiveContextId;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -42,13 +42,13 @@ public class AsyncSearchContextPermits {
 
     //visible for testing
     final Semaphore semaphore;
-    private final AsyncSearchContextId asyncSearchContextId;
+    private final AsyncSearchActiveContextId asyncSearchContextId;
     private String lockDetails;
     private final ThreadPool threadPool;
     private static final Logger logger = LogManager.getLogger(AsyncSearchContextPermits.class);
 
-    public AsyncSearchContextPermits(AsyncSearchContextId asyncSearchContextId, ThreadPool threadPool) {
-        this.asyncSearchContextId = asyncSearchContextId;
+    public AsyncSearchContextPermits(AsyncSearchActiveContextId asyncSearchActiveContextId, ThreadPool threadPool) {
+        this.asyncSearchContextId = asyncSearchActiveContextId;
         this.threadPool = threadPool;
         this.semaphore = new Semaphore(TOTAL_PERMITS, true);
     }

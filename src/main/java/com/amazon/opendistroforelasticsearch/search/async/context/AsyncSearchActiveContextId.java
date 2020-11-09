@@ -22,17 +22,17 @@ import org.elasticsearch.common.io.stream.Writeable;
 import java.io.IOException;
 import java.util.Objects;
 
-public class AsyncSearchContextId implements Writeable {
+public class AsyncSearchActiveContextId implements Writeable {
 
     private long id;
     private String contextId;
 
-    public AsyncSearchContextId(String contextId, long id) {
+    public AsyncSearchActiveContextId(String contextId, long id) {
         this.id = id;
         this.contextId = contextId;
     }
 
-    public AsyncSearchContextId(StreamInput in) throws IOException {
+    public AsyncSearchActiveContextId(StreamInput in) throws IOException {
         this.id = in.readLong();
         this.contextId = in.readString();
     }
@@ -55,7 +55,7 @@ public class AsyncSearchContextId implements Writeable {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        AsyncSearchContextId other = (AsyncSearchContextId) o;
+        AsyncSearchActiveContextId other = (AsyncSearchActiveContextId) o;
         return id == other.id && contextId.equals(other.contextId);
     }
 
