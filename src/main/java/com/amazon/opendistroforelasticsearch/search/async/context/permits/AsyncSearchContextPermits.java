@@ -13,8 +13,10 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.context.permits;
 
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -37,6 +39,8 @@ import java.util.concurrent.TimeUnit;
 public class AsyncSearchContextPermits {
 
     private static final int TOTAL_PERMITS = Integer.MAX_VALUE;
+
+    //visible for testing
     final Semaphore semaphore;
     private final AsyncSearchContextId asyncSearchContextId;
     private String lockDetails;

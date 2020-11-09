@@ -1,5 +1,6 @@
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.context.stage;
 
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.common.util.set.Sets;
