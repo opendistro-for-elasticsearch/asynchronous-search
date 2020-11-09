@@ -49,8 +49,6 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     private static final ParseField EXPIRATION_TIME_IN_MILLIS = new ParseField("expiration_time_in_millis");
     private static final ParseField RESPONSE = new ParseField("response");
     private static final ParseField ERROR = new ParseField("error");
-
-
     private final String id;
     private final boolean isRunning;
     private final long startTimeMillis;
@@ -112,8 +110,9 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         builder.field(START_TIME_IN_MILLIS.getPreferredName(), startTimeMillis);
         builder.field(EXPIRATION_TIME_IN_MILLIS.getPreferredName(), expirationTimeMillis);
         if (searchResponse != null) {
-            builder.field(RESPONSE.getPreferredName());
-            searchResponse.toXContent(builder, params);
+            builder.startObject(RESPONSE.getPreferredName());
+            searchResponse.innerToXContent(builder, params);
+            builder.endObject();
         }
         if (error != null) {
             builder.startObject(ERROR.getPreferredName());
@@ -158,9 +157,19 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         return Strings.toString(this);
     }
 
+
+    /**
+     * {@linkplain SearchResponse} and {@linkplain ElasticsearchException} don't override hashcode, hence cannot be included in
+     * the hashcode calculation for {@linkplain AsyncSearchResponse}. Given that we are using these methods only in tests; on the
+     * off-chance that the {@link #equals(Object)} ()} comparison fails and hashcode is equal for 2
+     * {@linkplain AsyncSearchResponse} objects, we are wary of the @see
+     * <a href="https://docs.oracle.com/en/java/javase/14/docs/api/java.base/java/lang/Object.html#hashCode()">
+     *  performance improvement on hash tables </a>} that we forgo.
+     * @return hashcode of {@linkplain AsyncSearchResponse}
+     */
     @Override
     public int hashCode() {
-        return Objects.hash(id, isRunning, startTimeMillis, expirationTimeMillis, searchResponse.toString(), error);
+        return Objects.hash(id, isRunning, startTimeMillis, expirationTimeMillis);
     }
 
     @Override
@@ -225,18 +234,18 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         long expirationTimeMillis = -1;
         SearchResponse searchResponse = null;
         ElasticsearchException error = null;
-        String currentFieldName = parser.currentName();
-
+        String currentFieldName = null;
         for (XContentParser.Token token = parser.nextToken(); token != XContentParser.Token.END_OBJECT; token = parser.nextToken()) {
-            if (token == XContentParser.Token.FIELD_NAME) {
-                currentFieldName = parser.currentName();
-                if (RESPONSE.getPreferredName().equals(currentFieldName)) {
-                    searchResponse = SearchResponse.fromXContent(parser);
-                } else if (ERROR.getPreferredName().equals(currentFieldName)) {
-                    error = ElasticsearchException.fromXContent(parser);
-                } else {
-                    continue;
+            currentFieldName = parser.currentName();
+            if (RESPONSE.match(currentFieldName, parser.getDeprecationHandler())) {
+                if (token == XContentParser.Token.START_OBJECT) {
+                    ensureExpectedToken(XContentParser.Token.FIELD_NAME, parser.nextToken(), parser::getTokenLocation);
+                    searchResponse = SearchResponse.innerFromXContent(parser);
                 }
+            } else if (ERROR.match(currentFieldName, parser.getDeprecationHandler())) {
+                parser.nextToken();
+                error = ElasticsearchException.fromXContent(parser);
+
             } else if (token.isValue()) {
                 if (ID.match(currentFieldName, parser.getDeprecationHandler())) {
                     id = parser.text();
@@ -255,7 +264,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
     }
 
     //visible for testing
-    public static AsyncSearchResponse empty(String id, SearchResponse searchResponse, ElasticsearchException exception) {
+    public static AsyncSearchResponse empty(String id, SearchResponse searchResponse, Exception exception) {
         return new AsyncSearchResponse(id, false, -1, -1, searchResponse, exception);
     }
 }

@@ -23,43 +23,43 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchContextId;
 public interface AsyncSearchContextListener {
 
     /**
-     * Executed when a new async search context was created
+     * @param contextId Executed when a new async search context was created
      */
     default void onNewContext(AsyncSearchContextId contextId) {
     }
 
     /**
-     * Executed when a previously created async search context completes.
+     * @param contextId Executed when a previously created async search context completes.
      */
     default void onContextCompleted(AsyncSearchContextId contextId) {
     }
 
     /**
-     *  Executed when a previously created async search context fails.
+     * @param contextId Executed when a previously created async search context fails.
      */
     default void onContextFailed(AsyncSearchContextId contextId) {
     }
 
     /**
-     * Executed when a previously created async search context is persisted.
+     * @param contextId Executed when a previously created async search context is persisted.
      */
     default void onContextPersisted(AsyncSearchContextId contextId) {
     }
 
     /**
-     * Executed when a previously created async search context fails persisting.
+     * @param contextId Executed when a previously created async search context fails persisting.
      */
     default void onContextPersistFailed(AsyncSearchContextId contextId) {
     }
 
     /**
-     * Executed when a previously created async search context is deleted.
+     * @param contextId Executed when a previously created async search context is deleted.
      */
     default void onContextDeleted(AsyncSearchContextId contextId) {
     }
 
     /**
-     * Executed when a previously created async search context is running.
+     * @param contextId Executed when a previously created async search context is running.
      */
     default void onContextRunning(AsyncSearchContextId contextId) {
 
