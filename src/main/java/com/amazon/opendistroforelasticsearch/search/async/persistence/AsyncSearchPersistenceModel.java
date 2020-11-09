@@ -133,9 +133,11 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
         }
     }
 
+
     /**
-     * Convert from XContent to a Map for easy processing. Will return an empty map if the task was finished with an
-     * error, hasn't yet finished, or didn't store its result.
+     * Convert from XContent to a Map for easy processing.
+     *
+     * @return Will return an empty map if the task was finished with an error, hasn't yet finished, or didn't store its result.
      */
     public Map<String, Object> getResponseAsMap() {
         if (response == null) {
@@ -145,8 +147,9 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
     }
 
     /**
-     * Convert from XContent to a Map for easy processing. Will return an empty map if the task didn't finish with an
-     * error, hasn't yet finished, or didn't store its result.
+     * Convert from XContent to a Map for easy processing.
+     *
+     * @return Will return an empty map if the task didn't finish with an error, hasn't yet finished, or didn't store its result.
      */
     public Map<String, Object> getErrorAsMap() {
         if (error == null) {
@@ -154,7 +157,6 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
         }
         return convertToMap(error, false, Requests.INDEX_CONTENT_TYPE).v2();
     }
-
 
     @Override
     public String toString() {

@@ -12,7 +12,9 @@ public interface TransitionProcessor<T> {
     Set<T> nextTransitions();
 
     /**
-     * Listeners to be invoked
+     *
+     * @param contextListener Listeners to be invoked
+     * @param asyncSearchContextId id of the context invoking listener
      */
     void onTransition(AsyncSearchContextListener contextListener, AsyncSearchContextId asyncSearchContextId);
 }

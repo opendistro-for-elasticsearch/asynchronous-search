@@ -16,7 +16,8 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
 import org.apache.lucene.store.ByteArrayDataInput;
-import org.apache.lucene.store.RAMOutputStream;
+import org.elasticsearch.common.bytes.BytesReference;
+import org.elasticsearch.common.io.stream.BytesStreamOutput;
 
 import java.util.Base64;
 import java.util.Objects;
@@ -50,18 +51,16 @@ public class AsyncSearchId {
 
     @Override
     public String toString() {
-        return "[" + node + "]["+ taskId + "][" + asyncSearchContextId + "]";
+        return "[" + node + "][" + taskId + "][" + asyncSearchContextId + "]";
     }
 
     public static String buildAsyncId(AsyncSearchId asyncSearchId) {
-        try (RAMOutputStream out = new RAMOutputStream()) {
+        try (BytesStreamOutput out = new BytesStreamOutput()) {
             out.writeString(asyncSearchId.getNode());
             out.writeLong(asyncSearchId.getTaskId());
             out.writeString(asyncSearchId.getAsyncSearchContextId().getContextId());
             out.writeLong(asyncSearchId.getAsyncSearchContextId().getId());
-            byte[] bytes = new byte[(int) out.getFilePointer()];
-            out.writeTo(bytes, 0);
-            return Base64.getUrlEncoder().encodeToString(bytes);
+            return Base64.getUrlEncoder().encodeToString(BytesReference.toBytes(out.bytes()));
         } catch (Exception e) {
             throw new IllegalArgumentException("Cannot build async search id", e);
         }
@@ -91,8 +90,10 @@ public class AsyncSearchId {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         AsyncSearchId asyncSearchId = (AsyncSearchId) o;
         return asyncSearchId.asyncSearchContextId.equals(this.asyncSearchContextId)
                 && asyncSearchId.node.equals(this.node)
