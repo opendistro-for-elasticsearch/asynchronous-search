@@ -1,7 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchActiveContextId;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.stage.AsyncSearchStage;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
@@ -50,11 +50,11 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             threadPool = new TestThreadPool("test");
             AsyncSearchProgressListener asyncSearchProgressListener = new AsyncSearchProgressListener(
                     threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(), threadPool::relativeTimeInMillis);
-            AsyncSearchActiveContextId asyncSearchActiveContextId = new AsyncSearchActiveContextId(UUID.randomUUID().toString(),
+            AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                     randomNonNegativeLong());
             boolean keepOnCompletion = randomBoolean();
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
-            AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchActiveContextId, node,
+            AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
@@ -118,11 +118,11 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             threadPool = new TestThreadPool("test");
             AsyncSearchProgressListener asyncSearchProgressListener = new AsyncSearchProgressListener(
                     threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(), threadPool::relativeTimeInMillis);
-            AsyncSearchActiveContextId asyncSearchActiveContextId = new AsyncSearchActiveContextId(UUID.randomUUID().toString(),
+            AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                     randomNonNegativeLong());
             boolean keepOnCompletion = true;
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
-            AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchActiveContextId, node,
+            AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
@@ -144,11 +144,11 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             threadPool = new TestThreadPool("test");
             AsyncSearchProgressListener asyncSearchProgressListener = new AsyncSearchProgressListener(
                     threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(), threadPool::relativeTimeInMillis);
-            AsyncSearchActiveContextId asyncSearchActiveContextId = new AsyncSearchActiveContextId(UUID.randomUUID().toString(),
+            AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                     randomNonNegativeLong());
             boolean keepOnCompletion = randomBoolean();
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
-            AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchActiveContextId, node,
+            AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
@@ -199,11 +199,11 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             threadPool = new TestThreadPool("test");
             AsyncSearchProgressListener asyncSearchProgressListener = new AsyncSearchProgressListener(
                     threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(), threadPool::relativeTimeInMillis);
-            AsyncSearchActiveContextId asyncSearchActiveContextId = new AsyncSearchActiveContextId(UUID.randomUUID().toString(),
+            AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                     randomNonNegativeLong());
             boolean keepOnCompletion = randomBoolean();
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
-            AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchActiveContextId, node,
+            AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });

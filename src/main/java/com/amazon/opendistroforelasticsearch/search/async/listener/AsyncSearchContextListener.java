@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchActiveContextId;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 
 /**
  * An listener for async search context events.
@@ -25,43 +25,43 @@ public interface AsyncSearchContextListener {
     /**
      * @param contextId Executed when a new async search context was created
      */
-    default void onNewContext(AsyncSearchActiveContextId contextId) {
+    default void onNewContext(AsyncSearchContextId contextId) {
     }
 
     /**
      * @param contextId Executed when a previously created async search context completes.
      */
-    default void onContextCompleted(AsyncSearchActiveContextId contextId) {
+    default void onContextCompleted(AsyncSearchContextId contextId) {
     }
 
     /**
      * @param contextId Executed when a previously created async search context fails.
      */
-    default void onContextFailed(AsyncSearchActiveContextId contextId) {
+    default void onContextFailed(AsyncSearchContextId contextId) {
     }
 
     /**
      * @param contextId Executed when a previously created async search context is persisted.
      */
-    default void onContextPersisted(AsyncSearchActiveContextId contextId) {
+    default void onContextPersisted(AsyncSearchContextId contextId) {
     }
 
     /**
      * @param contextId Executed when a previously created async search context fails persisting.
      */
-    default void onContextPersistFailed(AsyncSearchActiveContextId contextId) {
+    default void onContextPersistFailed(AsyncSearchContextId contextId) {
     }
 
     /**
      * @param contextId Executed when a previously created async search context is deleted.
      */
-    default void onContextDeleted(AsyncSearchActiveContextId contextId) {
+    default void onContextDeleted(AsyncSearchContextId contextId) {
     }
 
     /**
      * @param contextId Executed when a previously created async search context is running.
      */
-    default void onContextRunning(AsyncSearchActiveContextId contextId) {
+    default void onContextRunning(AsyncSearchContextId contextId) {
 
     }
 }

@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.stage;
 
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchActiveContextId;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 
 import java.util.Set;
@@ -15,7 +15,7 @@ public interface TransitionProcessor<T> {
     /**
      *
      * @param contextListener Listeners to be invoked
-     * @param asyncSearchActiveContextId id of the context invoking listener
+     * @param asyncSearchContextId id of the context invoking listener
      */
-    void onTransition(AsyncSearchContextListener contextListener, AsyncSearchActiveContextId asyncSearchActiveContextId);
+    void onTransition(AsyncSearchContextListener contextListener, AsyncSearchContextId asyncSearchContextId);
 }

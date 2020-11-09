@@ -1,7 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.persistence;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchActiveContextId;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.search.SearchResponse;
@@ -29,15 +29,15 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
      * @throws IOException when there is a serialization issue
      */
     public void testXContentRoundTripWithSearchResponse() throws IOException {
-        AsyncSearchActiveContextId asyncSearchActiveContextId = new AsyncSearchActiveContextId(UUID.randomUUID().toString(),
+        AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                 randomNonNegativeLong());
         String id = AsyncSearchId.buildAsyncId(new AsyncSearchId(UUID.randomUUID().toString(),
-                randomNonNegativeLong(), asyncSearchActiveContextId));
+                randomNonNegativeLong(), asyncSearchContextId));
         long expirationTimeMillis = randomNonNegativeLong();
         long startTimeMillis = randomNonNegativeLong();
         SearchResponse searchResponse = getMockSearchResponse();
         AsyncSearchPersistenceContext asyncSearchPersistenceContext =
-                new AsyncSearchPersistenceContext(id, asyncSearchActiveContextId, new AsyncSearchPersistenceModel(startTimeMillis,
+                new AsyncSearchPersistenceContext(id, asyncSearchContextId, new AsyncSearchPersistenceModel(startTimeMillis,
                         expirationTimeMillis, searchResponse), System::currentTimeMillis);
         assertEquals(
                 asyncSearchPersistenceContext.getAsyncSearchResponse(),
@@ -51,15 +51,15 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
      * @throws IOException when there is a serialization issue
      */
     public void testXContentRoundTripWithError() throws IOException {
-        AsyncSearchActiveContextId asyncSearchActiveContextId = new AsyncSearchActiveContextId(UUID.randomUUID().toString(),
+        AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                 randomNonNegativeLong());
         String id = AsyncSearchId.buildAsyncId(new AsyncSearchId(UUID.randomUUID().toString(),
-                randomNonNegativeLong(), asyncSearchActiveContextId));
+                randomNonNegativeLong(), asyncSearchContextId));
         long expirationTimeMillis = randomNonNegativeLong();
         long startTimeMillis = randomNonNegativeLong();
         RuntimeException exception = new RuntimeException("test");
         AsyncSearchPersistenceContext asyncSearchPersistenceContext =
-                new AsyncSearchPersistenceContext(id, asyncSearchActiveContextId, new AsyncSearchPersistenceModel(startTimeMillis,
+                new AsyncSearchPersistenceContext(id, asyncSearchContextId, new AsyncSearchPersistenceModel(startTimeMillis,
                         expirationTimeMillis, exception), System::currentTimeMillis);
         AsyncSearchResponse parsed = asyncSearchPersistenceContext.getAsyncSearchResponse();
         /*

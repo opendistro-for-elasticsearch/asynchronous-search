@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.permits;
 
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchActiveContextId;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.PlainActionFuture;
@@ -72,7 +72,7 @@ public class AsyncSearchContextPermitsTests extends ESTestCase {
 
     @Before
     public void createAsyncSearchContextPermit() {
-        permits = new AsyncSearchContextPermits(new AsyncSearchActiveContextId(UUID.randomUUID().toString(),
+        permits = new AsyncSearchContextPermits(new AsyncSearchContextId(UUID.randomUUID().toString(),
                 randomNonNegativeLong()), threadPool);
     }
 
