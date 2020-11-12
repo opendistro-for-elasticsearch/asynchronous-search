@@ -23,6 +23,12 @@ import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import java.util.Base64;
 import java.util.Objects;
 
+/**
+ * Holds the following details pertaining to a submitted async search:
+ * - the associated async search context
+ * - id of the associated search task registered with the task manager
+ * - the id of node on which acts as coordinator for the async search
+ */
 public class AsyncSearchId {
 
     // UUID + ID generator for uniqueness
@@ -55,18 +61,31 @@ public class AsyncSearchId {
         return "[" + node + "][" + taskId + "][" + asyncSearchContextId + "]";
     }
 
+    /**
+     * Encodes the {@linkplain AsyncSearchId} in base64 encoding and returns an identifier for the submitted async search
+     *
+     * @param asyncSearchId The object to be encoded
+     * @return The id which is used to access the submitted async search
+     */
     public static String buildAsyncId(AsyncSearchId asyncSearchId) {
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             out.writeString(asyncSearchId.getNode());
             out.writeLong(asyncSearchId.getTaskId());
             out.writeString(asyncSearchId.getAsyncSearchContextId().getContextId());
             out.writeLong(asyncSearchId.getAsyncSearchContextId().getId());
-            return Base64.getUrlEncoder().encodeToString(BytesReference.toBytes(out.bytes()));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(BytesReference.toBytes(out.bytes()));
         } catch (Exception e) {
             throw new IllegalArgumentException("Cannot build async search id", e);
         }
     }
 
+    /**
+     * Attempts to decode a base64 encoded string into an {@linkplain AsyncSearchId} which contains the details pertaining to
+     * an async search being accessed.
+     *
+     * @param asyncSearchId The string to be decoded
+     * @return The parsed {@linkplain AsyncSearchId}
+     */
     public static AsyncSearchId parseAsyncId(String asyncSearchId) {
         try {
             byte[] bytes = Base64.getUrlDecoder().decode(asyncSearchId);

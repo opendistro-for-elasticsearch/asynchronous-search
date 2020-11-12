@@ -49,7 +49,8 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
         try {
             threadPool = new TestThreadPool("test");
             AsyncSearchProgressListener asyncSearchProgressListener = new AsyncSearchProgressListener(
-                    threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(), threadPool::relativeTimeInMillis);
+                    threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(),
+                    threadPool::relativeTimeInMillis);
             AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                     randomNonNegativeLong());
             boolean keepOnCompletion = randomBoolean();
@@ -58,9 +59,9 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
-
+            assertEquals(context.getAsyncSearchStage(), INIT);
             //Before we register search task
-            verifyIllegalStageAdvancementFailure(context, Arrays.asList(RUNNING, FAILED, DELETED, PERSIST_FAILED,
+            verifyIllegalStageAdvancementFailure(context, Arrays.asList(FAILED, DELETED, PERSIST_FAILED,
                     PERSISTED, SUCCEEDED));
 
             //After task is registered, before search result is received
@@ -68,12 +69,9 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             SearchTask task = new SearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME,
                     null, null, Collections.emptyMap());
             context.setTask(task);
-            verifyInitStageInfo(context, task, keepAlive);
+            verifyRunningStageInfo(context, task, keepAlive);
 
-            //Set to RUNNING once search task has begun running
-            context.advanceStage(RUNNING);
-            assertEquals(RUNNING, context.getAsyncSearchStage());
-            verifyIllegalStageAdvancementFailure(context, Arrays.asList(RUNNING, null, INIT));
+            verifyIllegalStageAdvancementFailure(context, Arrays.asList(RUNNING, INIT));
 
 
             boolean success = randomBoolean();
@@ -97,11 +95,11 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             boolean persisted = randomBoolean();
             if (persisted) {
                 context.advanceStage(PERSISTED);
-                verifyIllegalStageAdvancementFailure(context, Arrays.asList(null, INIT, RUNNING, SUCCEEDED, PERSISTED,
+                verifyIllegalStageAdvancementFailure(context, Arrays.asList(INIT, RUNNING, SUCCEEDED, PERSISTED,
                         PERSIST_FAILED));
             } else {
                 context.advanceStage(PERSIST_FAILED);
-                verifyIllegalStageAdvancementFailure(context, Arrays.asList(null, INIT, RUNNING, SUCCEEDED, PERSISTED,
+                verifyIllegalStageAdvancementFailure(context, Arrays.asList(INIT, RUNNING, SUCCEEDED, PERSISTED,
                         PERSIST_FAILED));
             }
 
@@ -112,7 +110,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
         }
     }
 
-    public void testDeletionOfRunningAsyncSearch() {
+    public void testDeletionOfRunningAsyncSearc() {
         TestThreadPool threadPool = null;
         try {
             threadPool = new TestThreadPool("test");
@@ -128,7 +126,6 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             });
             context.setTask(new SearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME,
                     null, null, Collections.emptyMap()));
-            context.advanceStage(RUNNING);
             assertTrue(context.shouldPersist());
             context.advanceStage(DELETED);
             assertFalse(context.shouldPersist());
@@ -143,7 +140,8 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
         try {
             threadPool = new TestThreadPool("test");
             AsyncSearchProgressListener asyncSearchProgressListener = new AsyncSearchProgressListener(
-                    threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(), threadPool::relativeTimeInMillis);
+                    threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(),
+                    threadPool::relativeTimeInMillis);
             AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                     randomNonNegativeLong());
             boolean keepOnCompletion = randomBoolean();
@@ -154,7 +152,6 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             });
             context.setTask(new SearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME,
                     null, null, Collections.emptyMap()));
-            context.advanceStage(RUNNING);
 
             int numThread = 10;
             AtomicInteger completions = new AtomicInteger(0);
@@ -207,7 +204,6 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
-            doConcurrentStageAdvancement(context, INIT, IllegalStateException.class);
             doConcurrentStageAdvancement(context, RUNNING, IllegalStateException.class);
             if (randomBoolean()) {//success
                 doConcurrentStageAdvancement(context, SUCCEEDED, IllegalStateException.class);
@@ -258,7 +254,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
         assertNull(context.getSearchResponse());
         assertEquals(context.getSearchError(), exception);
         assertEquals(context.getAsyncSearchResponse(), asyncSearchResponse);
-        verifyIllegalStageAdvancementFailure(context, Arrays.asList(null, INIT, SUCCEEDED, FAILED));
+        verifyIllegalStageAdvancementFailure(context, Arrays.asList(INIT, SUCCEEDED, FAILED));
     }
 
     private void verifySucceededStageInfo(AsyncSearchActiveContext context, SearchResponse response,
@@ -266,19 +262,18 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
         assertNull(context.getSearchError());
         assertEquals(context.getSearchResponse(), response);
         assertEquals(context.getAsyncSearchResponse(), asyncSearchResponse);
-        verifyIllegalStageAdvancementFailure(context, Arrays.asList(null, INIT, SUCCEEDED, FAILED));
+        verifyIllegalStageAdvancementFailure(context, Arrays.asList(INIT, SUCCEEDED, FAILED));
 
     }
 
-    private void verifyInitStageInfo(AsyncSearchActiveContext asyncSearchActiveContext, SearchTask task, TimeValue keepAlive) {
-        assertEquals(INIT, asyncSearchActiveContext.getAsyncSearchStage());
+    private void verifyRunningStageInfo(AsyncSearchActiveContext asyncSearchActiveContext, SearchTask task, TimeValue keepAlive) {
+        assertEquals(RUNNING, asyncSearchActiveContext.getAsyncSearchStage());
         assertEquals(asyncSearchActiveContext.getTask(), task);
         assertEquals(asyncSearchActiveContext.getStartTimeMillis(), task.getStartTime());
         assertEquals(task.getStartTime() + keepAlive.millis(), asyncSearchActiveContext.getExpirationTimeMillis());
         assertEquals(asyncSearchActiveContext.getAsyncSearchId(), AsyncSearchId.buildAsyncId(new AsyncSearchId(node,
                 task.getId(), asyncSearchActiveContext.getContextId())));
-        verifyIllegalStageAdvancementFailure(asyncSearchActiveContext, Arrays.asList(INIT, null, PERSIST_FAILED, DELETED,
-                PERSISTED, FAILED, SUCCEEDED));
+        verifyIllegalStageAdvancementFailure(asyncSearchActiveContext, Arrays.asList(INIT, RUNNING, PERSIST_FAILED, PERSISTED));
     }
 
     private void verifyIllegalStageAdvancementFailure(AsyncSearchActiveContext asyncSearchActiveContext,

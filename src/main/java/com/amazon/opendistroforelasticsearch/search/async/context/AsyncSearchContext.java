@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.context;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.context.stage.AsyncSearchStage;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
@@ -28,6 +29,13 @@ import java.util.Set;
 import java.util.function.LongSupplier;
 
 
+/**
+ * Wrapper around information that needs to stay around when an async search has been submitted.
+ * This class encapsulates the details of the various elements pertaining to an async search, including the
+ * {@linkplain AsyncSearchId}, the start time, the updatable expiration time, the search response - completed or partial, the
+ * error(if the underlying search request fails), the {@linkplain AsyncSearchProgressListener} and the current
+ * {@linkplain AsyncSearchStage} that the async search execution has reached in its lifecycle.
+ */
 public abstract class AsyncSearchContext {
 
     protected final AsyncSearchContextId asyncSearchContextId;
