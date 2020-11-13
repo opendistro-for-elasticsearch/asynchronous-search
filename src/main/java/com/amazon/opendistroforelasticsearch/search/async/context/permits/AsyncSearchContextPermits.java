@@ -84,10 +84,9 @@ public class AsyncSearchContextPermits {
 
             @Override
             protected void doRun() throws TimeoutException {
-                try (final Releasable releasable = acquirePermits(permits, timeout, reason)) {
-                    logger.debug("Successfully acquired permit {} for {}", permits, reason);
-                    onAcquired.onResponse(releasable);
-                }
+                final Releasable releasable = acquirePermits(permits, timeout, reason);
+                logger.debug("Successfully acquired permit {} for {}", permits, reason);
+                onAcquired.onResponse(releasable);
             }
         });
     }
