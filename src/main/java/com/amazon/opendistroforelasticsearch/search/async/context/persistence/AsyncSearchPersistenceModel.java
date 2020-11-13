@@ -140,10 +140,7 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
      * @return Will return an empty map if the task was finished with an error, hasn't yet finished, or didn't store its result.
      */
     public Map<String, Object> getResponseAsMap() {
-        if (response == null) {
-            return emptyMap();
-        }
-        return convertToMap(response, false, Requests.INDEX_CONTENT_TYPE).v2();
+        return response == null ? emptyMap() : convertToMap(response, false, Requests.INDEX_CONTENT_TYPE).v2();
     }
 
     /**

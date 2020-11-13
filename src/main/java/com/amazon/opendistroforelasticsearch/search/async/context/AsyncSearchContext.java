@@ -24,7 +24,6 @@ import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.util.set.Sets;
 
 import java.util.Collections;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.LongSupplier;
 
@@ -43,7 +42,6 @@ public abstract class AsyncSearchContext {
     protected volatile AsyncSearchProgressListener asyncSearchProgressListener;
 
     public AsyncSearchContext(AsyncSearchContextId asyncSearchContextId, LongSupplier currentTimeSupplier) {
-        Objects.requireNonNull(asyncSearchContextId);
         this.asyncSearchContextId = asyncSearchContextId;
         this.currentTimeSupplier = currentTimeSupplier;
     }

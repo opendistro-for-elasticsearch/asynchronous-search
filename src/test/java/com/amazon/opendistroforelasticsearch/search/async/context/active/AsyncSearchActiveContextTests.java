@@ -204,17 +204,17 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
-            doConcurrentStageAdvancement(context, RUNNING, IllegalStateException.class);
+            doConcurrentStageAdvancement(context, RUNNING, AssertionError.class);
             if (randomBoolean()) {//success
-                doConcurrentStageAdvancement(context, SUCCEEDED, IllegalStateException.class);
+                doConcurrentStageAdvancement(context, SUCCEEDED, AssertionError.class);
             } else {
-                doConcurrentStageAdvancement(context, FAILED, IllegalStateException.class);
+                doConcurrentStageAdvancement(context, FAILED, AssertionError.class);
             }
 
             if (randomBoolean()) { //persistence succeeded
-                doConcurrentStageAdvancement(context, PERSISTED, IllegalStateException.class);
+                doConcurrentStageAdvancement(context, PERSISTED, AssertionError.class);
             } else {
-                doConcurrentStageAdvancement(context, PERSIST_FAILED, IllegalStateException.class);
+                doConcurrentStageAdvancement(context, PERSIST_FAILED, AssertionError.class);
             }
 
             doConcurrentStageAdvancement(context, DELETED, ResourceNotFoundException.class);
@@ -226,7 +226,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
     private <T extends Throwable> void doConcurrentStageAdvancement(AsyncSearchActiveContext context,
                                                                     AsyncSearchStage stage,
                                                                     Class<T> throwable) throws InterruptedException {
-        int numThreads = 10;
+        int numThreads = 2;
 
         List<Thread> operationThreads = new ArrayList<>();
         AtomicInteger numUpdateSuccesses = new AtomicInteger();
@@ -235,7 +235,9 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
                 try {
                     context.advanceStage(stage);
                     numUpdateSuccesses.getAndIncrement();
-                } catch (Exception e) {
+                } catch (AssertionError e) {
+                    assertTrue(throwable.isInstance(e));
+                }catch (Exception e) {
                     assertTrue(throwable.isInstance(e));
                 }
             });
@@ -278,7 +280,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
 
     private void verifyIllegalStageAdvancementFailure(AsyncSearchActiveContext asyncSearchActiveContext,
                                                       Collection<AsyncSearchStage> illegalNextStageList) {
-        illegalNextStageList.forEach(stage -> expectThrows(IllegalStateException.class,
+        illegalNextStageList.forEach(stage -> expectThrows(AssertionError.class,
                 () -> asyncSearchActiveContext.advanceStage(stage)));
     }
 

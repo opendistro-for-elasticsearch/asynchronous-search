@@ -111,7 +111,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     }
 
     public boolean shouldPersist() {
-        return keepOnCompletion && isExpired() == false && asyncSearchStage != DELETED;
+        return keepOnCompletion && !isExpired() && asyncSearchStage != DELETED;
     }
 
     public void processSearchFailure(Exception e) {
@@ -170,16 +170,16 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     synchronized void advanceStage(AsyncSearchStage nextAsyncSearchStage) {
         assert nextAsyncSearchStage != null : "Next async search stage cannot bu null!";
         assert this.asyncSearchStage != null : "async search stage cannot be null!";
+
         AsyncSearchStage currentAsyncSearchStage = this.asyncSearchStage;
-        if (this.asyncSearchStage.nextTransitions().contains(nextAsyncSearchStage) == false) {
-            // Handle concurrent deletes race condition
-            if (currentAsyncSearchStage == DELETED && nextAsyncSearchStage == DELETED) {
-                throw new ResourceNotFoundException(getAsyncSearchId());
-            }
-            throw new IllegalStateException(
-                    "can't move to asyncSearchStage [" + nextAsyncSearchStage + "], from current asyncSearchStage: ["
-                            + currentAsyncSearchStage + "] (valid states [" + currentAsyncSearchStage.nextTransitions() + "])");
+        if (currentAsyncSearchStage == DELETED && nextAsyncSearchStage == DELETED) {
+            throw new ResourceNotFoundException(getAsyncSearchId());
         }
+
+        assert this.asyncSearchStage.nextTransitions().contains(nextAsyncSearchStage) :
+                "can't move to asyncSearchStage [" + nextAsyncSearchStage + "], from current asyncSearchStage: ["
+                        + currentAsyncSearchStage + "] (valid states [" + currentAsyncSearchStage.nextTransitions() + "])";
+
         this.asyncSearchStage = nextAsyncSearchStage;
         this.asyncSearchStage.onTransition(contextListener, getContextId());
     }

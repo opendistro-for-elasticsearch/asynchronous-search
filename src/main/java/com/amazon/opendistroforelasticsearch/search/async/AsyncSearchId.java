@@ -20,6 +20,7 @@ import org.apache.lucene.store.ByteArrayDataInput;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 
+import java.io.IOException;
 import java.util.Base64;
 import java.util.Objects;
 
@@ -29,7 +30,7 @@ import java.util.Objects;
  * - id of the associated search task registered with the task manager
  * - the id of node on which acts as coordinator for the async search
  */
-public class AsyncSearchId {
+public final class AsyncSearchId {
 
     // UUID + ID generator for uniqueness
     private final AsyncSearchContextId asyncSearchContextId;
@@ -74,7 +75,7 @@ public class AsyncSearchId {
             out.writeString(asyncSearchId.getAsyncSearchContextId().getContextId());
             out.writeLong(asyncSearchId.getAsyncSearchContextId().getId());
             return Base64.getUrlEncoder().withoutPadding().encodeToString(BytesReference.toBytes(out.bytes()));
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new IllegalArgumentException("Cannot build async search id", e);
         }
     }
