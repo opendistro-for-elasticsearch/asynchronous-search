@@ -30,11 +30,13 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /***
  * The permit needed by any mutating operation on {@link AsyncSearchContext} while it is being moved over to the
- * persistence store. Each mutating operation acquires a single permit while the AsyncSearchPostProcessor acquires
- * all permits before it transitions context to the index
+ * persistence store. Each mutating operation acquires a single permit while the AsyncSearchPostProcessor acquires all permits
+ * before it transitions context to the index. Provides fairness to consumers and throws {@linkplain TimeoutException} after
+ * maximum time has elapsed waiting for the in-flight operations block.
  */
 public class AsyncSearchContextPermits {
 
@@ -43,7 +45,7 @@ public class AsyncSearchContextPermits {
     //visible for testing
     final Semaphore semaphore;
     private final AsyncSearchContextId asyncSearchContextId;
-    private String lockDetails;
+    private volatile String lockDetails;
     private final ThreadPool threadPool;
     private static final Logger logger = LogManager.getLogger(AsyncSearchContextPermits.class);
 
@@ -53,14 +55,14 @@ public class AsyncSearchContextPermits {
         this.semaphore = new Semaphore(TOTAL_PERMITS, true);
     }
 
-    private Releasable acquirePermits(int permits, TimeValue timeout, final String details) throws RuntimeException {
+    private Releasable acquirePermits(int permits, TimeValue timeout, final String details) throws TimeoutException {
         try {
             if (semaphore.tryAcquire(permits, timeout.getMillis(), TimeUnit.MILLISECONDS)) {
                 this.lockDetails = details;
                 final RunOnce release = new RunOnce(() -> semaphore.release(permits));
                 return release::run;
             } else {
-                throw new RuntimeException(
+                throw new TimeoutException(
                         "obtaining context lock" + asyncSearchContextId + "timed out after " + timeout.getMillis() + "ms, " +
                                 "previous lock details: [" + lockDetails + "] trying to lock for [" + details + "]");
             }
@@ -81,10 +83,11 @@ public class AsyncSearchContextPermits {
             }
 
             @Override
-            protected void doRun() {
-                final Releasable releasable = acquirePermits(permits, timeout, reason);
-                logger.debug("Successfully acquired permit {} for {}", permits, reason);
-                onAcquired.onResponse(releasable);
+            protected void doRun() throws TimeoutException {
+                try (final Releasable releasable = acquirePermits(permits, timeout, reason)) {
+                    logger.debug("Successfully acquired permit {} for {}", permits, reason);
+                    onAcquired.onResponse(releasable);
+                }
             }
         });
     }

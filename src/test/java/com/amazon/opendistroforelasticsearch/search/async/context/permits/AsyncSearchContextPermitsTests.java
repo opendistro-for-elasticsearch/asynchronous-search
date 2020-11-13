@@ -311,6 +311,7 @@ public class AsyncSearchContextPermitsTests extends ESTestCase {
                     }
                 }, e -> {
                     try {
+                        assertTrue(e instanceof TimeoutException);
                         assertThat(e, hasToString(containsString("timed out")));
                     } finally {
                         onFailureLatch.countDown();
