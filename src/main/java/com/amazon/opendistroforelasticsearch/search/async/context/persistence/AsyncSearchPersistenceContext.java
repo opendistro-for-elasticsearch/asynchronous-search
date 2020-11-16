@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.search.async.context.persistence;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.context.stage.AsyncSearchStage;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -112,8 +112,8 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
     }
 
     @Override
-    public AsyncSearchStage getAsyncSearchStage() {
-        return AsyncSearchStage.PERSISTED;
+    public AsyncSearchState getAsyncSearchStage() {
+        return AsyncSearchState.PERSISTED;
     }
 
     @Override

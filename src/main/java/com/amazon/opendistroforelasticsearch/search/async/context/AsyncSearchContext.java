@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.context;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.context.stage.AsyncSearchStage;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.action.search.SearchResponse;
@@ -33,13 +33,15 @@ import java.util.function.LongSupplier;
  * This class encapsulates the details of the various elements pertaining to an async search, including the
  * {@linkplain AsyncSearchId}, the start time, the updatable expiration time, the search response - completed or partial, the
  * error(if the underlying search request fails), the {@linkplain AsyncSearchProgressListener} and the current
- * {@linkplain AsyncSearchStage} that the async search execution has reached in its lifecycle.
+ * {@linkplain AsyncSearchState} that the async search execution has reached in its lifecycle.
  */
 public abstract class AsyncSearchContext {
 
     protected final AsyncSearchContextId asyncSearchContextId;
     protected final LongSupplier currentTimeSupplier;
+    protected volatile AsyncSearchState currentStage;
     protected volatile AsyncSearchProgressListener asyncSearchProgressListener;
+    protected AsyncSearchContextListener asyncSearchContextListener;
 
     public AsyncSearchContext(AsyncSearchContextId asyncSearchContextId, LongSupplier currentTimeSupplier) {
         this.asyncSearchContextId = asyncSearchContextId;
@@ -51,10 +53,15 @@ public abstract class AsyncSearchContext {
         return asyncSearchProgressListener;
     }
 
-    public abstract AsyncSearchStage getAsyncSearchStage();
+    @Nullable
+    public AsyncSearchContextListener getContextListener() {return asyncSearchContextListener; }
+
+    public AsyncSearchState getAsyncSearchStage() {
+        return currentStage;
+    }
 
     public boolean isRunning() {
-        return getAsyncSearchStage() == AsyncSearchStage.RUNNING;
+        return getAsyncSearchStage() == AsyncSearchState.RUNNING;
     }
 
     public AsyncSearchContextId getContextId() {
@@ -67,24 +74,25 @@ public abstract class AsyncSearchContext {
 
     public abstract long getStartTimeMillis();
 
-    public abstract @Nullable
-    SearchResponse getSearchResponse();
+    public abstract @Nullable SearchResponse getSearchResponse();
 
-    public abstract @Nullable
-    Exception getSearchError();
+    public abstract @Nullable Exception getSearchError();
 
     public boolean isExpired() {
         return getExpirationTimeMillis() < currentTimeSupplier.getAsLong();
     }
 
-    public Set<AsyncSearchStage> retainedStages() {
-        return Collections.unmodifiableSet(
-                Sets.newHashSet(
-                        AsyncSearchStage.INIT, AsyncSearchStage.RUNNING, AsyncSearchStage.SUCCEEDED, AsyncSearchStage.FAILED));
+    public Set<AsyncSearchState> retainedStages() {
+        return Collections.unmodifiableSet(Sets.newHashSet(
+                        AsyncSearchState.INIT, AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.FAILED));
     }
 
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(getAsyncSearchId(), isRunning(), getStartTimeMillis(),
                 getExpirationTimeMillis(), getSearchResponse(), getSearchError());
+    }
+
+    public void setStage(AsyncSearchState targetState) {
+        this.currentStage = targetState;
     }
 }

@@ -19,13 +19,12 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits;
-import com.amazon.opendistroforelasticsearch.search.async.context.stage.AsyncSearchStage;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.SetOnce;
-import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
@@ -38,9 +37,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.stage.AsyncSearchStage.DELETED;
-import static com.amazon.opendistroforelasticsearch.search.async.context.stage.AsyncSearchStage.INIT;
-import static com.amazon.opendistroforelasticsearch.search.async.context.stage.AsyncSearchStage.RUNNING;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
 
 /**
  * The context representing an ongoing search, keeps track of the underlying {@link SearchTask}
@@ -48,7 +45,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.context.stage.A
  */
 public class AsyncSearchActiveContext extends AsyncSearchContext {
 
-    private static final Logger logger = LogManager.getLogger(AsyncSearchActiveContext.class);
+    private static final Logger logger = LogManager.getLogger(AsyncSearchContext.class);
 
     private final SetOnce<SearchTask> searchTask;
     private volatile long expirationTimeMillis;
@@ -61,14 +58,12 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     private final SetOnce<Exception> error;
     private final SetOnce<SearchResponse> searchResponse;
     private final AsyncSearchContextPermits asyncSearchContextPermits;
-    private volatile AsyncSearchStage asyncSearchStage;
-    private final AsyncSearchContextListener contextListener;
 
     public AsyncSearchActiveContext(AsyncSearchContextId asyncSearchContextId, String nodeId,
-                                    TimeValue keepAlive, boolean keepOnCompletion,
-                                    ThreadPool threadPool, LongSupplier currentTimeSupplier,
-                                    AsyncSearchProgressListener searchProgressActionListener,
-                                    AsyncSearchContextListener contextListener) {
+                              TimeValue keepAlive, boolean keepOnCompletion,
+                              ThreadPool threadPool, LongSupplier currentTimeSupplier,
+                              AsyncSearchProgressListener searchProgressActionListener,
+                              AsyncSearchContextListener asyncSearchContextListener) {
         super(asyncSearchContextId, currentTimeSupplier);
         this.keepOnCompletion = keepOnCompletion;
         this.error = new SetOnce<>();
@@ -78,47 +73,25 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.asyncSearchProgressListener = searchProgressActionListener;
         this.searchTask = new SetOnce<>();
         this.asyncSearchId = new SetOnce<>();
-        this.contextListener = contextListener;
+        this.asyncSearchContextListener = asyncSearchContextListener;
         this.completed = new AtomicBoolean(false);
         this.asyncSearchContextPermits = new AsyncSearchContextPermits(asyncSearchContextId, threadPool);
-        this.asyncSearchStage = INIT;
-    }
-
-    @Override
-    public AsyncSearchStage getAsyncSearchStage() {
-        assert asyncSearchStage != null : "asyncSearchStage cannot be empty";
-        return asyncSearchStage;
-    }
-
-    @Override
-    public String getAsyncSearchId() {
-        return asyncSearchId.get();
     }
 
     public void setTask(SearchTask searchTask) {
-        assert asyncSearchStage == INIT;
+        assert currentStage == AsyncSearchState.INIT;
         Objects.requireNonNull(searchTask);
         searchTask.setProgressListener(asyncSearchProgressListener);
         this.searchTask.set(searchTask);
         this.startTimeMillis = searchTask.getStartTime();
         this.expirationTimeMillis = startTimeMillis + keepAlive.getMillis();
         this.asyncSearchId.set(AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, searchTask.getId(), getContextId())));
-        advanceStage(RUNNING); // context advanced to running stage as search task has been created and search will begin
-    }
-
-    public SearchTask getTask() {
-        return searchTask.get();
-    }
-
-    public boolean shouldPersist() {
-        return keepOnCompletion && !isExpired() && asyncSearchStage != DELETED;
     }
 
     public void processSearchFailure(Exception e) {
-        assert asyncSearchStage != DELETED : "cannot process search failure. Async search context is already DELETED";
+        assert currentStage != DELETED : "cannot process search failure. Async search context is already DELETED";
         if (completed.compareAndSet(false, true)) {
             error.set(e);
-            advanceStage(AsyncSearchStage.FAILED);
         } else {
             throw new IllegalStateException("Cannot process search failure event for ["
                     + asyncSearchContextId + "] . Search has already completed.");
@@ -126,10 +99,9 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     }
 
     public void processSearchResponse(SearchResponse response) {
-        assert asyncSearchStage != DELETED : "cannot process search response. Async search context is already DELETED";
+        assert currentStage != DELETED : "cannot process search response. Async search context is already DELETED";
         if (completed.compareAndSet(false, true)) {
             this.searchResponse.set(response);
-            advanceStage(AsyncSearchStage.SUCCEEDED);
         } else {
             throw new IllegalStateException("Cannot process search response event for ["
                     + asyncSearchContextId + "] . Search has already completed.");
@@ -143,6 +115,19 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         } else {
             return asyncSearchProgressListener.partialResponse();
         }
+    }
+
+    @Override
+    public String getAsyncSearchId() {
+        return asyncSearchId.get();
+    }
+
+    public boolean shouldPersist() {
+        return keepOnCompletion && isExpired() == false && currentStage != DELETED;
+    }
+
+    public SearchTask getTask() {
+        return searchTask.get();
     }
 
     @Override
@@ -160,29 +145,6 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         return startTimeMillis;
     }
 
-
-    /**
-     * Atomically validates and updates the state of the search
-     *
-     * @param nextAsyncSearchStage asyncSearchStage to advance
-     */
-    //visible for testing
-    synchronized void advanceStage(AsyncSearchStage nextAsyncSearchStage) {
-        assert nextAsyncSearchStage != null : "Next async search stage cannot bu null!";
-        assert this.asyncSearchStage != null : "async search stage cannot be null!";
-
-        AsyncSearchStage currentAsyncSearchStage = this.asyncSearchStage;
-        if (currentAsyncSearchStage == DELETED && nextAsyncSearchStage == DELETED) {
-            throw new ResourceNotFoundException(getAsyncSearchId());
-        }
-
-        assert this.asyncSearchStage.nextTransitions().contains(nextAsyncSearchStage) :
-                "can't move to asyncSearchStage [" + nextAsyncSearchStage + "], from current asyncSearchStage: ["
-                        + currentAsyncSearchStage + "] (valid states [" + currentAsyncSearchStage.nextTransitions() + "])";
-
-        this.asyncSearchStage = nextAsyncSearchStage;
-        this.asyncSearchStage.onTransition(contextListener, getContextId());
-    }
 
     public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
         asyncSearchContextPermits.asyncAcquirePermit(onPermitAcquired, timeout, reason);

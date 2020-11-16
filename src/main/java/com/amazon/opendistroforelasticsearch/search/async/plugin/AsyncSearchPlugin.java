@@ -15,20 +15,51 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
+import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchContextEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchTransition;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
+import org.elasticsearch.common.util.set.Sets;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.env.Environment;
+import org.elasticsearch.env.NodeEnvironment;
 import org.elasticsearch.indices.SystemIndexDescriptor;
 import org.elasticsearch.plugins.ActionPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.SystemIndexPlugin;
+import org.elasticsearch.repositories.RepositoriesService;
+import org.elasticsearch.script.ScriptService;
 import org.elasticsearch.threadpool.ExecutorBuilder;
 import org.elasticsearch.threadpool.ScalingExecutorBuilder;
+import org.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.watcher.ResourceWatcherService;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
+
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSIST_FAILED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
+
 
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemIndexPlugin {
 
@@ -52,5 +83,26 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
         executorBuilders.add(new ScalingExecutorBuilder(OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, 1,
                 Math.min(2 * availableProcessors, Math.max(128, 512)), TimeValue.timeValueMinutes(30)));
         return executorBuilders;
+    }
+
+    @Override
+    public Collection<Object> createComponents(Client client, ClusterService clusterService, ThreadPool threadPool,
+                                               ResourceWatcherService resourceWatcherService, ScriptService scriptService,
+                                               NamedXContentRegistry xContentRegistry, Environment environment,
+                                               NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry,
+                                               IndexNameExpressionResolver indexNameExpressionResolver,
+                                               Supplier<RepositoriesService> repositoriesServiceSupplier) {
+        AsyncSearchStateMachine stateMachine = new AsyncSearchStateMachine(
+                Sets.newHashSet(INIT, RUNNING, SUCCEEDED, FAILED, PERSISTED, PERSIST_FAILED, DELETED), INIT);
+        stateMachine.markTerminalStates(Sets.newHashSet(DELETED, PERSIST_FAILED, PERSISTED));
+        stateMachine.registerTransition(new AsyncSearchTransition<SearchStartedEvent>(INIT, RUNNING, (s, e) -> {},
+                (contextId, listener) -> listener.onContextRunning(contextId)));
+        stateMachine.registerTransition(new AsyncSearchTransition<SearchSuccessfulEvent>(RUNNING, SUCCEEDED,
+                (s, e) -> ((AsyncSearchActiveContext)e.asyncSearchContext()).processSearchResponse(e.getSearchResponse()),
+                (contextId, listener) -> listener.onContextCompleted(contextId)));
+        stateMachine.registerTransition(new AsyncSearchTransition<SearchFailureEvent>(RUNNING, FAILED,
+                (s, e) -> ((AsyncSearchActiveContext)e.asyncSearchContext()).processSearchFailure(e.getException()),
+                (contextId, listener) -> listener.onContextFailed(contextId)));
+        return Collections.singletonList(stateMachine);
     }
 }
