@@ -2,6 +2,13 @@ package com.amazon.opendistroforelasticsearch.search.async.context.state;
 
 import java.util.Set;
 
+/**
+ * {@linkplain AbstractStateMachine} provides APIs for generic finite state machine needed
+ * for basic operations like working with states, events and a lifecycle.
+ *
+ * @param <State> the type of state
+ * @param <Event> the type of event
+ */
 abstract class AbstractStateMachine<State, Event> {
 
     /**
@@ -39,6 +46,6 @@ abstract class AbstractStateMachine<State, Event> {
      * @return The next FSM state defined by the transition to make
      * @throws Exception thrown if an exception occurs during event handling
      */
-    abstract State trigger(final Event event) throws Exception;
+    abstract <E extends Event> State trigger(E event) throws Exception;
 
 }

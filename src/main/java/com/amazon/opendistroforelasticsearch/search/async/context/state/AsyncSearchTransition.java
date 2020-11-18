@@ -5,21 +5,26 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchCo
 
 import java.util.function.BiConsumer;
 
-public class AsyncSearchTransition<Event> implements Transition<AsyncSearchState, Event> {
+public class AsyncSearchTransition<Event extends AsyncSearchContextEvent> implements Transition<AsyncSearchState,
+        AsyncSearchContextEvent> {
 
     private final AsyncSearchState sourceState;
     private final AsyncSearchState targetState;
     private final BiConsumer<AsyncSearchState, Event> onEvent;
     private final BiConsumer<AsyncSearchContextId, AsyncSearchContextListener> eventListener;
+    private final Class<Event> eventType;
 
     public AsyncSearchTransition(AsyncSearchState sourceState, AsyncSearchState targetState,
                                  BiConsumer<AsyncSearchState, Event> onEvent,
-                                 BiConsumer<AsyncSearchContextId, AsyncSearchContextListener> eventListener)  {
+                                 BiConsumer<AsyncSearchContextId, AsyncSearchContextListener> eventListener,
+                                 Class<Event> eventName) {
         this.sourceState = sourceState;
         this.targetState = targetState;
         this.onEvent = onEvent;
         this.eventListener = eventListener;
+        this.eventType = eventName;
     }
+
     @Override
     public AsyncSearchState sourceState() {
         return sourceState;
@@ -28,6 +33,11 @@ public class AsyncSearchTransition<Event> implements Transition<AsyncSearchState
     @Override
     public AsyncSearchState targetState() {
         return targetState;
+    }
+
+    @Override
+    public Class<? extends AsyncSearchContextEvent> eventType() {
+        return eventType;
     }
 
     @Override

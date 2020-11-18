@@ -3,16 +3,9 @@ package com.amazon.opendistroforelasticsearch.search.async.context.state.event;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchContextEvent;
 
-public class SearchFailureEvent extends AsyncSearchContextEvent {
+public class SearchResponsePersistFailedEvent extends AsyncSearchContextEvent {
 
-    private final Exception exception;
-
-    public SearchFailureEvent(AsyncSearchContext asyncSearchContext, Exception exception) {
+    public SearchResponsePersistFailedEvent(AsyncSearchContext asyncSearchContext) {
         super(asyncSearchContext);
-        this.exception = exception;
-    }
-
-    public Exception getException() {
-        return exception;
     }
 }

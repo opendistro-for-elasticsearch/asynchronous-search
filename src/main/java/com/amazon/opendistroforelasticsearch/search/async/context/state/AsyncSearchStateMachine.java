@@ -5,7 +5,6 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.message.ParameterizedMessage;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -15,7 +14,7 @@ public class AsyncSearchStateMachine extends AbstractStateMachine<AsyncSearchSta
     private AsyncSearchState initialState;
     private Set<AsyncSearchState> finalStates;
     private Set<AsyncSearchState> states;
-    private Set<AsyncSearchTransition<AsyncSearchContextEvent>> transitions;
+    private Set<AsyncSearchTransition<? extends AsyncSearchContextEvent>> transitions;
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchStateMachine.class);
 
@@ -26,7 +25,7 @@ public class AsyncSearchStateMachine extends AbstractStateMachine<AsyncSearchSta
         finalStates = new HashSet<>();
     }
 
-    public void registerTransition(final AsyncSearchTransition transition) {
+    public <Event extends AsyncSearchContextEvent> void registerTransition(final AsyncSearchTransition<Event> transition) {
         transitions.add(transition);
     }
 
@@ -50,40 +49,39 @@ public class AsyncSearchStateMachine extends AbstractStateMachine<AsyncSearchSta
     }
 
     @Override
-    public Set<AsyncSearchTransition<AsyncSearchContextEvent>> getTransitions() {
+    Set<? extends Transition<AsyncSearchState, AsyncSearchContextEvent>> getTransitions() {
         return transitions;
     }
 
     @Override
-    AsyncSearchState trigger(AsyncSearchContextEvent event) {
+    <E extends AsyncSearchContextEvent> AsyncSearchState trigger(E event) {
+
+        AsyncSearchState result;
+
         AsyncSearchState currentState = event.asyncSearchContext().getAsyncSearchStage();
-        if (getFinalStates().isEmpty() == false && getFinalStates().contains(currentState)) {
-            return currentState;
-        }
+        if (getFinalStates().contains(currentState)) {
+            result = currentState;
+        } else {
+            for (Transition<AsyncSearchState, AsyncSearchContextEvent> transition : getTransitions()) {
 
-        if (event == null) {
-            return currentState;
-        }
+                if (currentState.equals(transition.sourceState()) && transition.eventType().equals(event.getClass())) {
 
-        for (Transition<AsyncSearchState, AsyncSearchContextEvent> transition : getTransitions()) {
-            if (currentState.equals(transition.sourceState()) && getStates().contains(transition.targetState())) {
-                //perform action, if any
-                if (transition.onEvent() != null) {
                     transition.onEvent().accept(currentState, event);
+                    event.asyncSearchContext().setStage(transition.targetState());
+
                     BiConsumer<AsyncSearchContextId, AsyncSearchContextListener> eventListener =
-                            (BiConsumer<AsyncSearchContextId, AsyncSearchContextListener>) transition.eventListener();
-                    transition.move().accept(event, transition.targetState());
-                    //event.asyncSearchContext().setStage(transition.targetState());
-                    try {
-                        eventListener.accept(event.asyncSearchContext().getContextId(), event.asyncSearchContext().getContextListener());
-                        logger.debug("Executed event {} for async event {} ", event, event.asyncSearchContext);
-                    } catch (Exception e) {
-                        logger.error(() -> new ParameterizedMessage("Failed to execute listener for event {} ", event), e);
-                    }
+                            ((AsyncSearchTransition<?>) transition).eventListener();
+                    eventListener.accept(event.asyncSearchContext().getContextId(),
+                            event.asyncSearchContext().getContextListener());
+
+                    logger.debug("Executed event {} for async event {} ",
+                            event, event.asyncSearchContext);
+
                 }
             }
+            result = event.asyncSearchContext().getAsyncSearchStage();
         }
-        return currentState;
+        return result;
     }
 }
 

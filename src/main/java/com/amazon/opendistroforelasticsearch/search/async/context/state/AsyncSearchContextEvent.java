@@ -16,12 +16,6 @@ public abstract class AsyncSearchContextEvent {
         this.asyncSearchContext = asyncSearchContext;
     }
 
-    /**
-     * Name of the event.
-     * @return event name
-     */
-    public abstract String eventName();
-
     public AsyncSearchContext asyncSearchContext() {
         return asyncSearchContext;
     }
