@@ -1,51 +1,56 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.state;
 
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.Set;
+import java.util.HashSet;
+import java.util.function.BiConsumer;
 
-/**
- * {@linkplain AbstractStateMachine} provides APIs for generic finite state machine needed
- * for basic operations like working with states, events and a lifecycle.
- *
- * @param <State> the type of state
- * @param <Event> the type of event
- */
-abstract class AbstractStateMachine<State, Event> {
+public abstract class AbstractStateMachine implements StateMachine<AsyncSearchState, AsyncSearchContextEvent> {
 
-    /**
-     * Return FSM initial state.
-     *
-     * @return FSM initial state
-     */
-    abstract State getInitialState();
+    protected Set<AsyncSearchTransition<? extends AsyncSearchContextEvent>> transitions;
 
-    /**
-     * Return FSM final states.
-     *
-     * @return FSM final states
-     */
-    abstract Set<State> getFinalStates();
+    private static final Logger logger = LogManager.getLogger(AbstractStateMachine.class);
 
-    /**
-     * Return FSM registered states.
-     *
-     * @return FSM registered states
-     */
-    abstract Set<State> getStates();
+    AbstractStateMachine() {
+        transitions = new HashSet<>();
+    }
 
-    /**
-     * Return FSM registered transitions.
-     *
-     * @return FSM registered transitions
-     */
-    abstract Set<? extends Transition<State, Event>> getTransitions();
+    @Override
+    public Set<AsyncSearchTransition<? extends AsyncSearchContextEvent>> getTransitions() {
+        return transitions;
+    }
 
-    /**
-     * Fire an event. According to event type, the FSM will make the right transition.
-     *
-     * @param event to fire
-     * @return The next FSM state defined by the transition to make
-     * @throws Exception thrown if an exception occurs during event handling
-     */
-    abstract <E extends Event> State trigger(E event) throws Exception;
+    public void registerTransition(AsyncSearchTransition<? extends AsyncSearchContextEvent> transition) {
+        transitions.add(transition);
+    }
 
+    @Override
+    public AsyncSearchState trigger(AsyncSearchContextEvent event) {
+        AsyncSearchState result;
+        AsyncSearchState currentState = event.asyncSearchContext().getAsyncSearchStage();
+        if (getFinalStates().contains(currentState)) {
+            result = currentState;
+        } else {
+            for (AsyncSearchTransition<? extends AsyncSearchContextEvent> transition : getTransitions()) {
+                if (currentState.equals(transition.sourceState()) && transition.eventType().equals(event.getClass())) {
+                    execute(transition.onEvent(), event, currentState);
+                    event.asyncSearchContext().setStage(transition.targetState());
+                    BiConsumer<AsyncSearchContextId, AsyncSearchContextListener> eventListener = transition.eventListener();
+                    eventListener.accept(event.asyncSearchContext().getContextId(), event.asyncSearchContext().getContextListener());
+                    logger.debug("Executed event {} for async event {} ", event, event.asyncSearchContext);
+                }
+            }
+            result = event.asyncSearchContext().getAsyncSearchStage();
+        }
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> void execute(BiConsumer<AsyncSearchState, T> onEvent, AsyncSearchContextEvent event, AsyncSearchState state) {
+        onEvent.accept(state, (T)event);
+    }
 }

@@ -40,7 +40,7 @@ public abstract class AsyncSearchContext {
 
     protected final AsyncSearchContextId asyncSearchContextId;
     protected final LongSupplier currentTimeSupplier;
-    protected volatile AsyncSearchState currentStage;
+    protected volatile AsyncSearchState currentStage = AsyncSearchState.INIT;
     protected volatile AsyncSearchProgressListener asyncSearchProgressListener;
     protected AsyncSearchContextListener asyncSearchContextListener;
 

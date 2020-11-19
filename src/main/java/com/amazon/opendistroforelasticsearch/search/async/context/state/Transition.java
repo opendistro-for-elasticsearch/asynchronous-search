@@ -18,6 +18,11 @@ public interface Transition<State, Event> {
      */
     State targetState();
 
+    /**
+     * the event type
+     * @return event type
+     */
+
     Class<? extends Event> eventType();
 
     /**
@@ -25,7 +30,7 @@ public interface Transition<State, Event> {
      *
      * @return a bi-consumer
      */
-    BiConsumer<State, ? extends Event> onEvent();
+    BiConsumer<State, Event> onEvent();
 
     /**
      * Event listener to be invoked on transition
