@@ -4,6 +4,9 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchContextEvent;
 import org.elasticsearch.action.search.SearchResponse;
 
+/**
+ * Event triggered when async search completes with a successful search response.
+ */
 public class SearchSuccessfulEvent extends AsyncSearchContextEvent {
 
     private SearchResponse searchResponse;

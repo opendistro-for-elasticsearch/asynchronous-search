@@ -1,6 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.state;
 
 
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import org.apache.logging.log4j.LogManager;
@@ -10,11 +11,15 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
+/**
+ * The FSM encapsulating the lifecycle of an async search request. It contains the  list of valid Async search states and
+ * the valid transitions that an {@linkplain AsyncSearchContext} can make.
+ */
 public class AsyncSearchStateMachine extends AbstractStateMachine<AsyncSearchState, AsyncSearchContextEvent> {
     private AsyncSearchState initialState;
     private Set<AsyncSearchState> finalStates;
     private Set<AsyncSearchState> states;
-    private Set<AsyncSearchTransition<? extends AsyncSearchContextEvent>> transitions;
+    private Set<AsyncSearchTransition> transitions;
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchStateMachine.class);
 
@@ -25,7 +30,7 @@ public class AsyncSearchStateMachine extends AbstractStateMachine<AsyncSearchSta
         finalStates = new HashSet<>();
     }
 
-    public <Event extends AsyncSearchContextEvent> void registerTransition(final AsyncSearchTransition<Event> transition) {
+    public void registerTransition(final AsyncSearchTransition transition) {
         transitions.add(transition);
     }
 
@@ -49,12 +54,12 @@ public class AsyncSearchStateMachine extends AbstractStateMachine<AsyncSearchSta
     }
 
     @Override
-    Set<? extends Transition<AsyncSearchState, AsyncSearchContextEvent>> getTransitions() {
+    Set<AsyncSearchTransition> getTransitions() {
         return transitions;
     }
 
     @Override
-    <E extends AsyncSearchContextEvent> AsyncSearchState trigger(E event) {
+    public <E extends AsyncSearchContextEvent> AsyncSearchState trigger(E event) {
 
         AsyncSearchState result;
 
@@ -62,15 +67,14 @@ public class AsyncSearchStateMachine extends AbstractStateMachine<AsyncSearchSta
         if (getFinalStates().contains(currentState)) {
             result = currentState;
         } else {
-            for (Transition<AsyncSearchState, AsyncSearchContextEvent> transition : getTransitions()) {
-
-                if (currentState.equals(transition.sourceState()) && transition.eventType().equals(event.getClass())) {
+            for (AsyncSearchTransition transition : getTransitions()) {
+                if (currentState.equals(transition.sourceState()) && transition.eventType().isInstance(event)) {
 
                     transition.onEvent().accept(currentState, event);
                     event.asyncSearchContext().setStage(transition.targetState());
 
                     BiConsumer<AsyncSearchContextId, AsyncSearchContextListener> eventListener =
-                            ((AsyncSearchTransition<?>) transition).eventListener();
+                            transition.eventListener();
                     eventListener.accept(event.asyncSearchContext().getContextId(),
                             event.asyncSearchContext().getContextListener());
 

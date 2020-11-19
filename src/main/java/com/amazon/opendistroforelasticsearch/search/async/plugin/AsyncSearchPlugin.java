@@ -101,43 +101,45 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
                 EnumSet.allOf(AsyncSearchState.class), INIT);
         stateMachine.markTerminalStates(EnumSet.of(DELETED, PERSIST_FAILED, PERSISTED));
 
-        stateMachine.registerTransition(new AsyncSearchTransition<>(INIT, RUNNING,
-                (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).setTask(e.getSearchTask()),
+        stateMachine.registerTransition(new AsyncSearchTransition(INIT, RUNNING,
+                (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).setTask(((SearchStartedEvent) e).getSearchTask()),
                 (contextId, listener) -> listener.onContextRunning(contextId), SearchStartedEvent.class));
 
-        stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, SUCCEEDED,
-                (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).processSearchResponse(e.getSearchResponse()),
+        stateMachine.registerTransition(new AsyncSearchTransition(RUNNING, SUCCEEDED,
+                (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).processSearchResponse(
+                        ((SearchSuccessfulEvent) e).getSearchResponse()),
                 (contextId, listener) -> listener.onContextCompleted(contextId), SearchSuccessfulEvent.class));
 
-        stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, FAILED,
-                (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).processSearchFailure(e.getException()),
+        stateMachine.registerTransition(new AsyncSearchTransition(RUNNING, FAILED,
+                (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).processSearchFailure(
+                        ((SearchFailureEvent) e).getException()),
                 (contextId, listener) -> listener.onContextFailed(contextId), SearchFailureEvent.class));
 
         //persisted
-        stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSISTED,
+        stateMachine.registerTransition(new AsyncSearchTransition(SUCCEEDED, PERSISTED,
                 (s, e) -> {
                 },
                 (contextId, listener) -> listener.onContextPersisted(contextId), SearchResponsePersistedEvent.class));
 
-        stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSISTED,
+        stateMachine.registerTransition(new AsyncSearchTransition(FAILED, PERSISTED,
                 (s, e) -> {
                 },
                 (contextId, listener) -> listener.onContextPersisted(contextId), SearchResponsePersistedEvent.class));
 
         //persist failed
-        stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSIST_FAILED,
+        stateMachine.registerTransition(new AsyncSearchTransition(SUCCEEDED, PERSIST_FAILED,
                 (s, e) -> {
                 },
                 (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
 
-        stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSIST_FAILED,
+        stateMachine.registerTransition(new AsyncSearchTransition(FAILED, PERSIST_FAILED,
                 (s, e) -> {
                 },
                 (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
 
         //DELETE Transitions
         //delete active context which is running - search is deleted or cancelled for running beyond expiry
-        stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, DELETED,
+        stateMachine.registerTransition(new AsyncSearchTransition(RUNNING, DELETED,
                 (s, e) -> {
                 },
                 (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletionEvent.class));
@@ -145,12 +147,12 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
         //delete active context which doesnt require persistence i.e. keep_on_completion is set to false or delete async search
         // is called before persistence
-        stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, DELETED,
+        stateMachine.registerTransition(new AsyncSearchTransition(SUCCEEDED, DELETED,
                 (s, e) -> {
                 },
                 (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletionEvent.class));
 
-        stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, DELETED,
+        stateMachine.registerTransition(new AsyncSearchTransition(FAILED, DELETED,
                 (s, e) -> {
                 },
                 (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletionEvent.class));

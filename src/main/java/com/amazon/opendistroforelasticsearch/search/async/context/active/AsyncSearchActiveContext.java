@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import org.apache.logging.log4j.LogManager;
@@ -38,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
 
 /**
  * The context representing an ongoing search, keeps track of the underlying {@link SearchTask}
@@ -60,10 +60,10 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     private final AsyncSearchContextPermits asyncSearchContextPermits;
 
     public AsyncSearchActiveContext(AsyncSearchContextId asyncSearchContextId, String nodeId,
-                              TimeValue keepAlive, boolean keepOnCompletion,
-                              ThreadPool threadPool, LongSupplier currentTimeSupplier,
-                              AsyncSearchProgressListener searchProgressActionListener,
-                              AsyncSearchContextListener asyncSearchContextListener) {
+                                    TimeValue keepAlive, boolean keepOnCompletion,
+                                    ThreadPool threadPool, LongSupplier currentTimeSupplier,
+                                    AsyncSearchProgressListener searchProgressActionListener,
+                                    AsyncSearchContextListener asyncSearchContextListener) {
         super(asyncSearchContextId, currentTimeSupplier);
         this.keepOnCompletion = keepOnCompletion;
         this.error = new SetOnce<>();
@@ -76,10 +76,11 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.asyncSearchContextListener = asyncSearchContextListener;
         this.completed = new AtomicBoolean(false);
         this.asyncSearchContextPermits = new AsyncSearchContextPermits(asyncSearchContextId, threadPool);
+        this.currentStage = INIT;
     }
 
     public void setTask(SearchTask searchTask) {
-        assert currentStage == AsyncSearchState.INIT;
+        assert currentStage == INIT;
         Objects.requireNonNull(searchTask);
         searchTask.setProgressListener(asyncSearchProgressListener);
         this.searchTask.set(searchTask);
