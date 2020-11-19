@@ -93,7 +93,7 @@ public abstract class AsyncSearchContext {
                 getExpirationTimeMillis(), getSearchResponse(), getSearchError());
     }
 
-    public void setStage(AsyncSearchState targetState) {
+    public void setState(AsyncSearchState targetState) {
         this.currentStage = targetState;
     }
 }

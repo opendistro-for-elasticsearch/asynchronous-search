@@ -76,7 +76,6 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.asyncSearchContextListener = asyncSearchContextListener;
         this.completed = new AtomicBoolean(false);
         this.asyncSearchContextPermits = new AsyncSearchContextPermits(asyncSearchContextId, threadPool);
-        this.currentStage = INIT;
     }
 
     public void setTask(SearchTask searchTask) {
@@ -93,9 +92,6 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         assert currentStage != DELETED : "cannot process search failure. Async search context is already DELETED";
         if (completed.compareAndSet(false, true)) {
             error.set(e);
-        } else {
-            throw new IllegalStateException("Cannot process search failure event for ["
-                    + asyncSearchContextId + "] . Search has already completed.");
         }
     }
 
@@ -103,9 +99,6 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         assert currentStage != DELETED : "cannot process search response. Async search context is already DELETED";
         if (completed.compareAndSet(false, true)) {
             this.searchResponse.set(response);
-        } else {
-            throw new IllegalStateException("Cannot process search response event for ["
-                    + asyncSearchContextId + "] . Search has already completed.");
         }
     }
 

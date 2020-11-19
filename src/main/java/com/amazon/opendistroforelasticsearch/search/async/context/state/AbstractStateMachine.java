@@ -4,6 +4,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 
 import java.util.Set;
 import java.util.HashSet;
@@ -38,10 +39,16 @@ public abstract class AbstractStateMachine implements StateMachine<AsyncSearchSt
             for (AsyncSearchTransition<? extends AsyncSearchContextEvent> transition : getTransitions()) {
                 if (currentState.equals(transition.sourceState()) && transition.eventType().equals(event.getClass())) {
                     execute(transition.onEvent(), event, currentState);
-                    event.asyncSearchContext().setStage(transition.targetState());
+                    event.asyncSearchContext().setState(transition.targetState());
+                    logger.debug("Executed event {} for async event {} ", event.getClass().getName(),
+                            event.asyncSearchContext.getAsyncSearchId());
                     BiConsumer<AsyncSearchContextId, AsyncSearchContextListener> eventListener = transition.eventListener();
-                    eventListener.accept(event.asyncSearchContext().getContextId(), event.asyncSearchContext().getContextListener());
-                    logger.debug("Executed event {} for async event {} ", event, event.asyncSearchContext);
+                    try {
+                        eventListener.accept(event.asyncSearchContext().getContextId(), event.asyncSearchContext().getContextListener());
+                    } catch (Exception ex) {
+                        logger.error(() -> new ParameterizedMessage("Failed to execute listener for async search id : {}",
+                                event.asyncSearchContext.getAsyncSearchId()), ex);
+                    }
                 }
             }
             result = event.asyncSearchContext().getAsyncSearchStage();
@@ -50,6 +57,7 @@ public abstract class AbstractStateMachine implements StateMachine<AsyncSearchSt
     }
 
     @SuppressWarnings("unchecked")
+    //Suppress the warning since we know the type of the event and transition based on the validation
     private <T> void execute(BiConsumer<AsyncSearchState, T> onEvent, AsyncSearchContextEvent event, AsyncSearchState state) {
         onEvent.accept(state, (T)event);
     }

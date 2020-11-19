@@ -58,7 +58,6 @@ public class AsyncSearchStateMachineTests extends ESTestCase {
                     (s, e) -> assertTrue(searchSuccessful.compareAndSet(false, true)),
                     (contextId, listener) -> listener.onContextCompleted(contextId), SearchSuccessfulEvent.class));
 
-
             stateMachine.trigger(new SearchStartedEvent(context, null));
             assertTrue(searchStarted.get());
             assertFalse(searchSuccessful.get());
