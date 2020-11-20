@@ -16,21 +16,24 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
-import com.amazon.opendistroforelasticsearch.search.async.listener.ReleasableActionListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.SetOnce;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
+import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import java.io.Closeable;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
@@ -42,7 +45,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.context.state.A
  * The context representing an ongoing search, keeps track of the underlying {@link SearchTask}
  * and {@link SearchProgressActionListener}
  */
-public class AsyncSearchActiveContext extends AsyncSearchContext {
+public class AsyncSearchActiveContext extends AsyncSearchContext implements Closeable {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchContext.class);
 
@@ -84,7 +87,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
         this.searchTask.set(searchTask);
         this.startTimeMillis = searchTask.getStartTime();
         this.expirationTimeMillis = startTimeMillis + keepAlive.getMillis();
-        this.asyncSearchId.set(AsyncSearchId.buildAsyncId(new AsyncSearchId(nodeId, searchTask.getId(), getContextId())));
+        this.asyncSearchId.set(AsyncSearchIdConverter.buildAsyncId(new AsyncSearchId(nodeId, searchTask.getId(), getContextId())));
     }
 
     public void processSearchFailure(Exception e) {
@@ -139,11 +142,16 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     }
 
 
-    public void acquireContextPermit(final ReleasableActionListener onPermitAcquired, TimeValue timeout, String reason) {
+    public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
         asyncSearchContextPermits.asyncAcquirePermit(onPermitAcquired, timeout, reason);
     }
 
-    public void acquireAllContextPermits(final ReleasableActionListener onPermitAcquired, TimeValue timeout, String reason) {
+    public void acquireAllContextPermits(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
         asyncSearchContextPermits.asyncAcquireAllPermits(onPermitAcquired, timeout, reason);
+    }
+
+    @Override
+    public void close() {
+        asyncSearchContextPermits.close();
     }
 }

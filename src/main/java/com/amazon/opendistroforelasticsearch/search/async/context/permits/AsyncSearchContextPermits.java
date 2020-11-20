@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.search.async.context.permits;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.listener.ReleasableActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -29,6 +28,7 @@ import org.elasticsearch.common.util.concurrent.AbstractRunnable;
 import org.elasticsearch.common.util.concurrent.RunOnce;
 import org.elasticsearch.threadpool.ThreadPool;
 
+import java.io.Closeable;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -39,7 +39,7 @@ import java.util.concurrent.TimeoutException;
  * before it transitions context to the index. Provides fairness to consumers and throws {@linkplain TimeoutException} after
  * maximum time has elapsed waiting for the in-flight operations block.
  */
-public class AsyncSearchContextPermits {
+public class AsyncSearchContextPermits implements Closeable {
 
     private static final int TOTAL_PERMITS = Integer.MAX_VALUE;
 
@@ -47,6 +47,8 @@ public class AsyncSearchContextPermits {
     private final AsyncSearchContextId asyncSearchContextId;
     private volatile String lockDetails;
     private final ThreadPool threadPool;
+    private volatile boolean closed;
+
     private static final Logger logger = LogManager.getLogger(AsyncSearchContextPermits.class);
 
     public AsyncSearchContextPermits(AsyncSearchContextId asyncSearchContextId, ThreadPool threadPool) {
@@ -57,6 +59,9 @@ public class AsyncSearchContextPermits {
 
     private Releasable acquirePermits(int permits, TimeValue timeout, final String details) throws TimeoutException {
         RunOnce release = new RunOnce(() -> {});
+        if (closed) {
+            throw new IllegalStateException("trying to acquire permits on closed context ["+ asyncSearchContextId +"]");
+        }
         try {
             if (semaphore.tryAcquire(permits, timeout.getMillis(), TimeUnit.MILLISECONDS)) {
                 this.lockDetails = details;
@@ -101,7 +106,7 @@ public class AsyncSearchContextPermits {
      * @param timeout the timeout within which the permit must be acquired or deemed failed
      * @param reason the reason for acquiring the permit
      */
-    public void asyncAcquirePermit(final ReleasableActionListener onAcquired, final TimeValue timeout, String reason) {
+    public void asyncAcquirePermit(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason) {
         asyncAcquirePermit(1, onAcquired, timeout, reason);
     }
 
@@ -115,7 +120,12 @@ public class AsyncSearchContextPermits {
      * @param timeout the timeout within which the permit must be acquired or deemed failed
      * @param reason the reason for acquiring the permit
      */
-    public void asyncAcquireAllPermits(final ReleasableActionListener onAcquired, final TimeValue timeout, String reason) {
+    public void asyncAcquireAllPermits(final ActionListener<Releasable> onAcquired, final TimeValue timeout, String reason) {
         asyncAcquirePermit(TOTAL_PERMITS, onAcquired, timeout, reason);
+    }
+
+    @Override
+    public void close() {
+        closed = true;
     }
 }
