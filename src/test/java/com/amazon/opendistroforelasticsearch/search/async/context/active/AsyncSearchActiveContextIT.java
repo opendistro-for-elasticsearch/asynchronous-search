@@ -1,6 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchContextEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
@@ -74,7 +75,7 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
             AsyncSearchState asyncSearchState = stateMachine.trigger(new SearchStartedEvent(context,
                     task));
 
-            assertEquals(context.getAsyncSearchId(), AsyncSearchId.buildAsyncId(new AsyncSearchId(node, task.getId(),
+            assertEquals(context.getAsyncSearchId(), AsyncSearchIdConverter.buildAsyncId(new AsyncSearchId(node, task.getId(),
                     asyncSearchContextId)));
             assertEquals(task, context.getTask());
             assertEquals(asyncSearchState, RUNNING);

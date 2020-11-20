@@ -16,11 +16,11 @@ public class AsyncSearchIdTests extends ESTestCase {
         AsyncSearchId original = new AsyncSearchId(node, taskId, asyncSearchContextId);
 
         //generate identifier to access the submitted async search
-        String id = AsyncSearchId.buildAsyncId(original);
+        String id = AsyncSearchIdConverter.buildAsyncId(original);
 
         //parse the AsyncSearchId object which will contain information regarding node running the search, the associated task and
         // context id.
-        AsyncSearchId parsed = AsyncSearchId.parseAsyncId(id);
+        AsyncSearchId parsed = AsyncSearchIdConverter.parseAsyncId(id);
 
         assertEquals(original, parsed);
     }
@@ -28,9 +28,8 @@ public class AsyncSearchIdTests extends ESTestCase {
 
     public void testAsyncSearchIdParsingFailure() {
         String id = UUID.randomUUID().toString();
-
         //a possible precursor of ResourceNotFoundException(id), when a GET "/_opendistro/_asynchronous_search/{id}" is made
         // with an illegal id
-        expectThrows(IllegalArgumentException.class, () -> AsyncSearchId.parseAsyncId(id));
+        expectThrows(IllegalArgumentException.class, () -> AsyncSearchIdConverter.parseAsyncId(id));
     }
 }

@@ -1,6 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.persistence;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.lucene.search.TotalHits;
@@ -31,7 +32,7 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
     public void testXContentRoundTripWithSearchResponse() throws IOException {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                 randomNonNegativeLong());
-        String id = AsyncSearchId.buildAsyncId(new AsyncSearchId(UUID.randomUUID().toString(),
+        String id = AsyncSearchIdConverter.buildAsyncId(new AsyncSearchId(UUID.randomUUID().toString(),
                 randomNonNegativeLong(), asyncSearchContextId));
         long expirationTimeMillis = randomNonNegativeLong();
         long startTimeMillis = randomNonNegativeLong();
@@ -53,7 +54,7 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
     public void testXContentRoundTripWithError() throws IOException {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                 randomNonNegativeLong());
-        String id = AsyncSearchId.buildAsyncId(new AsyncSearchId(UUID.randomUUID().toString(),
+        String id = AsyncSearchIdConverter.buildAsyncId(new AsyncSearchId(UUID.randomUUID().toString(),
                 randomNonNegativeLong(), asyncSearchContextId));
         long expirationTimeMillis = randomNonNegativeLong();
         long startTimeMillis = randomNonNegativeLong();
