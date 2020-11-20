@@ -67,7 +67,7 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
             //before search task is registered
             assertNull(context.getTask());
             assertNull(context.getAsyncSearchId());
-            assertEquals(context.getAsyncSearchStage(), AsyncSearchState.INIT);
+            assertEquals(context.getAsyncSearchState(), AsyncSearchState.INIT);
             //register search task by triggering searchStartedEvent
             SearchTask task = new SearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME,
                     null, null, Collections.emptyMap());
@@ -78,7 +78,7 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
                     asyncSearchContextId)));
             assertEquals(task, context.getTask());
             assertEquals(asyncSearchState, RUNNING);
-            assertEquals(context.getAsyncSearchStage(), RUNNING);
+            assertEquals(context.getAsyncSearchState(), RUNNING);
             assertEquals(context.getStartTimeMillis(), task.getStartTime());
             assertEquals(context.getExpirationTimeMillis(), task.getStartTime() + keepAlive.millis());
 
@@ -103,7 +103,7 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
 
             } else {
                 stateMachine.trigger(new SearchDeletionEvent(context));
-                assertEquals(context.getAsyncSearchStage(), DELETED);
+                assertEquals(context.getAsyncSearchState(), DELETED);
             }
 
         } finally {
@@ -136,7 +136,7 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
 
             asyncSearchState = stateMachine.trigger(new SearchDeletionEvent(context));
             assertFalse(context.shouldPersist());
-            assertEquals(context.getAsyncSearchStage(), DELETED);
+            assertEquals(context.getAsyncSearchState(), DELETED);
         } finally {
             ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
         }
@@ -158,7 +158,7 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
-            assertEquals(context.getAsyncSearchStage(), INIT);
+            assertEquals(context.getAsyncSearchState(), INIT);
             doConcurrentStageAdvancement(stateMachine, new SearchStartedEvent(context, new SearchTask(randomNonNegativeLong(), "transport",
                     SearchAction.NAME, null, null, Collections.emptyMap())), RUNNING, AsyncSearchStateMachineException.class);
             if (randomBoolean()) {//success
@@ -209,7 +209,7 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
             operationThread.join();
         }
         assertEquals(1, numUpdateSuccesses.get());
-        assertEquals(event.asyncSearchContext().getAsyncSearchStage(), finalState);
+        assertEquals(event.asyncSearchContext().getAsyncSearchState(), finalState);
     }
 
     protected SearchResponse getMockSearchResponse() {

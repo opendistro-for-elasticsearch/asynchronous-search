@@ -57,12 +57,12 @@ public abstract class AsyncSearchContext {
     @Nullable
     public AsyncSearchContextListener getContextListener() {return asyncSearchContextListener; }
 
-    public AsyncSearchState getAsyncSearchStage() {
+    public AsyncSearchState getAsyncSearchState() {
         return currentStage;
     }
 
     public boolean isRunning() {
-        return getAsyncSearchStage() == AsyncSearchState.RUNNING;
+        return getAsyncSearchState() == AsyncSearchState.RUNNING;
     }
 
     public AsyncSearchContextId getContextId() {

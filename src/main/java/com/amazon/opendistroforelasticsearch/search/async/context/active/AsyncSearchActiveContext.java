@@ -21,14 +21,13 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.ReleasableActionListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.SetOnce;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
-import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -140,11 +139,11 @@ public class AsyncSearchActiveContext extends AsyncSearchContext {
     }
 
 
-    public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
+    public void acquireContextPermit(final ReleasableActionListener onPermitAcquired, TimeValue timeout, String reason) {
         asyncSearchContextPermits.asyncAcquirePermit(onPermitAcquired, timeout, reason);
     }
 
-    public void acquireAllContextPermits(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
+    public void acquireAllContextPermits(final ReleasableActionListener onPermitAcquired, TimeValue timeout, String reason) {
         asyncSearchContextPermits.asyncAcquireAllPermits(onPermitAcquired, timeout, reason);
     }
 }
