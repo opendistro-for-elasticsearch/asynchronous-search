@@ -1,5 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.state;
 
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -37,7 +38,7 @@ interface StateMachine<State, Event> {
      *
      * @return FSM registered transitions
      */
-    Set<? extends Transition<State, ? extends Event>> getTransitions();
+    Map<String, ? extends Transition<State, ? extends Event>> getTransitions();
 
     /**
      * Fire an event. According to event type, the FSM will make the right transition.

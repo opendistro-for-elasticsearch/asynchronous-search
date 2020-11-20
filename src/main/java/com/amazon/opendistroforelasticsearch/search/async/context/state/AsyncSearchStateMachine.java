@@ -8,7 +8,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
@@ -20,14 +22,14 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchStateMachine.class);
 
-    private final Set<AsyncSearchTransition<? extends AsyncSearchContextEvent>> transitions;
+    private final Map<String, AsyncSearchTransition<? extends AsyncSearchContextEvent>> transitionsMap;
     private final AsyncSearchState initialState;
     private Set<AsyncSearchState> finalStates;
     private Set<AsyncSearchState> states;
 
     public AsyncSearchStateMachine(final Set<AsyncSearchState> states, final AsyncSearchState initialState) {
         super();
-        this.transitions = new HashSet<>();
+        this.transitionsMap = new HashMap<>();
         this.states = states;
         this.initialState = initialState;
         this.finalStates = new HashSet<>();
@@ -53,14 +55,13 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
     }
 
     @Override
-    public Set<AsyncSearchTransition<? extends AsyncSearchContextEvent>> getTransitions() {
-        return transitions;
+    public Map<String, AsyncSearchTransition<? extends AsyncSearchContextEvent>> getTransitions() {
+        return transitionsMap;
     }
 
     public void registerTransition(AsyncSearchTransition<? extends AsyncSearchContextEvent> transition) {
-        transitions.add(transition);
+        transitionsMap.put(getTransitionId(transition), transition);
     }
-
 
     /**
      * Triggers transition from current state on receiving an event. Also invokes {@linkplain Transition#onEvent()} and
@@ -74,31 +75,51 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
     public AsyncSearchState trigger(AsyncSearchContextEvent event) throws AsyncSearchStateMachineException {
         synchronized (event.asyncSearchContext()) {
             AsyncSearchState currentState = event.asyncSearchContext().getAsyncSearchStage();
-            for (AsyncSearchTransition<? extends AsyncSearchContextEvent> transition : getTransitions()) {
-                if (currentState.equals(transition.sourceState()) && transition.eventType().isInstance(event)) {
-                    execute(transition.onEvent(), event, currentState);
-                    event.asyncSearchContext().setState(transition.targetState());
-                    logger.debug("Executed event {} for async event {} ", event.getClass().getName(),
-                            event.asyncSearchContext.getAsyncSearchId());
-                    BiConsumer<AsyncSearchContextId, AsyncSearchContextListener> eventListener = transition.eventListener();
-                    try {
-                        eventListener.accept(event.asyncSearchContext().getContextId(), event.asyncSearchContext().getContextListener());
-                    } catch (Exception ex) {
-                        logger.error(() -> new ParameterizedMessage("Failed to execute listener for async search id : {}",
-                                event.asyncSearchContext.getAsyncSearchId()), ex);
-                    }
-                    return event.asyncSearchContext().getAsyncSearchStage();
+            String transitionId = getTransitionId(currentState, event.getClass());
+            if (transitionsMap.containsKey(transitionId)) {
+                AsyncSearchTransition<? extends AsyncSearchContextEvent> transition = transitionsMap.get(transitionId);
+                execute(transition.onEvent(), event, currentState);
+                event.asyncSearchContext().setState(transition.targetState());
+                logger.debug("Executed event {} for async event {} ", event.getClass().getName(),
+                        event.asyncSearchContext.getAsyncSearchId());
+                BiConsumer<AsyncSearchContextId, AsyncSearchContextListener> eventListener = transition.eventListener();
+                try {
+                    eventListener.accept(event.asyncSearchContext().getContextId(), event.asyncSearchContext().getContextListener());
+                } catch (Exception ex) {
+                    logger.error(() -> new ParameterizedMessage("Failed to execute listener for async search id : {}",
+                            event.asyncSearchContext.getAsyncSearchId()), ex);
                 }
+                return event.asyncSearchContext().getAsyncSearchStage();
+            } else {
+                throw new AsyncSearchStateMachineException(currentState, event);
             }
-            throw new AsyncSearchStateMachineException(currentState, event);
         }
-
     }
+
+
 
     @SuppressWarnings("unchecked")
     //Suppress the warning since we know the type of the event and transition based on the validation
     private <T> void execute(BiConsumer<AsyncSearchState, T> onEvent, AsyncSearchContextEvent event, AsyncSearchState state) {
         onEvent.accept(state, (T) event);
+    }
+
+    /**
+     * @param transition The async search transition
+     * @return an identifier capturing information regarding the source state and the event type which acts as key for transition map
+     */
+
+    public String getTransitionId(AsyncSearchTransition<? extends AsyncSearchContextEvent> transition) {
+        return getTransitionId(transition.sourceState(), transition.eventType());
+    }
+
+    /**
+     * @param sourceState current state of context
+     * @param eventType   type of the async search context event subclass
+     * @return an identifier capturing information regarding the source state and the event type which acts as key for transition map
+     */
+    private String getTransitionId(AsyncSearchState sourceState, Class<?> eventType) {
+        return sourceState + "_" + eventType;
     }
 
 }

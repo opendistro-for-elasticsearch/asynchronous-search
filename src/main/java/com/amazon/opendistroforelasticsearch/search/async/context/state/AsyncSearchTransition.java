@@ -44,7 +44,6 @@ public class AsyncSearchTransition<Event extends AsyncSearchContextEvent> implem
         return onEvent;
     }
 
-
     @Override
     public BiConsumer<AsyncSearchContextId, AsyncSearchContextListener> eventListener() {
         return eventListener;
