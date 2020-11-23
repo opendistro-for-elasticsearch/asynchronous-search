@@ -44,17 +44,34 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
     public static Boolean DEFAULT_REQUEST_CACHE = Boolean.TRUE;
 
 
+    /**
+     * The minimum time that the request should wait before returning a partial result (defaults to 1 second).
+     */
     @Nullable
     private TimeValue waitForCompletionTimeout = DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT;
+
+    /**
+     * Determines whether the resource resource should be kept on completion or failure (defaults to false).
+     */
     @Nullable
     private Boolean keepOnCompletion = DEFAULT_KEEP_ON_COMPLETION;
+
+    /**
+     * The amount of time after which the result will expire
+     */
     @Nullable
     private TimeValue keepAlive = DEFAULT_KEEP_ALIVE;
 
+    /**
+     * The underlying search request to execute
+     */
     private final SearchRequest searchRequest;
 
+
     /**
-     * Creates a new request
+     * Creates a new request from a {@linkplain SearchRequest}
+     *
+     * @param searchRequest the search request
      */
     public SubmitAsyncSearchRequest(SearchRequest searchRequest) {
         this.searchRequest = searchRequest;
@@ -68,44 +85,26 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
         return searchRequest;
     }
 
-    /**
-     * Get the minimum time that the request should wait before returning a partial result (defaults to 1 second).
-     */
     public TimeValue getWaitForCompletionTimeout() {
         return waitForCompletionTimeout;
     }
 
-    /**
-     * Sets the minimum time that the request should wait before returning a partial result (defaults to 1 second).
-     */
     public void waitForCompletionTimeout(TimeValue waitForCompletionTimeout) {
         this.waitForCompletionTimeout = waitForCompletionTimeout;
     }
 
-    /**
-     * Returns whether the resource resource should be kept on completion or failure (defaults to false).
-     */
     public Boolean keepOnCompletion() {
         return keepOnCompletion;
     }
 
-    /**
-     * Determines if the resource should be kept on completion or failure (defaults to false).
-     */
     public void keepOnCompletion(boolean keepOnCompletion) {
         this.keepOnCompletion = keepOnCompletion;
     }
 
-    /**
-     * Get the amount of time after which the result will expire (defaults to 5 days).
-     */
     public TimeValue getKeepAlive() {
         return keepAlive;
     }
 
-    /**
-     * Sets the amount of time after which the result will expire (defaults to 5 days).
-     */
     public void keepAlive(TimeValue keepAlive) {
         this.keepAlive = keepAlive;
     }
@@ -131,10 +130,12 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
             validationException = addValidationError("scrolls are not supported", validationException);
         }
         if (searchRequest.isCcsMinimizeRoundtrips()) {
-            validationException = addValidationError("[ccs_minimize_roundtrips] must be false, got: " + searchRequest.isCcsMinimizeRoundtrips(), validationException);
+            validationException = addValidationError(
+                    "[ccs_minimize_roundtrips] must be false, got: " + searchRequest.isCcsMinimizeRoundtrips(), validationException);
         }
         if (keepAlive != null && keepAlive.getMillis() < MIN_KEEP_ALIVE) {
-            validationException = addValidationError("[keep_alive] must be greater than 1 minute, got: " + keepAlive.toString(), validationException);
+            validationException = addValidationError(
+                    "[keep_alive] must be greater than 1 minute, got: " + keepAlive.toString(), validationException);
         }
         return validationException != null ? validationException : searchRequest.validate();
     }

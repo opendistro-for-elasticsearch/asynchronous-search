@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.plugin;
 
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
@@ -29,6 +28,8 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.event.Se
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.service.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.service.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
@@ -39,6 +40,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
+import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
@@ -106,7 +108,8 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
         AsyncSearchStateMachine stateMachine = getAsyncSearchStateMachineDefinition();
         this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool, xContentRegistry);
-        return Arrays.asList(stateMachine, persistenceService, new AsyncSearchService(persistenceService, client, clusterService, threadPool, stateMachine));
+        return Arrays.asList(stateMachine, persistenceService,
+                new AsyncSearchService(persistenceService, client, clusterService, threadPool, stateMachine));
     }
 
     @Override
@@ -170,4 +173,14 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
         return stateMachine;
     }
+
+    @Override
+    public List<Setting<?>> getSettings() {
+        return Arrays.asList(
+                AsyncSearchActiveStore.MAX_RUNNING_CONTEXT,
+                AsyncSearchService.MAX_KEEP_ALIVE_SETTING,
+                AsyncSearchService.KEEP_ON_CANCELLATION
+        );
+    }
+    
 }

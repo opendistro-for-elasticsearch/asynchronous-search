@@ -51,12 +51,21 @@ import static com.amazon.opendistroforelasticsearch.search.async.context.persist
 import static com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel.START_TIME_MILLIS;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
+/**
+ * Service that stores completed async search responses as documents in index, fetches async search response by id, updates expiration
+ * time i.e. keep-alive and deletes async search responses.
+ */
 public class AsyncSearchPersistenceService {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceService.class);
     private static final String ASYNC_SEARCH_RESPONSE_INDEX_NAME = ".asynchronous_search_response";
     private static final String MAPPING_TYPE = "_doc";
-    private static final BackoffPolicy STORE_BACKOFF_POLICY = BackoffPolicy.exponentialBackoff(timeValueMillis(50), 5);
+    /**
+     * The backoff policy to use when saving a task result fails. The total wait
+     * time is 600000 milliseconds, ten minutes.
+     */
+    private static final BackoffPolicy STORE_BACKOFF_POLICY =
+            BackoffPolicy.exponentialBackoff(timeValueMillis(50), 5);
 
     private final Client client;
     private final ClusterService clusterService;
@@ -72,9 +81,14 @@ public class AsyncSearchPersistenceService {
         this.xContentRegistry = xContentRegistry;
     }
 
+
     /**
      * Creates async search response as document in index. Creates index if necessary, before creating document. Retries response
      * creation on failure with exponential backoff
+     *
+     * @param id               the async search id which also is used as document id for index
+     * @param persistenceModel the dto containing async search response fields
+     * @param listener         actionListener to invoke with indexResponse
      */
     public void storeResponse(String id, AsyncSearchPersistenceModel persistenceModel, ActionListener<IndexResponse> listener) {
         if (indexExists()) {
@@ -85,7 +99,10 @@ public class AsyncSearchPersistenceService {
     }
 
     /**
-     * Throws ResourceNotFoundException if index doesn't exist
+     * Fetches and de-serializes the async search response from index.
+     *
+     * @param id       async search id
+     * @param listener invoked once get request completes. Throws ResourceNotFoundException if index doesn't exist.
      */
     public void getResponse(String id, ActionListener<AsyncSearchPersistenceModel> listener) {
         if (!indexExists()) {
@@ -113,8 +130,14 @@ public class AsyncSearchPersistenceService {
     }
 
 
-    // This method should be safe to call even if there isn't a prior document that exists. If the doc was actually deleted
-    // the listener should return true
+    /**
+     * This method should be safe to call even if there isn't a prior document that exists. If the doc was actually deleted, the listener
+     * returns true
+     *
+     * @param id       async search id
+     * @param listener invoked once delete document request completes.
+     */
+
     public void deleteResponse(String id, ActionListener<Boolean> listener) {
         if (!indexExists()) {
             listener.onResponse(false);
@@ -139,7 +162,13 @@ public class AsyncSearchPersistenceService {
         }));
     }
 
-    public void updateExpirationTimeAndGet(String id, long expirationTimeMillis, ActionListener<AsyncSearchPersistenceModel> listener) {
+    /**
+     * Updates the expiration time field in index
+     * @param id async search id
+     * @param expirationTimeMillis the new expiration time
+     * @param listener listener invoked with the response on completion of update request
+     */
+    public void updateExpirationTime(String id, long expirationTimeMillis, ActionListener<AsyncSearchPersistenceModel> listener) {
         if (!indexExists()) {
             listener.onFailure(new ResourceNotFoundException(id));
         }
@@ -177,25 +206,33 @@ public class AsyncSearchPersistenceService {
 
     }
 
+    /**
+     * Deletes all responses past a given expiration time
+     * @param listener invoked once delete by query request completes
+     * @param expirationTimeInMillis the expiration time
+     */
     public void deleteExpiredResponses(ActionListener<AcknowledgedResponse> listener, long expirationTimeInMillis) {
         if (!indexExists()) {
             logger.debug("Async search index not yet created! Nothing to delete.");
             listener.onResponse(new AcknowledgedResponse(true));
         } else {
-            DeleteByQueryRequest request = new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME).setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS)
-                    .lte(expirationTimeInMillis));
+            DeleteByQueryRequest request = new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_NAME)
+                    .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS).lte(expirationTimeInMillis));
             client.execute(DeleteByQueryAction.INSTANCE, request,
                     ActionListener.wrap(r -> listener.onResponse(new AcknowledgedResponse(true)),
                             (e) -> {
                                 listener.onFailure(e);
-                                logger.debug(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}", expirationTimeInMillis), e);
+                                logger.debug(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}",
+                                        expirationTimeInMillis), e);
                             }));
         }
     }
 
-    private void createIndexAndDoStoreResult(String id, AsyncSearchPersistenceModel persistenceModel, ActionListener<IndexResponse> listener) {
+    private void createIndexAndDoStoreResult(String id, AsyncSearchPersistenceModel persistenceModel,
+                                             ActionListener<IndexResponse> listener) {
         client.admin().indices().prepareCreate(ASYNC_SEARCH_RESPONSE_INDEX_NAME).addMapping(MAPPING_TYPE, mapping()).
-                setSettings(indexSettings()).execute(ActionListener.wrap(createIndexResponse -> doStoreResult(id, persistenceModel, listener), exception -> {
+                setSettings(indexSettings()).execute(ActionListener.wrap(createIndexResponse -> doStoreResult(id, persistenceModel,
+                listener), exception -> {
             if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
                 try {
                     doStoreResult(id, persistenceModel, listener);

@@ -92,10 +92,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                               Client client, ClusterService clusterService, ThreadPool threadPool, AsyncSearchStateMachine stateMachine) {
         this.client = client;
         Settings settings = clusterService.getSettings();
-        setKeepAlive(MAX_KEEP_ALIVE_SETTING.get(settings));
-        setKeepOnCompletion(KEEP_ON_CANCELLATION.get(settings));
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(KEEP_ON_CANCELLATION, this::setKeepOnCompletion);
+        setKeepAlive(MAX_KEEP_ALIVE_SETTING.get(settings));
+        setKeepOnCompletion(KEEP_ON_CANCELLATION.get(settings));
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
@@ -241,7 +241,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     releasable -> {
                         // At this point it's possible that the response would have been persisted to system index
                         if (asyncSearchActiveContext.getAsyncSearchState() == AsyncSearchState.PERSISTED) {
-                            persistenceService.updateExpirationTimeAndGet(id, requestedExpirationTime, ActionListener.wrap(
+                            persistenceService.updateExpirationTime(id, requestedExpirationTime, ActionListener.wrap(
                                     (actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId,
                                             actionResponse, currentTimeSupplier)), listener::onFailure));
                         } else {
@@ -254,7 +254,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     listener::onFailure), TimeValue.timeValueSeconds(5), "update keep alive");
         } else {
             // try update the doc on the index assuming there exists one.
-            persistenceService.updateExpirationTimeAndGet(id, requestedExpirationTime,
+            persistenceService.updateExpirationTime(id, requestedExpirationTime,
                     ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
                             id, asyncSearchContextId, actionResponse, currentTimeSupplier)), listener::onFailure));
         }

@@ -17,8 +17,8 @@ package com.amazon.opendistroforelasticsearch.search.async.transport;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIdConverter;
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.request.FetchAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
@@ -42,8 +42,8 @@ import org.elasticsearch.transport.TransportService;
 
 /**
  * Base class for the action to be executed on the coordinator running the async search from the initial
- * {@link TransportSubmitAsyncSearchAction}. The class forwards the request to the coordinator and executes the {@link TransportGetAsyncSearchAction}
- * or the {@link TransportDeleteAsyncSearchAction}
+ * {@link TransportSubmitAsyncSearchAction}. The class forwards the request to the coordinator and executes the
+ * {@link TransportGetAsyncSearchAction} or the {@link TransportDeleteAsyncSearchAction}
  */
 public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsyncSearchRequest<Request>, Response extends ActionResponse>
         extends HandledTransportAction<Request, Response> {
@@ -91,7 +91,8 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
             this.request = request;
             this.listener = listener;
             this.asyncSearchId = AsyncSearchIdConverter.parseAsyncId(request.getId());
-            this.observer = new ClusterStateObserver(clusterService.state(), clusterService, request.connectionTimeout(), logger, threadPool.getThreadContext());
+            this.observer = new ClusterStateObserver(clusterService.state(), clusterService, request.connectionTimeout(),
+                    logger, threadPool.getThreadContext());
             this.targetNode = clusterService.state().nodes().get(asyncSearchId.getNode());
         }
 

@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
@@ -25,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedAc
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -63,20 +63,23 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
         try {
             boolean updateNeeded = request.getKeepAlive() != null;
             if (updateNeeded) {
-                asyncSearchService.updateKeepAliveAndGetContext(request.getId(), request.getKeepAlive(), asyncSearchId.getAsyncSearchContextId(), ActionListener.wrap(
-                        // check if the context is active and is still RUNNING
-                        (context) -> handleWaitForCompletion(context, request.getWaitForCompletionTimeout(), listener),
-                        (e) -> {
-                            logger.debug(() -> new ParameterizedMessage("Unable to update and get async search request {}", asyncSearchId), e);
-                            listener.onFailure(e);
-                        }
-                ));
+                asyncSearchService.updateKeepAliveAndGetContext(request.getId(), request.getKeepAlive(),
+                        asyncSearchId.getAsyncSearchContextId(), ActionListener.wrap(
+                                // check if the context is active and is still RUNNING
+                                (context) -> handleWaitForCompletion(context, request.getWaitForCompletionTimeout(), listener),
+                                (e) -> {
+                                    logger.debug(() -> new ParameterizedMessage("Unable to update and get async search request {}",
+                                            asyncSearchId), e);
+                                    listener.onFailure(e);
+                                }
+                        ));
             } else {
                 // we don't need to update keep-alive, simply find one on the node if one exists or look up the index
                 asyncSearchService.findContext(request.getId(), asyncSearchId.getAsyncSearchContextId(), ActionListener.wrap(
                         (context) -> handleWaitForCompletion(context, request.getWaitForCompletionTimeout(), listener),
                         (e) -> {
-                            logger.debug(() -> new ParameterizedMessage("Unable to update and get async search request {}", asyncSearchId), e);
+                            logger.debug(() -> new ParameterizedMessage("Unable to update and get async search request {}",
+                                    asyncSearchId), e);
                             listener.onFailure(e);
                         }));
             }

@@ -29,6 +29,9 @@ public abstract class FetchAsyncSearchRequest<Request extends FetchAsyncSearchRe
 
     public static final TimeValue DEFAULT_CONNECTION_TIMEOUT = TimeValue.timeValueSeconds(10);
 
+    /**
+     * A timeout value in case the coordinator has not been discovered yet or disconnected.
+     */
     protected TimeValue connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
 
     private final String id;
@@ -50,9 +53,6 @@ public abstract class FetchAsyncSearchRequest<Request extends FetchAsyncSearchRe
         out.writeString(id);
     }
 
-    /**
-     * A timeout value in case the coordinator has not been discovered yet or disconnected.
-     */
     @SuppressWarnings("unchecked")
     public final Request connectionTimeout(TimeValue timeout) {
         this.connectionTimeout = timeout;
@@ -63,9 +63,7 @@ public abstract class FetchAsyncSearchRequest<Request extends FetchAsyncSearchRe
         return this.id;
     }
 
-    /**
-     * A timeout value in case the coordinator has not been discovered yet or disconnected.
-     */
+
     public final Request connectionTimeout(String timeout) {
         return connectionTimeout(TimeValue.parseTimeValue(timeout, null, getClass().getSimpleName() + ".connectionTimeout"));
     }

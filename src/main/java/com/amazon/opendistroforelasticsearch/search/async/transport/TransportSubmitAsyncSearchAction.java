@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
@@ -23,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTi
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -59,7 +59,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
 
     @Inject
     public TransportSubmitAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
-                                            ActionFilters actionFilters, AsyncSearchService asyncSearchService, TransportSearchAction transportSearchAction) {
+                                            ActionFilters actionFilters, AsyncSearchService asyncSearchService,
+                                            TransportSearchAction transportSearchAction) {
         super(SubmitAsyncSearchAction.NAME, transportService, actionFilters, SubmitAsyncSearchRequest::new);
         this.threadPool = threadPool;
         this.clusterService = clusterService;
@@ -72,7 +73,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         AtomicReference<Runnable> advanceStage = new AtomicReference<>();
         try {
             final long relativeStartTimeInMillis = threadPool.relativeTimeInMillis();
-            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndStoreContext(request.getKeepAlive(), request.keepOnCompletion(), relativeStartTimeInMillis);
+            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndStoreContext(request.getKeepAlive(),
+                    request.keepOnCompletion(), relativeStartTimeInMillis);
             assert asyncSearchContext.getAsyncSearchProgressListener() != null : "missing progress listener for an active context";
             AsyncSearchProgressListener progressListener = asyncSearchContext.getAsyncSearchProgressListener();
             //set the parent task as the submit task for cancellation on connection close
@@ -84,7 +86,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                             parentTaskId, headers, asyncSearchContext.getContextId(), asyncSearchContext::getAsyncSearchId,
                             (asyncSearchId, contextId) -> asyncSearchService.freeContext(asyncSearchId, contextId, ActionListener.wrap(
                                     (r) -> logger.debug("Cancelled async search id : {}", asyncSearchId),
-                                    (e) -> logger.error(new ParameterizedMessage("Failed to execute cancellation for async search id {}", asyncSearchId), e))),
+                                    (e) -> logger.error(new ParameterizedMessage(
+                                            "Failed to execute cancellation for async search id {}", asyncSearchId), e))),
                             asyncSearchService::keepOnCancellation) {
                         @Override
                         public String getDescription() {
@@ -98,7 +101,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                             sb.append("search_type[").append(request.getSearchRequest().searchType()).append("], ");
                             sb.append("keep_alive[").append(request.getKeepAlive()).append("], ");
                             if (request.getSearchRequest().source() != null) {
-                                sb.append("source[").append(request.getSearchRequest().source().toString(SearchRequest.FORMAT_PARAMS)).append("]");
+                                sb.append("source[").append(request.getSearchRequest().source()
+                                        .toString(SearchRequest.FORMAT_PARAMS)).append("]");
                             } else {
                                 sb.append("source[]");
                             }
