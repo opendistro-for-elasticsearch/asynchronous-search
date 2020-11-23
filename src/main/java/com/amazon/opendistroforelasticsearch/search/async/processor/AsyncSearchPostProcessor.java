@@ -21,7 +21,6 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.unit.TimeValue;
 
 import java.io.IOException;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -58,8 +57,6 @@ public class AsyncSearchPostProcessor {
                 asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
             }
             return asyncSearchContext.getAsyncSearchResponse();
-        } else {
-
         }
         return null;
     }
