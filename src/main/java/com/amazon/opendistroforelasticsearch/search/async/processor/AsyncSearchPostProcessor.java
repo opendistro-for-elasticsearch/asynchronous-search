@@ -5,8 +5,10 @@ import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSe
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistFailedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.service.active.AsyncSearchActiveStore;
@@ -23,7 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Performs the post processing after a search completes.
+ * Performs the processing after a search completes.
  */
 public class AsyncSearchPostProcessor {
 
@@ -35,8 +37,6 @@ public class AsyncSearchPostProcessor {
 
     public AsyncSearchPostProcessor(AsyncSearchPersistenceService asyncSearchPersistenceService,
                                     AsyncSearchActiveStore asyncSearchActiveStore, AsyncSearchStateMachine stateMachine) {
-        Objects.requireNonNull(asyncSearchActiveStore);
-        Objects.requireNonNull(asyncSearchPersistenceService);
         this.asyncSearchActiveStore = asyncSearchActiveStore;
         this.asyncSearchPersistenceService = asyncSearchPersistenceService;
         this.asyncSearchStateMachine = stateMachine;
@@ -47,14 +47,19 @@ public class AsyncSearchPostProcessor {
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
-            asyncSearchContext.processSearchFailure(exception);
+            asyncSearchStateMachine.trigger(new SearchFailureEvent(asyncSearchContext, exception));
             if (asyncSearchContext.shouldPersist()) {
                 persistenceModel = new AsyncSearchPersistenceModel(asyncSearchContext.getStartTimeMillis(),
                         asyncSearchContext.getExpirationTimeMillis(),
                         exception);
-                postProcess(asyncSearchContext, persistenceModel);
+                persistResponse(asyncSearchContext, persistenceModel);
+            } else {
+                //release active context from memory immediately as persistence is not required
+                asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
             }
             return asyncSearchContext.getAsyncSearchResponse();
+        } else {
+
         }
         return null;
     }
@@ -65,19 +70,22 @@ public class AsyncSearchPostProcessor {
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
-            asyncSearchContext.processSearchResponse(searchResponse);
+            asyncSearchStateMachine.trigger(new SearchSuccessfulEvent(asyncSearchContext, searchResponse));
             if (asyncSearchContext.shouldPersist()) {
                 persistenceModel = new AsyncSearchPersistenceModel(asyncSearchContext.getStartTimeMillis(),
                         asyncSearchContext.getExpirationTimeMillis(),
                         searchResponse);
-                postProcess(asyncSearchContext, persistenceModel);
+                persistResponse(asyncSearchContext, persistenceModel);
+            } else {
+                //release active context from memory immediately as persistence is not required
+                asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
             }
             return asyncSearchContext.getAsyncSearchResponse();
         }
         return null;
     }
 
-    private void postProcess(AsyncSearchActiveContext asyncSearchContext, AsyncSearchPersistenceModel persistenceModel) {
+    private void persistResponse(AsyncSearchActiveContext asyncSearchContext, AsyncSearchPersistenceModel persistenceModel) {
         //assert we are not post processing on any other thread pool
         assert Thread.currentThread().getName().contains(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
         assert asyncSearchContext.retainedStages().contains(asyncSearchContext.getAsyncSearchState()) :
@@ -86,8 +94,8 @@ public class AsyncSearchPostProcessor {
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
                     // check again after acquiring permit if the context has been deleted mean while
                     if (asyncSearchContext.getAsyncSearchState() == AsyncSearchState.DELETED) {
-                        logger.debug("Async search context has been moved to {} while waiting to acquire permits for post processing",
-                                asyncSearchContext.getAsyncSearchState());
+                        logger.debug("Async search context {} has been moved to DELETED while waiting to acquire permits for post " +
+                                "processing", asyncSearchContext.getAsyncSearchId());
                         return;
                     }
                     asyncSearchPersistenceService.storeResponse(asyncSearchContext.getAsyncSearchId(),
