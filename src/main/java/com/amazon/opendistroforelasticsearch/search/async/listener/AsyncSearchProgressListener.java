@@ -212,7 +212,7 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
         }
 
         public SearchResponse partialResponse() {
-            if (isInitialized.get() != null && isInitialized.get()) {
+            if (isInitialized.get()) {
                 SearchHits searchHits = new SearchHits(SearchHits.EMPTY, totalHits.get(), Float.NaN);
                 InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits,
                         internalAggregations.get() == null ? (delayedInternalAggregations.get() != null
