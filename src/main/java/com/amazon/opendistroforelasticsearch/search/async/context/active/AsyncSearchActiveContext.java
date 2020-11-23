@@ -50,7 +50,9 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     private static final Logger logger = LogManager.getLogger(AsyncSearchContext.class);
 
     private final SetOnce<SearchTask> searchTask;
+
     private volatile long expirationTimeMillis;
+
     private volatile long startTimeMillis;
     private final Boolean keepOnCompletion;
     private final TimeValue keepAlive;
@@ -120,6 +122,10 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
 
     public boolean shouldPersist() {
         return keepOnCompletion && isExpired() == false && currentStage != DELETED;
+    }
+
+    public void setExpirationTimeMillis(long expirationTimeMillis) {
+        this.expirationTimeMillis = expirationTimeMillis;
     }
 
     public SearchTask getTask() {

@@ -55,7 +55,9 @@ public abstract class AsyncSearchContext {
     }
 
     @Nullable
-    public AsyncSearchContextListener getContextListener() {return asyncSearchContextListener; }
+    public AsyncSearchContextListener getContextListener() {
+        return asyncSearchContextListener;
+    }
 
     public AsyncSearchState getAsyncSearchState() {
         return currentStage;
@@ -75,9 +77,11 @@ public abstract class AsyncSearchContext {
 
     public abstract long getStartTimeMillis();
 
-    public abstract @Nullable SearchResponse getSearchResponse();
+    public abstract @Nullable
+    SearchResponse getSearchResponse();
 
-    public abstract @Nullable Exception getSearchError();
+    public abstract @Nullable
+    Exception getSearchError();
 
     public boolean isExpired() {
         return getExpirationTimeMillis() < currentTimeSupplier.getAsLong();
@@ -85,7 +89,7 @@ public abstract class AsyncSearchContext {
 
     public Set<AsyncSearchState> retainedStages() {
         return Collections.unmodifiableSet(Sets.newHashSet(
-                        AsyncSearchState.INIT, AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.FAILED));
+                AsyncSearchState.INIT, AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.FAILED));
     }
 
     public AsyncSearchResponse getAsyncSearchResponse() {
