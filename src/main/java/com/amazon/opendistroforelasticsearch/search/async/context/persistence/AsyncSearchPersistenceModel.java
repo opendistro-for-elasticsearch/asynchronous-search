@@ -46,7 +46,7 @@ public class AsyncSearchPersistenceModel implements ToXContentObject {
 
     public static final String EXPIRATION_TIME_MILLIS = "expiration_time_millis";
     public static final String START_TIME_MILLIS = "start_time_millis";
-    public static final String RESPONSE = "search_response";
+    public static final String RESPONSE = "response";
     public static final String ERROR = "error";
 
     private final long expirationTimeMillis;

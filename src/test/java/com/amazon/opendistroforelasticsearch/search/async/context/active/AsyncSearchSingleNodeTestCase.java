@@ -51,15 +51,8 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
     protected Collection<Class<? extends Plugin>> getPlugins() {
         return Collections.singletonList(AsyncSearchPlugin.class);
     }
-//
-//    @Override
-//    public void tearDown() throws Exception {
-////        client().admin().indices().prepareDelete(INDEX).setTimeout(new TimeValue(10, TimeUnit.SECONDS)).get();
-//        Thread.sleep(1000);
-//        super.tearDown();
-//    }
 
-    protected <C extends Client,Req,R> void assertRNF(BiFunction<C, Req, R> function, C client, Req req) {
+    protected <C extends Client, Req, R> void assertRNF(BiFunction<C, Req, R> function, C client, Req req) {
         try {
             function.apply(client, req);
         } catch (ResourceNotFoundException e) {

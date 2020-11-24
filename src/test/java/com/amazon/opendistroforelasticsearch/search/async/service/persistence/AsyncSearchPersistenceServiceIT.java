@@ -203,16 +203,12 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
     }
 
     @After
-    public void clear() throws InterruptedException {
-//        CountDownLatch deleteLatch = new CountDownLatch(1);
-//        client().admin().indices().prepareDelete(INDEX).execute(ActionListener.wrap(r -> deleteLatch.countDown(), e-> {
-//            logger.error(e);
-//            fail("Delete index request failed");
-//            deleteLatch.countDown();
-//        }));
-//        client().admin().indices().prepareDelete(INDEX).setTimeout(new TimeValue(10, TimeUnit.SECONDS)).get();
-//        Thread.sleep(2000);
-
+    public void deleteAsyncSearchIndex() throws InterruptedException {
+        CountDownLatch deleteLatch = new CountDownLatch(1);
+        client().admin().indices().prepareDelete(INDEX).execute(ActionListener.wrap(r -> deleteLatch.countDown(), e-> {
+            deleteLatch.countDown();
+        }));
+        deleteLatch.await();
     }
 
     private void assertBoolean(CountDownLatch latch, Boolean actual, Boolean expected) {

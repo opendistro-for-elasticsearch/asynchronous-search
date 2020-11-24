@@ -131,11 +131,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, SUCCEEDED,
                 (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).processSearchResponse(e.getSearchResponse()),
-                (contextId, listener) -> {
-                    if (listener != null) {
-                        listener.onContextCompleted(contextId);
-                    }
-                }, SearchSuccessfulEvent.class));
+                (contextId, listener) -> listener.onContextCompleted(contextId), SearchSuccessfulEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, FAILED,
                 (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).processSearchFailure(e.getException()),
