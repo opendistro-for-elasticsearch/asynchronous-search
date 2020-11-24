@@ -44,7 +44,7 @@ import java.util.function.LongSupplier;
  */
 public class AsyncSearchProgressListener extends SearchProgressActionListener {
 
-    private final PartialResultsHolder partialResultsHolder;
+    private PartialResultsHolder partialResultsHolder;
     private final CompositeSearchProgressActionListener<AsyncSearchResponse> searchProgressActionListener;
     private final CheckedFunction<SearchResponse, AsyncSearchResponse, IOException> successFunction;
     private final CheckedFunction<Exception, AsyncSearchResponse, IOException> failureFunction;
@@ -83,7 +83,7 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
     @Override
     protected void onPartialReduce(List<SearchShard> shards, TotalHits totalHits,
                                    DelayableWriteable.Serialized<InternalAggregations> aggs, int reducePhase) {
-        assert reducePhase > partialResultsHolder.reducePhase.get() : "reduce phase "+ reducePhase + "less than previous phase"
+        assert reducePhase > partialResultsHolder.reducePhase.get() : "reduce phase " + reducePhase + "less than previous phase"
                 + partialResultsHolder.reducePhase.get();
         partialResultsHolder.delayedInternalAggregations.set(aggs);
         partialResultsHolder.reducePhase.set(reducePhase);
@@ -92,7 +92,7 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
 
     @Override
     protected void onFinalReduce(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
-        assert reducePhase > partialResultsHolder.reducePhase.get() : "reduce phase "+ reducePhase + "less than previous phase"
+        assert reducePhase > partialResultsHolder.reducePhase.get() : "reduce phase " + reducePhase + "less than previous phase"
                 + partialResultsHolder.reducePhase.get();
         partialResultsHolder.internalAggregations.set(aggs);
         partialResultsHolder.reducePhase.set(reducePhase);
@@ -158,6 +158,8 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
                 searchProgressActionListener.onResponse(result);
             } catch (Exception ex) {
                 searchProgressActionListener.onFailure(ex);
+            } finally {
+                clearPartialResult();
             }
         });
     }
@@ -171,11 +173,21 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
                 searchProgressActionListener.onResponse(result);
             } catch (Exception ex) {
                 searchProgressActionListener.onFailure(ex);
+            } finally {
+                clearPartialResult();
             }
         });
     }
 
+    /**
+     * Invoked once search has completed with response or error.
+     */
+    private void clearPartialResult() {
+        partialResultsHolder = null;
+    }
+
     static class PartialResultsHolder {
+
         final AtomicInteger reducePhase;
         final SetOnce<Boolean> isInitialized;
         final SetOnce<Integer> totalShards;

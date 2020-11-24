@@ -93,9 +93,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.client = client;
         Settings settings = clusterService.getSettings();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(KEEP_ON_CANCELLATION, this::setKeepOnCompletion);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(KEEP_ON_CANCELLATION, this::setKeepOnCancellation);
         setKeepAlive(MAX_KEEP_ALIVE_SETTING.get(settings));
-        setKeepOnCompletion(KEEP_ON_CANCELLATION.get(settings));
+        setKeepOnCancellation(KEEP_ON_CANCELLATION.get(settings));
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
@@ -108,7 +108,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         asyncSearchStateMachine = stateMachine;
     }
 
-    private void setKeepOnCompletion(Boolean keepOnCancellation) {
+    private void setKeepOnCancellation(Boolean keepOnCancellation) {
         this.keepOnCancellation = keepOnCancellation;
     }
 

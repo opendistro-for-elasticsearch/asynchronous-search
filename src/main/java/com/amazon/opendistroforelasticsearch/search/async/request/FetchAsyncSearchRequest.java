@@ -23,7 +23,7 @@ import org.elasticsearch.common.unit.TimeValue;
 import java.io.IOException;
 
 /**
- * A based request for fetching running async search request
+ * A base request for fetching async search request by id
  */
 public abstract class FetchAsyncSearchRequest<Request extends FetchAsyncSearchRequest<Request>> extends ActionRequest {
 
