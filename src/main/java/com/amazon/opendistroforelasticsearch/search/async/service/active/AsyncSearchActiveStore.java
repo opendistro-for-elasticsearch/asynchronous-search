@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletionEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -86,7 +85,6 @@ public class AsyncSearchActiveStore {
         if (asyncSearchContext != null) {
             logger.debug("Removing {} from context map", asyncSearchContextId);
             activeContexts.remove(asyncSearchContextId.getId());
-            asyncSearchStateMachine.trigger(new SearchDeletionEvent(asyncSearchContext));
             return true;
         }
         return false;

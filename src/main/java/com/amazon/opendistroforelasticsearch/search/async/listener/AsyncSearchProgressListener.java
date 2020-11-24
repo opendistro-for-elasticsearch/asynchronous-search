@@ -76,7 +76,7 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
         partialResultsHolder.totalShards.set(shards.size());
         partialResultsHolder.skippedShards.set(skippedShards.size());
         partialResultsHolder.clusters.set(clusters);
-        partialResultsHolder.isInitialized.set(true);
+        partialResultsHolder.isInitialized = true;
         partialResultsHolder.shards.set(shards);
     }
 
@@ -188,8 +188,8 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
 
     static class PartialResultsHolder {
 
+        volatile boolean isInitialized;
         final AtomicInteger reducePhase;
-        final SetOnce<Boolean> isInitialized;
         final SetOnce<Integer> totalShards;
         final SetOnce<Integer> skippedShards;
         final SetOnce<SearchResponse.Clusters> clusters;
@@ -211,7 +211,7 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
             this.successfulShards = new AtomicInteger();
             this.skippedShards = new SetOnce<>();
             this.reducePhase = new AtomicInteger(-1);
-            this.isInitialized = new SetOnce<>();
+            this.isInitialized = false;
             this.hasFetchPhase = new SetOnce<>();
             this.totalHits = new AtomicReference<>();
             this.clusters = new SetOnce<>();
@@ -224,7 +224,7 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
         }
 
         public SearchResponse partialResponse() {
-            if (isInitialized.get()) {
+            if (isInitialized) {
                 SearchHits searchHits = new SearchHits(SearchHits.EMPTY, totalHits.get(), Float.NaN);
                 InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits,
                         internalAggregations.get() == null ? (delayedInternalAggregations.get() != null

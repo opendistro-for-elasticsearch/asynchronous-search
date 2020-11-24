@@ -30,8 +30,8 @@ import java.util.function.BiFunction;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 
 public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase {
-    static final String INDEX = ".async_search_response";
-    static final String TEST_INDEX = "index";
+    protected static final String INDEX = ".async_search_response";
+    protected static final String TEST_INDEX = "index";
 
     @Override
     protected boolean resetNodeAfterTest() {
@@ -59,7 +59,7 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
 //        super.tearDown();
 //    }
 
-    <C extends Client,Req,R> void assertRNF(BiFunction<C,Req,R> function, C client, Req req) {
+    protected <C extends Client,Req,R> void assertRNF(BiFunction<C, Req, R> function, C client, Req req) {
         try {
             function.apply(client, req);
         } catch (ResourceNotFoundException e) {

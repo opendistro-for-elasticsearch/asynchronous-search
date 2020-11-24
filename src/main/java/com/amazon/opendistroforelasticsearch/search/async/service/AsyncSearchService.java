@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.persistence.As
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
@@ -130,7 +131,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId),
                 threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME), threadPool::relativeTimeInMillis);
         AsyncSearchActiveContext asyncSearchContext = new AsyncSearchActiveContext(asyncSearchContextId, clusterService.localNode().getId(),
-                keepAlive, keepOnCompletion, threadPool, currentTimeSupplier, progressActionListener, null);
+                keepAlive, keepOnCompletion, threadPool, currentTimeSupplier, progressActionListener,
+                /*placeholder for async search stats*/new AsyncSearchContextListener() {
+        });
         asyncSearchActiveStore.putContext(asyncSearchContextId, asyncSearchContext);
         return asyncSearchContext;
     }
