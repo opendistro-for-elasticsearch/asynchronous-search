@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSear
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
+import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
@@ -109,12 +110,14 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                             return sb.toString();
                         }
                     };
-                    AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool, request.getWaitForCompletionTimeout(),
-                            AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, listener, (actionListener) -> {
-//                                progressActionListener.removeListener(actionListener);
-                                listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
-                            });
                     asyncSearchService.bootstrapSearch(asyncSearchTask, asyncSearchContext.getContextId());
+                    PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper
+                            .wrapScheduledTimeout(threadPool, request.getWaitForCompletionTimeout(),
+                                    AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, listener, (actionListener) -> {
+                                        progressListener.searchProgressActionListener().removeListener(actionListener);
+                                        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                                    });
+                    progressListener.searchProgressActionListener().addOrExecuteListener(wrappedListener);
                     return asyncSearchTask;
                 }
             }, progressListener);

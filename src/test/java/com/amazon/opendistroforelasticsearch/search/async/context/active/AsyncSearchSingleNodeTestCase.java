@@ -30,7 +30,7 @@ import java.util.function.BiFunction;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 
 public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase {
-    protected static final String INDEX = ".async_search_response";
+    protected static final String INDEX = ".asynchronous_search_response";
     protected static final String TEST_INDEX = "index";
 
     @Override

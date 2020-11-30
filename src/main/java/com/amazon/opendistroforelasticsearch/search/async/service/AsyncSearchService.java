@@ -41,6 +41,7 @@ import org.elasticsearch.cluster.ClusterStateListener;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
+import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -88,9 +89,11 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private final Scheduler.Cancellable contextReaper;
     private final LongSupplier currentTimeSupplier;
     private final AsyncSearchStateMachine asyncSearchStateMachine;
+    private final NamedWriteableRegistry namedWriteableRegistry;
 
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService,
-                              Client client, ClusterService clusterService, ThreadPool threadPool, AsyncSearchStateMachine stateMachine) {
+                              Client client, ClusterService clusterService, ThreadPool threadPool, AsyncSearchStateMachine stateMachine,
+                              NamedWriteableRegistry namedWriteableRegistry) {
         this.client = client;
         Settings settings = clusterService.getSettings();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
@@ -107,6 +110,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.contextReaper = threadPool.scheduleWithFixedDelay(new ContextReaper(), KEEP_ALIVE_INTERVAL_SETTING.get(settings),
                 AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
         asyncSearchStateMachine = stateMachine;
+        this.namedWriteableRegistry = namedWriteableRegistry;
     }
 
     private void setKeepOnCancellation(Boolean keepOnCancellation) {
@@ -155,7 +159,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         } else {
             persistenceService.getResponse(id, ActionListener.wrap((persistenceModel) ->
                             listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId, persistenceModel,
-                                    currentTimeSupplier)),
+                                    currentTimeSupplier, namedWriteableRegistry)),
                     ex -> {
                         logger.debug(() -> new ParameterizedMessage("Context not found for ID {}", id), ex);
                         listener.onFailure(new ResourceNotFoundException(id));
@@ -190,7 +194,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
             //cancel any ongoing async search tasks
-            if (asyncSearchContext.getTask() != null && asyncSearchContext.getTask().isCancelled() == false) {
+            if (asyncSearchContext.getTask() != null && !asyncSearchContext.getTask().isCancelled()) {
                 client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(),
                         asyncSearchContext.getTask().getId()))
                         .execute(ActionListener.wrap((response) -> {
@@ -246,7 +250,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         if (asyncSearchActiveContext.getAsyncSearchState() == AsyncSearchState.PERSISTED) {
                             persistenceService.updateExpirationTime(id, requestedExpirationTime, ActionListener.wrap(
                                     (actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId,
-                                            actionResponse, currentTimeSupplier)), listener::onFailure));
+                                            actionResponse, currentTimeSupplier, namedWriteableRegistry)), listener::onFailure));
                         } else {
                             asyncSearchActiveContext.setExpirationTimeMillis(requestedExpirationTime);
                             listener.onResponse(asyncSearchActiveContext);
@@ -259,7 +263,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             // try update the doc on the index assuming there exists one.
             persistenceService.updateExpirationTime(id, requestedExpirationTime,
                     ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
-                            id, asyncSearchContextId, actionResponse, currentTimeSupplier)), listener::onFailure));
+                            id, asyncSearchContextId, actionResponse, currentTimeSupplier, namedWriteableRegistry)), listener::onFailure));
         }
     }
 
@@ -300,7 +304,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 for (AsyncSearchActiveContext asyncSearchActiveContext : asyncSearchActiveStore.getAllContexts().values()) {
                     AsyncSearchState stage = asyncSearchActiveContext.getAsyncSearchState();
                     if (stage != null && (
-                            asyncSearchActiveContext.retainedStages().contains(stage) == false || asyncSearchActiveContext.isExpired())) {
+                            !asyncSearchActiveContext.retainedStages().contains(stage) || asyncSearchActiveContext.isExpired())) {
                         asyncSearchActiveStore.freeContext(asyncSearchActiveContext.getContextId());
                     }
                 }
