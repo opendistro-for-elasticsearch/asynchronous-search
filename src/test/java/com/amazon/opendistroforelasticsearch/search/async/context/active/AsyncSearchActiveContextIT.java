@@ -192,7 +192,7 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
                     doConcurrentStageAdvancement(stateMachine, new SearchResponsePersistedEvent(context), PERSISTED,
                             AsyncSearchStateMachineException.class);
                 } else {
-                    doConcurrentStageAdvancement(stateMachine, new SearchResponsePersistedEvent(context), PERSIST_FAILED,
+                    doConcurrentStageAdvancement(stateMachine, new SearchResponsePersistFailedEvent(context), PERSIST_FAILED,
                             AsyncSearchStateMachineException.class);
                 }
             }
