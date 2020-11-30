@@ -162,7 +162,8 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
 
     private void assertRnf(CountDownLatch latch, Exception exception) {
         try {
-            assertTrue(exception instanceof ResourceNotFoundException);
+            assertTrue("Expected : RNF. Actual : " + exception.getClass() + "with cause : " + exception.getCause(),
+                    exception instanceof ResourceNotFoundException);
         } finally {
             latch.countDown();
         }
