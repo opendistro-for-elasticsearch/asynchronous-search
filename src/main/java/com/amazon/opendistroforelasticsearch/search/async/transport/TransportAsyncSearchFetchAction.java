@@ -104,8 +104,6 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
 
         @Override
         protected void doRun() {
-            //should we look at the task status and retry on forwarding the request if the search is still RUNNING based
-            //on task status
             ClusterState state = observer.setAndGetObservedState();
             // forward request only if the local node isn't the node coordinating the search and the node coordinating
             // the search exists in the cluster

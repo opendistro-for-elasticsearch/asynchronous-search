@@ -91,10 +91,11 @@ public class AsyncSearchPostProcessor {
                     if (asyncSearchContext.getAsyncSearchState() == AsyncSearchState.DELETED) {
                         logger.debug("Async search context {} has been moved to DELETED while waiting to acquire permits for post " +
                                 "processing", asyncSearchContext.getAsyncSearchId());
+                        releasable.close();
                         return;
                     }
                     asyncSearchPersistenceService.storeResponse(asyncSearchContext.getAsyncSearchId(),
-                            persistenceModel, ActionListener.wrap(
+                            persistenceModel, ActionListener.runAfter(ActionListener.wrap(
                                     (indexResponse) -> {
                                         //Marking any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
                                         asyncSearchStateMachine.trigger(new SearchResponsePersistedEvent(asyncSearchContext));
@@ -109,7 +110,7 @@ public class AsyncSearchPostProcessor {
                                                 asyncSearchContext.getAsyncSearchId(), e);
                                         releasable.close();
                                     }
-                            ));
+                            ), releasable::close));
 
                 }, (e) -> logger.error(() -> new ParameterizedMessage(
                         "Exception while acquiring the permit for asyncSearchContext {} due to ",

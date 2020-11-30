@@ -20,7 +20,6 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
@@ -84,18 +83,17 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
     public SearchResponse getSearchResponse() {
         if (asyncSearchPersistenceModel.getResponse() == null) {
             return null;
-        }
-        BytesReference bytesReference =
-                BytesReference.fromByteBuffer(ByteBuffer.wrap(Base64.getUrlDecoder().decode(asyncSearchPersistenceModel.getResponse())));
-        try {
-            NamedWriteableAwareStreamInput wrapperStreamInput = new NamedWriteableAwareStreamInput(bytesReference.streamInput(),
-                    namedWriteableRegistry);
-            SearchResponse asyncSearchResponse = new SearchResponse(wrapperStreamInput);
-            wrapperStreamInput.close();
-            return asyncSearchResponse;
-        } catch (IOException e) {
-            logger.error("Failed to parse search response " + asyncSearchPersistenceModel.getResponse(), e);
-            return null;
+        } else {
+            BytesReference bytesReference =
+                    BytesReference.fromByteBuffer(ByteBuffer.wrap(Base64.getUrlDecoder().decode(
+                            asyncSearchPersistenceModel.getResponse())));
+            try (NamedWriteableAwareStreamInput wrapperStreamInput = new NamedWriteableAwareStreamInput(bytesReference.streamInput(),
+                    namedWriteableRegistry)) {
+                return new SearchResponse(wrapperStreamInput);
+            } catch (IOException e) {
+                logger.error("Failed to parse search response " + asyncSearchPersistenceModel.getResponse(), e);
+                return null;
+            }
         }
     }
 
@@ -106,12 +104,9 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
         }
         BytesReference bytesReference =
                 BytesReference.fromByteBuffer(ByteBuffer.wrap(Base64.getUrlDecoder().decode(asyncSearchPersistenceModel.getError())));
-        try {
-            NamedWriteableAwareStreamInput wrapperStreamInput = new NamedWriteableAwareStreamInput(bytesReference.streamInput(),
-                    namedWriteableRegistry);
-            ElasticsearchException exception =wrapperStreamInput.readException();
-            wrapperStreamInput.close();
-            return exception;
+        try (NamedWriteableAwareStreamInput wrapperStreamInput = new NamedWriteableAwareStreamInput(bytesReference.streamInput(),
+                namedWriteableRegistry)) {
+            return wrapperStreamInput.readException();
         } catch (IOException e) {
             logger.error("Failed to parse search error " + asyncSearchPersistenceModel.getError(), e);
             return null;
