@@ -33,6 +33,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.support.GroupedActionListener;
 import org.elasticsearch.client.Client;
@@ -122,6 +123,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
 
+    /**
+     * Creates a new active async search for a newly submitted async search.
+     *
+     * @param keepAlive               duration of validity of async search
+     * @param keepOnCompletion        determines if response should be persisted on completion
+     * @param relativeStartTimeMillis start time of {@linkplain SearchAction}
+     * @return the async search context
+     */
     public AsyncSearchContext createAndStoreContext(TimeValue keepAlive, boolean keepOnCompletion, long relativeStartTimeMillis) {
         if (keepAlive.getMillis() > maxKeepAlive) {
             throw new IllegalArgumentException(
@@ -143,6 +152,13 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
 
+    /**
+     * Stores information of the {@linkplain SearchTask} in the async search and signals start of the the underlying
+     * {@linkplain SearchAction}
+     *
+     * @param searchTask           The {@linkplain SearchTask} which stores information of the currently running {@linkplain SearchTask}
+     * @param asyncSearchContextId the id of the active asyncsearch context
+     */
     public void bootstrapSearch(SearchTask searchTask, AsyncSearchContextId asyncSearchContextId) {
         Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
@@ -152,6 +168,13 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
 
+    /** Tries to find an {@linkplain AsyncSearchActiveContext}. If not found, queries the {@linkplain AsyncSearchPersistenceService}  for
+     *  a hit. If a response is found, it builds and returns an {@linkplain AsyncSearchPersistenceContext}, else throws
+     *  {@linkplain ResourceNotFoundException}
+     * @param id The async search id
+     * @param asyncSearchContextId the Async search context id
+     * @param listener to be invoked on finding an {@linkplain AsyncSearchContext}
+     */
     public void findContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<AsyncSearchContext> listener) {
         Optional<AsyncSearchActiveContext> asyncSearchActiveContext = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchActiveContext.isPresent()) {
@@ -180,6 +203,13 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
 
+    /** Attempts to find both an {@linkplain AsyncSearchActiveContext} and an {@linkplain AsyncSearchPersistenceContext} and delete them.
+     *  If at least one of the aforementioned objects are found and deleted successfully, the listener is invoked with #true, else
+     *  {@linkplain ResourceNotFoundException} is thrown.
+     * @param id async search id
+     * @param asyncSearchContextId context id
+     * @param listener listener to invoke on deletion or failure to do so
+     */
     public void freeContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<Boolean> listener) {
         // if there are no context found to be cleaned up we throw a ResourceNotFoundException
         GroupedActionListener<Boolean> groupedDeletionListener = new GroupedActionListener<>(
@@ -236,6 +266,15 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         persistenceService.deleteResponse(id, groupedDeletionListener);
     }
 
+    /** If an active context is found, a permit is acquired from
+     *  {@linkplain com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits} and on acquisition of
+     *  permit, a check is performed to see if response has been persisted in system index. If true, we update expiration in index. Else
+     *  we update expiration field in {@linkplain AsyncSearchActiveContext}.
+     * @param id async search id
+     * @param keepAlive the new keep alive duration
+     * @param asyncSearchContextId async search context id
+     * @param listener listener to invoke after updating expiration.
+     */
     public void updateKeepAliveAndGetContext(String id, TimeValue keepAlive, AsyncSearchContextId asyncSearchContextId,
                                              ActionListener<AsyncSearchContext> listener) {
         long requestedExpirationTime = currentTimeSupplier.getAsLong() + keepAlive.getMillis();
@@ -294,7 +333,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
     /***
-     * Reaps the contexts ready to be expunged
+     * Reaps the active contexts ready to be expunged
      */
     class ContextReaper implements Runnable {
 
@@ -309,7 +348,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     }
                 }
             } catch (Exception e) {
-                logger.debug("Exception while reaping contexts", e);
+                logger.debug("Exception while reaping async search active contexts", e);
             }
         }
     }

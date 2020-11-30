@@ -75,7 +75,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         try {
             final long relativeStartTimeInMillis = threadPool.relativeTimeInMillis();
             AsyncSearchContext asyncSearchContext = asyncSearchService.createAndStoreContext(request.getKeepAlive(),
-                    request.keepOnCompletion(), relativeStartTimeInMillis);
+                    request.getKeepOnCompletion(), relativeStartTimeInMillis);
             assert asyncSearchContext.getAsyncSearchProgressListener() != null : "missing progress listener for an active context";
             AsyncSearchProgressListener progressListener = asyncSearchContext.getAsyncSearchProgressListener();
             //set the parent task as the submit task for cancellation on connection close

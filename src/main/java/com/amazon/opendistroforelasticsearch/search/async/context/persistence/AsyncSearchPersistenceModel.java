@@ -75,7 +75,7 @@ public class AsyncSearchPersistenceModel {
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             response.writeTo(out);
             byte[] bytes = BytesReference.toBytes(out.bytes());
-            return Base64.getUrlEncoder().encodeToString(bytes);
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         }
     }
 
@@ -93,7 +93,7 @@ public class AsyncSearchPersistenceModel {
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             out.writeException(error instanceof ElasticsearchException ? error : new ElasticsearchException(error));
             byte[] bytes = BytesReference.toBytes(out.bytes());
-            return Base64.getUrlEncoder().encodeToString(bytes);
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         }
     }
 

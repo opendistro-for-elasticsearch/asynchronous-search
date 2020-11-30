@@ -21,7 +21,7 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         searchRequest.source(new SearchSourceBuilder());
         searchRequest.indices("index");
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
-        submitAsyncSearchRequest.keepOnCompletion(true);
+        submitAsyncSearchRequest.getKeepOnCompletion(true);
         AsyncSearchResponse submitResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), submitAsyncSearchRequest);
         TestClientUtils.assertResponsePersistence(client(), submitResponse.getId());
         GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
@@ -46,7 +46,7 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
 
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
-        submitAsyncSearchRequest.keepOnCompletion(true);
+        submitAsyncSearchRequest.getKeepOnCompletion(true);
         AsyncSearchResponse submitResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), submitAsyncSearchRequest);
         TestClientUtils.assertResponsePersistence(client(), submitResponse.getId());
         GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());

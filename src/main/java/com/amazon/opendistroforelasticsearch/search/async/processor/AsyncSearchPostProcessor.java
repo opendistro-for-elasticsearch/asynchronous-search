@@ -42,13 +42,12 @@ public class AsyncSearchPostProcessor {
     }
 
     public AsyncSearchResponse processSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) throws IOException {
-        AsyncSearchPersistenceModel persistenceModel;
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
             asyncSearchStateMachine.trigger(new SearchFailureEvent(asyncSearchContext, exception));
             if (asyncSearchContext.shouldPersist()) {
-                persistenceModel = new AsyncSearchPersistenceModel(asyncSearchContext.getStartTimeMillis(),
+                AsyncSearchPersistenceModel persistenceModel = new AsyncSearchPersistenceModel(asyncSearchContext.getStartTimeMillis(),
                         asyncSearchContext.getExpirationTimeMillis(),
                         exception);
                 persistResponse(asyncSearchContext, persistenceModel);
@@ -63,13 +62,12 @@ public class AsyncSearchPostProcessor {
 
     public AsyncSearchResponse processSearchResponse(SearchResponse searchResponse,
                                                      AsyncSearchContextId asyncSearchContextId) throws IOException {
-        AsyncSearchPersistenceModel persistenceModel;
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
             asyncSearchStateMachine.trigger(new SearchSuccessfulEvent(asyncSearchContext, searchResponse));
             if (asyncSearchContext.shouldPersist()) {
-                persistenceModel = new AsyncSearchPersistenceModel(asyncSearchContext.getStartTimeMillis(),
+                AsyncSearchPersistenceModel persistenceModel = new AsyncSearchPersistenceModel(asyncSearchContext.getStartTimeMillis(),
                         asyncSearchContext.getExpirationTimeMillis(),
                         searchResponse);
                 persistResponse(asyncSearchContext, persistenceModel);
@@ -98,7 +96,7 @@ public class AsyncSearchPostProcessor {
                     asyncSearchPersistenceService.storeResponse(asyncSearchContext.getAsyncSearchId(),
                             persistenceModel, ActionListener.wrap(
                                     (indexResponse) -> {
-                                        //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
+                                        //Marking any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
                                         asyncSearchStateMachine.trigger(new SearchResponsePersistedEvent(asyncSearchContext));
                                         // Clean this up so that new context find results in a resolution from persistent store
                                         asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());

@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIdConverter;
+import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.request.FetchAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import org.apache.logging.log4j.message.ParameterizedMessage;

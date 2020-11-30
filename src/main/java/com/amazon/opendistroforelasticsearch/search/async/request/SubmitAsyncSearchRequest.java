@@ -39,9 +39,9 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
     public static final int DEFAULT_BATCHED_REDUCE_SIZE = 5;
     public static final TimeValue DEFAULT_KEEP_ALIVE = TimeValue.timeValueDays(5);
     public static final TimeValue DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT = TimeValue.timeValueSeconds(1);
-    public static Boolean DEFAULT_KEEP_ON_COMPLETION = Boolean.FALSE;
-    public static Boolean CCR_MINIMIZE_ROUNDTRIPS = Boolean.FALSE;
-    public static Boolean DEFAULT_REQUEST_CACHE = Boolean.TRUE;
+    public static final Boolean DEFAULT_KEEP_ON_COMPLETION = Boolean.FALSE;
+    public static final Boolean CCR_MINIMIZE_ROUNDTRIPS = Boolean.FALSE;
+    public static final Boolean DEFAULT_REQUEST_CACHE = Boolean.TRUE;
 
 
     /**
@@ -93,11 +93,11 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
         this.waitForCompletionTimeout = waitForCompletionTimeout;
     }
 
-    public Boolean keepOnCompletion() {
+    public Boolean getKeepOnCompletion() {
         return keepOnCompletion;
     }
 
-    public void keepOnCompletion(boolean keepOnCompletion) {
+    public void getKeepOnCompletion(boolean keepOnCompletion) {
         this.keepOnCompletion = keepOnCompletion;
     }
 
@@ -153,7 +153,7 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
         return Objects.equals(searchRequest, request.searchRequest)
                 && Objects.equals(keepAlive, request.getKeepAlive())
                 && Objects.equals(waitForCompletionTimeout, request.getWaitForCompletionTimeout())
-                && Objects.equals(keepOnCompletion, request.keepOnCompletion());
+                && Objects.equals(keepOnCompletion, request.getKeepOnCompletion());
     }
 
     @Override

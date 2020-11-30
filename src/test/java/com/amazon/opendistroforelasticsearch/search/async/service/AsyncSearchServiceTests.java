@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.service;
 //
-//import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
+//import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 //import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 //import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 //import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;

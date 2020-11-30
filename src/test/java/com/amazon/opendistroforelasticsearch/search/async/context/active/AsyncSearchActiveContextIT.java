@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIdConverter;
+import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchContextEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;

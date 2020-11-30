@@ -14,7 +14,7 @@
  */
 package com.amazon.opendistroforelasticsearch.search.async.service.active;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchRejectedException;
+import com.amazon.opendistroforelasticsearch.search.async.exception.AsyncSearchRejectedException;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;

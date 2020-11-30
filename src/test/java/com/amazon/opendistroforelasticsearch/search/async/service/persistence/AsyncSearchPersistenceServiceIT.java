@@ -1,7 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.service.persistence;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIdConverter;
+import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchSingleNodeTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
@@ -188,7 +188,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
     private AsyncSearchResponse getAsyncSearchResponse() throws InterruptedException {
         SearchRequest searchRequest = new SearchRequest().indices("index").source(new SearchSourceBuilder());
         SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
-        request.keepOnCompletion(true);
+        request.getKeepOnCompletion(true);
         AsyncSearchResponse asyncSearchResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), request);
         TestClientUtils.assertResponsePersistence(client(), asyncSearchResponse.getId());
         return TestClientUtils.blockingGetAsyncSearchResponse(client(), new GetAsyncSearchRequest(asyncSearchResponse.getId()));
