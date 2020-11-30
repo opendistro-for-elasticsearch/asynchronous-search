@@ -73,7 +73,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         //assert failure
         CountDownLatch getLatch1 = new CountDownLatch(1);
         persistenceService.getResponse(newAsyncSearchResponse.getId(),
-                ActionListener.wrap((AsyncSearchPersistenceModel r) -> failure(getLatch1), exception -> assertRnf(getLatch, exception)));
+                ActionListener.wrap((AsyncSearchPersistenceModel r) -> failure(getLatch1), exception -> assertRnf(getLatch1, exception)));
         getLatch1.await();
 
     }
