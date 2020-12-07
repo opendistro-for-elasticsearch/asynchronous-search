@@ -25,7 +25,7 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 public class TestClientUtils {
     static final String INDEX = ".asynchronous_search_response";
     static final BackoffPolicy STORE_BACKOFF_POLICY =
-            BackoffPolicy.exponentialBackoff(timeValueMillis(250), 20);
+            BackoffPolicy.exponentialBackoff(timeValueMillis(100), 10);
 
     public static AsyncSearchResponse blockingSubmitAsyncSearch(Client client, SubmitAsyncSearchRequest request) {
         ActionFuture<AsyncSearchResponse> execute = submitAsyncSearch(client, request);

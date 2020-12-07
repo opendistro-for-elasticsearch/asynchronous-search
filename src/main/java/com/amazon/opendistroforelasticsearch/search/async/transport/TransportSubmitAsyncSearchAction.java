@@ -43,7 +43,6 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Submits an async search request by executing a {@link TransportSearchAction} on an {@link AsyncSearchTask} with
@@ -71,8 +70,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
 
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
-        AtomicReference<Runnable> advanceStage = new AtomicReference<>();
-        try {
+         try {
             final long relativeStartTimeInMillis = threadPool.relativeTimeInMillis();
             AsyncSearchContext asyncSearchContext = asyncSearchService.createAndStoreContext(request.getKeepAlive(),
                     request.getKeepOnCompletion(), relativeStartTimeInMillis);
