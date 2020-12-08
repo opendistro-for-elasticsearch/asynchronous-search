@@ -116,10 +116,10 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
                                 if (cause instanceof ConnectTransportException ||
                                         (exp instanceof RemoteTransportException && cause instanceof NodeClosedException)) {
                                     // we want to retry here a bit to see if the node connects backs
-                                    logger.debug("connection exception while trying to forward request with action name [{}] to " +
-                                                    "target node [{}], scheduling a retry. Error: [{}]",
-                                            actionName, targetNode, exp.getDetailedMessage());
-                                    //should we re-try on this
+                                    logger.debug("Exception received for request with id[{}] to from target node [{}],  Error: [{}]",
+                                            request.getId(), targetNode, exp.getDetailedMessage());
+                                    //try on local node since we weren't able to forward
+                                    listener.onFailure(exp);
                                 }
                                 // handle request locally if we were not able to forward the request
                                 handleRequest(asyncSearchId, request, listener);
