@@ -22,12 +22,13 @@ import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSe
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchTransition;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletionEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistFailedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
+import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.service.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.service.persistence.AsyncSearchPersistenceService;
@@ -66,10 +67,10 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSIST_FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
@@ -80,11 +81,13 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
     public static final String OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME = "opendistro_asynchronous_search_generic";
     public static final String BASE_URI = "/_opendistro/_asynchronous_search";
 
+    private AsyncSearchPostProcessor asyncSearchPostProcessor;
     private AsyncSearchPersistenceService persistenceService;
+    private AsyncSearchActiveStore asyncSearchActiveStore;
 
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
-        return Collections.singletonList(new SystemIndexDescriptor(".opendistro_asynchronous_search_response",
+        return Collections.singletonList(new SystemIndexDescriptor(".opendistro_asynchroAnous_search_response",
                 "Stores the response for async search"));
     }
 
@@ -109,8 +112,11 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
         AsyncSearchStateMachine stateMachine = getAsyncSearchStateMachineDefinition();
         this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool, xContentRegistry,
                 namedWriteableRegistry);
+        this.asyncSearchActiveStore = new AsyncSearchActiveStore(clusterService, stateMachine);
+        this.asyncSearchPostProcessor = new AsyncSearchPostProcessor(persistenceService, asyncSearchActiveStore, stateMachine, threadPool);
         return Arrays.asList(stateMachine, persistenceService,
-                new AsyncSearchService(persistenceService, client, clusterService, threadPool, stateMachine, namedWriteableRegistry));
+                new AsyncSearchService(persistenceService, client, clusterService, threadPool,
+                        asyncSearchActiveStore, asyncSearchPostProcessor, stateMachine, namedWriteableRegistry));
     }
 
     @Override
@@ -124,7 +130,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
     private AsyncSearchStateMachine getAsyncSearchStateMachineDefinition() {
         AsyncSearchStateMachine stateMachine = new AsyncSearchStateMachine(
                 EnumSet.allOf(AsyncSearchState.class), INIT);
-        stateMachine.markTerminalStates(EnumSet.of(DELETED, PERSIST_FAILED, PERSISTED));
+        stateMachine.markTerminalStates(EnumSet.of(PERSIST_FAILED, PERSISTED));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(INIT, RUNNING,
                 (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).setTask(e.getSearchTask()),
@@ -138,40 +144,23 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
                 (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).processSearchFailure(e.getException()),
                 (contextId, listener) -> listener.onContextFailed(contextId), SearchFailureEvent.class));
 
-        //persisted context
-        stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSISTED,
-                (s, e) -> {
-                }, (contextId, listener) -> listener.onContextPersisted(contextId), SearchResponsePersistedEvent.class));
+        stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSISTING,
+                (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
+                        e.getAsyncSearchPersistenceModel()), (contextId, listener) -> listener.onContextPersisted(contextId),
+                BeginPersistEvent.class));
 
-        stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSISTED,
-                (s, e) -> {
-                }, (contextId, listener) -> listener.onContextPersisted(contextId), SearchResponsePersistedEvent.class));
+        stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSISTING,
+                (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
+                        e.getAsyncSearchPersistenceModel()), (contextId, listener) -> listener.onContextPersisted(contextId),
+                BeginPersistEvent.class));
 
-        //persist failed
-        stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSIST_FAILED,
-                (s, e) -> {
-                }, (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
+        stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSISTED,
+                (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
+                (contextId, listener) -> listener.onContextPersisted(contextId), SearchResponsePersistedEvent.class));
 
-        stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSIST_FAILED,
-                (s, e) -> {
-                }, (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
-
-        //DELETE Transitions
-        //delete active context which is running - search is deleted or cancelled for running beyond expiry
-        stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, DELETED,
-                (s, e) -> {
-                }, (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletionEvent.class));
-
-        //delete active context which doesn't require persistence i.e. keep_on_completion is set to false or delete async search
-        // is called before persistence
-        stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, DELETED,
-                (s, e) -> {
-                }, (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletionEvent.class));
-
-        stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, DELETED,
-                (s, e) -> {
-                }, (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletionEvent.class));
-
+        stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSIST_FAILED,
+                (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
+                (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
         return stateMachine;
     }
 

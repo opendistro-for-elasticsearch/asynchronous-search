@@ -43,6 +43,12 @@ public enum AsyncSearchState {
     FAILED,
 
     /**
+     * The response is starting to get persisted
+     */
+    PERSISTING,
+
+
+    /**
      * The context has been persisted to system index
      */
     PERSISTED,

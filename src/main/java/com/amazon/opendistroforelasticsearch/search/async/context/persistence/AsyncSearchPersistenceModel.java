@@ -71,7 +71,19 @@ public class AsyncSearchPersistenceModel {
         this.error = error;
     }
 
+    public AsyncSearchPersistenceModel(long startTimeMillis, long expirationTimeMillis, SearchResponse response,
+                                       Exception error) throws IOException {
+        this.startTimeMillis = startTimeMillis;
+        this.expirationTimeMillis = expirationTimeMillis;
+        this.response = serializeResponse(response);
+        this.error = serializeError(error);
+
+    }
+
     private String serializeResponse(SearchResponse response) throws IOException {
+        if (response == null) {
+            return null;
+        }
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             response.writeTo(out);
             byte[] bytes = BytesReference.toBytes(out.bytes());
@@ -90,6 +102,9 @@ public class AsyncSearchPersistenceModel {
      * NotSerializableExceptionWrapper during deserialization
      */
     private String serializeError(Exception error) throws IOException {
+        if (error == null) {
+            return null;
+        }
         try (BytesStreamOutput out = new BytesStreamOutput()) {
             out.writeException(error instanceof ElasticsearchException ? error : new ElasticsearchException(error));
             byte[] bytes = BytesReference.toBytes(out.bytes());

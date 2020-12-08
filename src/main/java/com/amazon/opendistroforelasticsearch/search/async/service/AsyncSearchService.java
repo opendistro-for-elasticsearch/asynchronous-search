@@ -93,9 +93,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private final NamedWriteableRegistry namedWriteableRegistry;
 
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService,
-                              Client client, ClusterService clusterService, ThreadPool threadPool, AsyncSearchStateMachine stateMachine,
-                              NamedWriteableRegistry namedWriteableRegistry) {
+                              Client client, ClusterService clusterService, ThreadPool threadPool,
+                              AsyncSearchActiveStore asyncSearchActiveStore, AsyncSearchPostProcessor asyncSearchPostProcessor,
+                              AsyncSearchStateMachine stateMachine, NamedWriteableRegistry namedWriteableRegistry) {
         this.client = client;
+        this.asyncSearchActiveStore = asyncSearchActiveStore;
+        this.asyncSearchPostProcessor = asyncSearchPostProcessor;
         Settings settings = clusterService.getSettings();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(KEEP_ON_CANCELLATION, this::setKeepOnCancellation);
@@ -104,9 +107,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
-        this.asyncSearchActiveStore = new AsyncSearchActiveStore(clusterService, stateMachine);
         this.currentTimeSupplier = threadPool::absoluteTimeInMillis;
-        this.asyncSearchPostProcessor = new AsyncSearchPostProcessor(asyncSearchPersistenceService, asyncSearchActiveStore, stateMachine);
         // every node cleans up it's own in-memory context which should either be discarded or has expired
         this.contextReaper = threadPool.scheduleWithFixedDelay(new ContextReaper(), KEEP_ALIVE_INTERVAL_SETTING.get(settings),
                 AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
@@ -168,12 +169,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
 
-    /** Tries to find an {@linkplain AsyncSearchActiveContext}. If not found, queries the {@linkplain AsyncSearchPersistenceService}  for
-     *  a hit. If a response is found, it builds and returns an {@linkplain AsyncSearchPersistenceContext}, else throws
-     *  {@linkplain ResourceNotFoundException}
-     * @param id The async search id
+    /**
+     * Tries to find an {@linkplain AsyncSearchActiveContext}. If not found, queries the {@linkplain AsyncSearchPersistenceService}  for
+     * a hit. If a response is found, it builds and returns an {@linkplain AsyncSearchPersistenceContext}, else throws
+     * {@linkplain ResourceNotFoundException}
+     *
+     * @param id                   The async search id
      * @param asyncSearchContextId the Async search context id
-     * @param listener to be invoked on finding an {@linkplain AsyncSearchContext}
+     * @param listener             to be invoked on finding an {@linkplain AsyncSearchContext}
      */
     public void findContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<AsyncSearchContext> listener) {
         Optional<AsyncSearchActiveContext> asyncSearchActiveContext = asyncSearchActiveStore.getContext(asyncSearchContextId);
@@ -203,12 +206,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
 
-    /** Attempts to find both an {@linkplain AsyncSearchActiveContext} and an {@linkplain AsyncSearchPersistenceContext} and delete them.
-     *  If at least one of the aforementioned objects are found and deleted successfully, the listener is invoked with #true, else
-     *  {@linkplain ResourceNotFoundException} is thrown.
-     * @param id async search id
+    /**
+     * Attempts to find both an {@linkplain AsyncSearchActiveContext} and an {@linkplain AsyncSearchPersistenceContext} and delete them.
+     * If at least one of the aforementioned objects are found and deleted successfully, the listener is invoked with #true, else
+     * {@linkplain ResourceNotFoundException} is thrown.
+     *
+     * @param id                   async search id
      * @param asyncSearchContextId context id
-     * @param listener listener to invoke on deletion or failure to do so
+     * @param listener             listener to invoke on deletion or failure to do so
      */
     public void freeContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<Boolean> listener) {
         // if there are no context found to be cleaned up we throw a ResourceNotFoundException
@@ -266,14 +271,16 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         persistenceService.deleteResponse(id, groupedDeletionListener);
     }
 
-    /** If an active context is found, a permit is acquired from
-     *  {@linkplain com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits} and on acquisition of
-     *  permit, a check is performed to see if response has been persisted in system index. If true, we update expiration in index. Else
-     *  we update expiration field in {@linkplain AsyncSearchActiveContext}.
-     * @param id async search id
-     * @param keepAlive the new keep alive duration
+    /**
+     * If an active context is found, a permit is acquired from
+     * {@linkplain com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits} and on acquisition of
+     * permit, a check is performed to see if response has been persisted in system index. If true, we update expiration in index. Else
+     * we update expiration field in {@linkplain AsyncSearchActiveContext}.
+     *
+     * @param id                   async search id
+     * @param keepAlive            the new keep alive duration
      * @param asyncSearchContextId async search context id
-     * @param listener listener to invoke after updating expiration.
+     * @param listener             listener to invoke after updating expiration.
      */
     public void updateKeepAliveAndGetContext(String id, TimeValue keepAlive, AsyncSearchContextId asyncSearchContextId,
                                              ActionListener<AsyncSearchContext> listener) {

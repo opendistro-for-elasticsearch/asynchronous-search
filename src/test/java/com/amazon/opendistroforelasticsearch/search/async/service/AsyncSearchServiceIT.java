@@ -29,6 +29,7 @@ import java.util.concurrent.CountDownLatch;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
 import static java.util.Collections.emptyMap;
@@ -101,6 +102,10 @@ public class AsyncSearchServiceIT extends AsyncSearchSingleNodeTestCase {
         }
         if (keepOnCompletion) { //persist to disk
             while (asyncSearchActiveContext.getAsyncSearchState() == completedState) {
+                //we wait for async search response to be persisted
+            }
+            assertEquals(asyncSearchActiveContext.getAsyncSearchState(), PERSISTING);
+            while (asyncSearchActiveContext.getAsyncSearchState() == PERSISTING) {
                 //we wait for async search response to be persisted
             }
             assertEquals(asyncSearchActiveContext.getAsyncSearchState(), PERSISTED);
@@ -283,30 +288,6 @@ public class AsyncSearchServiceIT extends AsyncSearchSingleNodeTestCase {
         updateLatch.await();
 
     }
-
-//    public void testUpdateExpirationOnNonExistentSearch() throws InterruptedException {
-//        AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
-//        AsyncSearchId asyncSearchId = new AsyncSearchId(UUID.randomUUID().toString(), randomNonNegativeLong(),
-//                new AsyncSearchContextId(UUID.randomUUID().toString(), randomNonNegativeLong()));
-//
-//        CountDownLatch updateLatch = new CountDownLatch(1);
-//        asyncSearchService.updateKeepAliveAndGetContext(AsyncSearchIdConverter.buildAsyncId(asyncSearchId), timeValueDays(1),
-//                asyncSearchId.getAsyncSearchContextId(), wrap(r -> {
-//                    try {
-//                        fail();
-//                    } finally {
-//                        updateLatch.countDown();
-//                    }
-//                }, e -> {
-//                    try {
-//                        assertTrue(e instanceof ResourceNotFoundException);
-//
-//                    } finally {
-//                        updateLatch.countDown();
-//                    }
-//                }));
-//        updateLatch.await();
-//    }
 
 
     @After

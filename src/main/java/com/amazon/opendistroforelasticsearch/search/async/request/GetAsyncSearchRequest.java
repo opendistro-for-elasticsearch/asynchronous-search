@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.search.async.request;
 import org.elasticsearch.action.ActionRequestValidationException;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.unit.TimeValue;
 
 import java.io.IOException;
@@ -58,6 +59,15 @@ public class GetAsyncSearchRequest extends FetchAsyncSearchRequest<GetAsyncSearc
 
     public GetAsyncSearchRequest(StreamInput streamInput) throws IOException {
         super(streamInput);
+        keepAlive = streamInput.readOptionalTimeValue();
+        waitForCompletionTimeout = streamInput.readOptionalTimeValue();
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        super.writeTo(out);
+        out.writeOptionalTimeValue(keepAlive);
+        out.writeOptionalTimeValue(waitForCompletionTimeout);
     }
 
     @Override
