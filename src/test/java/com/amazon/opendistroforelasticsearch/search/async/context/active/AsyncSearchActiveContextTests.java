@@ -13,8 +13,9 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
+package com.amazon.opendistroforelasticsearch.search.async.context.active;
+/*
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchContextEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
@@ -186,3 +187,4 @@ public class AsyncSearchActiveContextTests extends AsyncSearchSingleNodeTestCase
     }
 }
 
+*/
