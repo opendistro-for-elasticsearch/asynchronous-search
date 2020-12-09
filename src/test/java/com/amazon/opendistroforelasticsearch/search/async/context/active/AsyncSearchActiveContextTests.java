@@ -13,8 +13,9 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
+package com.amazon.opendistroforelasticsearch.search.async.context.active;
+/*
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchContextEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
@@ -67,7 +68,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.context.state.A
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
 
-public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
+public class AsyncSearchActiveContextTests extends AsyncSearchSingleNodeTestCase {
 
     public void testAsyncSearchTransitions() throws InterruptedException, IOException, BrokenBarrierException {
         TestThreadPool threadPool = null;
@@ -189,3 +190,4 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
     }
 }
 
+*/

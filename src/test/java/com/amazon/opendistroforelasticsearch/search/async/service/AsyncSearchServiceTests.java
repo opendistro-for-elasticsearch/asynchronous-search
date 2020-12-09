@@ -36,7 +36,7 @@ import static java.util.Collections.emptyMap;
 import static org.elasticsearch.action.ActionListener.wrap;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 
-public class AsyncSearchServiceIT extends AsyncSearchSingleNodeTestCase {
+public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
 
     public void testFindContext() throws InterruptedException {
         //create context
@@ -52,10 +52,7 @@ public class AsyncSearchServiceIT extends AsyncSearchSingleNodeTestCase {
         assertEquals(asyncSearchActiveContext.getAsyncSearchState(), INIT);
         //bootstrap search
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
-                emptyMap(),
-                context.getContextId(), context::getAsyncSearchId, (a, b) -> {
-        }, () -> true);
-
+                emptyMap(), context::getAsyncSearchId, null);
         asyncSearchService.bootstrapSearch(task, context.getContextId());
         assertEquals(asyncSearchActiveContext.getTask(), task);
         assertEquals(asyncSearchActiveContext.getStartTimeMillis(), task.getStartTime());
@@ -198,9 +195,7 @@ public class AsyncSearchServiceIT extends AsyncSearchSingleNodeTestCase {
         assertEquals(asyncSearchActiveContext.getAsyncSearchState(), INIT);
         //bootstrap search
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
-                emptyMap(),
-                context.getContextId(), context::getAsyncSearchId, (a, b) -> {
-        }, () -> true);
+                emptyMap(), context::getAsyncSearchId, null);
 
         asyncSearchService.bootstrapSearch(task, context.getContextId());
         assertEquals(asyncSearchActiveContext.getTask(), task);
@@ -255,9 +250,7 @@ public class AsyncSearchServiceIT extends AsyncSearchSingleNodeTestCase {
                 keepOnCompletion,
                 System.currentTimeMillis());
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
-                emptyMap(),
-                asyncSearchActiveContext.getContextId(), asyncSearchActiveContext::getAsyncSearchId, (a, b) -> {
-        }, () -> true);
+                emptyMap(), asyncSearchActiveContext::getAsyncSearchId, null);
 
         asyncSearchService.bootstrapSearch(task, asyncSearchActiveContext.getContextId());
         assertEquals(asyncSearchActiveContext.getTask(), task);

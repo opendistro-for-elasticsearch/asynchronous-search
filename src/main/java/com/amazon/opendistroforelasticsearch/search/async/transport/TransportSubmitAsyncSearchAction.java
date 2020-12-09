@@ -35,7 +35,6 @@ import org.elasticsearch.action.search.TransportSearchAction;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.tasks.Task;
 import org.elasticsearch.tasks.TaskId;
@@ -82,32 +81,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                 @Override
                 public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
                     AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, AsyncSearchTask.NAME,
-                            parentTaskId, headers, asyncSearchContext.getContextId(), asyncSearchContext::getAsyncSearchId,
-                            (asyncSearchId, contextId) -> asyncSearchService.freeContext(asyncSearchId, contextId, ActionListener.wrap(
-                                    (r) -> logger.debug("Cancelled async search id : {}", asyncSearchId),
-                                    (e) -> logger.error(new ParameterizedMessage(
-                                            "Failed to execute cancellation for async search id {}", asyncSearchId), e))),
-                            asyncSearchService::keepOnCancellation) {
-                        @Override
-                        public String getDescription() {
-                            StringBuilder sb = new StringBuilder("[async search] :");
-                            sb.append("indices[");
-                            Strings.arrayToDelimitedString(request.getSearchRequest().indices(), ",", sb);
-                            sb.append("], ");
-                            sb.append("types[");
-                            Strings.arrayToDelimitedString(request.getSearchRequest().types(), ",", sb);
-                            sb.append("], ");
-                            sb.append("search_type[").append(request.getSearchRequest().searchType()).append("], ");
-                            sb.append("keep_alive[").append(request.getKeepAlive()).append("], ");
-                            if (request.getSearchRequest().source() != null) {
-                                sb.append("source[").append(request.getSearchRequest().source()
-                                        .toString(SearchRequest.FORMAT_PARAMS)).append("]");
-                            } else {
-                                sb.append("source[]");
-                            }
-                            return sb.toString();
-                        }
-                    };
+                            parentTaskId, headers, asyncSearchContext::getAsyncSearchId, request);
+
                     asyncSearchService.bootstrapSearch(asyncSearchTask, asyncSearchContext.getContextId());
                     PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper
                             .wrapScheduledTimeout(threadPool, request.getWaitForCompletionTimeout(),

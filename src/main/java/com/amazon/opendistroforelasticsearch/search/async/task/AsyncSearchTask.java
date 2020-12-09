@@ -15,17 +15,16 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.task;
 
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
+import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchTask;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.tasks.TaskId;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.BiConsumer;
-import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -35,29 +34,41 @@ public class AsyncSearchTask extends SearchTask {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchTask.class);
 
-    private final AsyncSearchContextId asyncSearchContextId;
     private final Supplier<String> asyncSearchIdSupplier;
-    private final BiConsumer<String, AsyncSearchContextId> freeContextConsumer;
-    private final BooleanSupplier keepOnCompletionSupplier;
+    private final SubmitAsyncSearchRequest request;
 
     public static final String NAME = "indices:data/read/async_search";
 
     public AsyncSearchTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers,
-                           AsyncSearchContextId asyncSearchContextId, Supplier<String> asyncSearchIdSupplier,
-                           BiConsumer<String, AsyncSearchContextId> freeContextConsumer, BooleanSupplier keepOnCompletionSupplier) {
+                           Supplier<String> asyncSearchIdSupplier, SubmitAsyncSearchRequest request) {
         super(id, type, action, null, parentTaskId, headers);
-        Objects.requireNonNull(asyncSearchContextId);
-        this.freeContextConsumer = freeContextConsumer;
+        Objects.requireNonNull(asyncSearchIdSupplier);
         this.asyncSearchIdSupplier = asyncSearchIdSupplier;
-        this.asyncSearchContextId = asyncSearchContextId;
-        this.keepOnCompletionSupplier = keepOnCompletionSupplier;
+        this.request = request;
     }
 
     @Override
     protected void onCancelled() {
-        if (keepOnCompletionSupplier.getAsBoolean()) {
-            logger.debug("Cancelling async search context for id {}", asyncSearchIdSupplier.get());
-            freeContextConsumer.accept(asyncSearchIdSupplier.get(), asyncSearchContextId);
+        logger.debug("Cancelling async search context for id {}", asyncSearchIdSupplier.get());
+    }
+
+    @Override
+    public String getDescription() {
+        StringBuilder sb = new StringBuilder("[async search] :");
+        sb.append("indices[");
+        Strings.arrayToDelimitedString(request.getSearchRequest().indices(), ",", sb);
+        sb.append("], ");
+        sb.append("types[");
+        Strings.arrayToDelimitedString(request.getSearchRequest().types(), ",", sb);
+        sb.append("], ");
+        sb.append("search_type[").append(request.getSearchRequest().searchType()).append("], ");
+        sb.append("keep_alive[").append(request.getKeepAlive()).append("], ");
+        if (request.getSearchRequest().source() != null) {
+            sb.append("source[").append(request.getSearchRequest().source()
+                    .toString(SearchRequest.FORMAT_PARAMS)).append("]");
+        } else {
+            sb.append("source[]");
         }
+        return sb.toString();
     }
 }
