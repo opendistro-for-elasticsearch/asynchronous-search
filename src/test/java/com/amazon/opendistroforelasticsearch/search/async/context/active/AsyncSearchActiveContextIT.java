@@ -61,7 +61,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSIST_FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
 
@@ -125,7 +127,9 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
                     PERSISTING,
                     AsyncSearchStateMachineException.class, threadPool);
 
-
+            while (context.getAsyncSearchState() != PERSISTED &&     context.getAsyncSearchState() != PERSIST_FAILED) {
+                //wait for persistence
+            }
         } finally {
             ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
         }
