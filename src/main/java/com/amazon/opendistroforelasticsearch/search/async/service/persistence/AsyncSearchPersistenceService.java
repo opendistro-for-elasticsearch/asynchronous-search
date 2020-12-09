@@ -54,7 +54,7 @@ public class AsyncSearchPersistenceService {
     public static final String ERROR = "error";
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceService.class);
-    private static final String ASYNC_SEARCH_RESPONSE_INDEX = ".asynchronous_search_response";
+    public static final String ASYNC_SEARCH_RESPONSE_INDEX = ".asynchronous_search_response";
     private static final String MAPPING_TYPE = "_doc";
     /**
      * The backoff policy to use when saving a task result fails. The total wait
@@ -135,12 +135,14 @@ public class AsyncSearchPersistenceService {
 
     public void deleteResponse(String id, ActionListener<Boolean> listener) {
         if (!indexExists()) {
+            logger.warn("Async search index [{}] doesn't exists", ASYNC_SEARCH_RESPONSE_INDEX);
             listener.onResponse(false);
             return;
         }
 
         client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX, id), ActionListener.wrap(deleteResponse -> {
             if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED) {
+                logger.debug("Delete async search {} successful. Returned result {}", id, deleteResponse.getResult());
                 listener.onResponse(true);
             } else {
                 logger.debug("Delete async search {} unsuccessful. Returned result {}", id, deleteResponse.getResult());

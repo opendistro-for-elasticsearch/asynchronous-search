@@ -46,7 +46,6 @@ import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.search.SearchService;
 import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -69,7 +68,7 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
 public class AsyncSearchService extends AbstractLifecycleComponent implements ClusterStateListener {
 
-    private static final Logger logger = LogManager.getLogger(SearchService.class);
+    private static final Logger logger = LogManager.getLogger(AsyncSearchService.class);
 
     public static final Setting<TimeValue> MAX_KEEP_ALIVE_SETTING = Setting.positiveTimeSetting("async_search.max_keep_alive",
             timeValueDays(10), Setting.Property.NodeScope, Setting.Property.Dynamic);
@@ -227,50 +226,55 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 }, listener::onFailure), 2);
         Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
+            logger.debug("Active context present for async search id [{}]", id);
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
             //cancel any ongoing async search tasks
-            if (asyncSearchContext.getTask() != null && !asyncSearchContext.getTask().isCancelled()) {
+            if (asyncSearchContext.getTask() != null && asyncSearchContext.getTask().isCancelled() == false) {
                 client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(),
                         asyncSearchContext.getTask().getId()))
                         .execute(ActionListener.wrap((response) -> {
-                                    logger.debug("Task cancellation for async search context {}  succeeded with response {} ",
-                                            asyncSearchContext.getAsyncSearchId(), response);
-                                    //Intent of the lock here is to disallow ongoing migration to system index
-                                    // as if that is underway we might end up creating a new document post a DELETE was executed
-                                    asyncSearchContext.acquireContextPermit(ActionListener.wrap(
-                                            releasable -> {
-                                                //free context marks the context as DELETED
-                                                groupedDeletionListener.onResponse(
-                                                        asyncSearchActiveStore.freeContext(asyncSearchContextId));
-                                                releasable.close();
-                                            }, listener::onFailure), TimeValue.timeValueSeconds(5), "free context");
+                                    logger.debug("Task cancellation for async search context [{}]  succeeded with response [{}] ",
+                                            id, response);
+                                    freeActiveContext(asyncSearchContext, groupedDeletionListener);
                                 },
                                 (e) -> {
-                                    asyncSearchContext.acquireContextPermit(ActionListener.wrap(
-                                            releasable -> {
-                                                groupedDeletionListener.onResponse(
-                                                        asyncSearchActiveStore.freeContext(asyncSearchContextId));
-                                                releasable.close();
-                                                //TODO introduce request timeouts to make the permit wait transparent to the client
-                                            }, listener::onFailure), TimeValue.timeValueSeconds(5), "free context");
-                                    logger.debug(() -> new ParameterizedMessage("Unable to cancel async search task {}",
-                                            asyncSearchContext.getTask()), e);
+                                    logger.debug(() -> new ParameterizedMessage("Unable to cancel async search task [{}] " +
+                                            "for async search id [{}]", asyncSearchContext.getTask(), id), e);
+                                    freeActiveContext(asyncSearchContext, groupedDeletionListener);
                                 }
                         ));
+            } else {
+                //free async search context if one exists
+                freeActiveContext(asyncSearchContext, groupedDeletionListener);
             }
-            //free async search context if one exists
-            groupedDeletionListener.onResponse(asyncSearchActiveStore.freeContext(asyncSearchContextId));
         } else {
             // async search context didn't exist so obviously we didn't delete
             groupedDeletionListener.onResponse(false);
+            //deleted persisted context if one exists. If not the listener returns acknowledged as false
+            //we don't need to acquire lock if the in-memory context doesn't exist. For persistence context we have a distributed view
+            //with the last writer wins policy
+            logger.warn("Deleting async search id [{}] from system index ", id);
+            persistenceService.deleteResponse(id, groupedDeletionListener);
         }
-
-        //deleted persisted context if one exists. If not the listener returns acknowledged as false
-        //we don't need to acquire lock if the in-memory context doesn't exist. For persistence context we have a distributed view
-        //with the last writer wins policy
-        persistenceService.deleteResponse(id, groupedDeletionListener);
     }
 
+    private void freeActiveContext(AsyncSearchActiveContext asyncSearchContext, GroupedActionListener<Boolean> groupedDeletionListener) {
+        //Intent of the lock here is to disallow ongoing migration to system index
+        // as if that is underway we might end up creating a new document post a DELETE was executed
+        logger.debug("Acquiring context permit for freeing context for async search id [{}]", asyncSearchContext.getAsyncSearchId());
+        asyncSearchContext.acquireContextPermit(ActionListener.wrap(
+                releasable -> {
+                    groupedDeletionListener.onResponse(asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId()));
+                    logger.warn("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
+                    persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), groupedDeletionListener);
+                    releasable.close();
+                }, exception -> {
+                    groupedDeletionListener.onResponse(false);
+                    logger.warn("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
+                    persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), groupedDeletionListener);
+                }
+                ), TimeValue.timeValueSeconds(5), "free context");
+    }
     /**
      * If an active context is found, a permit is acquired from
      * {@linkplain com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits} and on acquisition of

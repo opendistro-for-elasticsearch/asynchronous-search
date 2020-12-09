@@ -60,12 +60,15 @@ public class AsyncSearchContextPermits implements Closeable {
     private Releasable acquirePermits(int permits, TimeValue timeout, final String details) throws TimeoutException {
         RunOnce release = new RunOnce(() -> {});
         if (closed) {
+            logger.debug("Trying to acquire permit for closed context [{}]", asyncSearchContextId);
             throw new IllegalStateException("trying to acquire permits on closed context ["+ asyncSearchContextId +"]");
         }
         try {
             if (semaphore.tryAcquire(permits, timeout.getMillis(), TimeUnit.MILLISECONDS)) {
                 this.lockDetails = details;
-                release = new RunOnce(() -> semaphore.release(permits));
+                release = new RunOnce(() -> {
+                    logger.debug("Releasing permit(s) [{}] with reason [{}]", permits, lockDetails);
+                    semaphore.release(permits);});
                 return release::run;
             } else {
                 throw new TimeoutException("obtaining context lock" + asyncSearchContextId + "timed out after " +
@@ -90,7 +93,7 @@ public class AsyncSearchContextPermits implements Closeable {
             @Override
             protected void doRun() throws TimeoutException {
                 final Releasable releasable = acquirePermits(permits, timeout, reason);
-                logger.debug("Successfully acquired permit {} for {}", permits, reason);
+                logger.debug("Successfully acquired context permit {} for {}", permits, reason);
                 onAcquired.onResponse(releasable);
             }
         });

@@ -34,7 +34,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
@@ -64,7 +63,7 @@ public class AsyncSearchStateMachineTests extends ESTestCase {
             AtomicBoolean searchSuccessful = new AtomicBoolean();
             AsyncSearchStateMachine stateMachine = new AsyncSearchStateMachine(
                     EnumSet.allOf(AsyncSearchState.class), INIT);
-            stateMachine.markTerminalStates(EnumSet.of(DELETED, PERSIST_FAILED, PERSISTED));
+            stateMachine.markTerminalStates(EnumSet.of(PERSIST_FAILED, PERSISTED));
 
             stateMachine.registerTransition(new AsyncSearchTransition<>(INIT, RUNNING,
                     (s, e) -> assertTrue(searchStarted.compareAndSet(false, true)),

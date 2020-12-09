@@ -15,17 +15,27 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
+import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
-import org.elasticsearch.ResourceNotFoundException;
+import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import org.elasticsearch.action.ActionFuture;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.test.ESSingleNodeTestCase;
+import org.junit.After;
 import org.junit.Before;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.function.BiFunction;
+import java.util.concurrent.CountDownLatch;
 
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 
@@ -52,12 +62,29 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
         return Collections.singletonList(AsyncSearchPlugin.class);
     }
 
-    protected <C extends Client, Req, R> void assertRNF(BiFunction<C, Req, R> function, C client, Req req) {
-        try {
-            function.apply(client, req);
-        } catch (ResourceNotFoundException e) {
-            return;
-        }
-        fail("Should have entered catch block");
+    public static ActionFuture<AsyncSearchResponse> executeSubmitAsyncSearch(Client client, SubmitAsyncSearchRequest request) {
+        return client.execute(SubmitAsyncSearchAction.INSTANCE, request);
+    }
+
+    public static ActionFuture<AsyncSearchResponse> executeGetAsyncSearch(Client client, GetAsyncSearchRequest request) {
+        return client.execute(GetAsyncSearchAction.INSTANCE, request);
+    }
+
+    public static ActionFuture<AcknowledgedResponse> executeDeleteAsyncSearch(Client client, DeleteAsyncSearchRequest request) {
+        return client.execute(DeleteAsyncSearchAction.INSTANCE, request);
+    }
+
+    public static void executeDeleteAsyncSearch(Client client, DeleteAsyncSearchRequest request,
+                                                ActionListener<AcknowledgedResponse> listener) {
+        client.execute(DeleteAsyncSearchAction.INSTANCE, request, listener);
+    }
+
+    @After
+    public void tearDownData() throws InterruptedException {
+        CountDownLatch deleteLatch = new CountDownLatch(1);
+        client().admin().indices().prepareDelete(INDEX).execute(ActionListener.wrap(r -> deleteLatch.countDown(), e -> {
+            deleteLatch.countDown();
+        }));
+        deleteLatch.await();
     }
 }

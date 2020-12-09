@@ -38,7 +38,6 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
 
 /**
@@ -61,6 +60,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     private final AtomicBoolean completed;
     private final SetOnce<Exception> error;
     private final SetOnce<SearchResponse> searchResponse;
+    private final AtomicBoolean closed;
     private final AsyncSearchContextPermits asyncSearchContextPermits;
 
     public AsyncSearchActiveContext(AsyncSearchContextId asyncSearchContextId, String nodeId,
@@ -79,6 +79,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
         this.asyncSearchId = new SetOnce<>();
         this.asyncSearchContextListener = asyncSearchContextListener;
         this.completed = new AtomicBoolean(false);
+        this.closed = new AtomicBoolean(false);
         this.asyncSearchContextPermits = new AsyncSearchContextPermits(asyncSearchContextId, threadPool);
     }
 
@@ -93,14 +94,12 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     }
 
     public void processSearchFailure(Exception e) {
-        assert currentStage != DELETED : "cannot process search failure. Async search context is already DELETED";
         if (completed.compareAndSet(false, true)) {
             error.set(e);
         }
     }
 
     public void processSearchResponse(SearchResponse response) {
-        assert currentStage != DELETED : "cannot process search response. Async search context is already DELETED";
         if (completed.compareAndSet(false, true)) {
             this.searchResponse.set(response);
         }
@@ -121,7 +120,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     }
 
     public boolean shouldPersist() {
-        return keepOnCompletion && isExpired() == false && currentStage != DELETED;
+        return keepOnCompletion && isExpired() == false && isAlive();
     }
 
     public void setExpirationTimeMillis(long expirationTimeMillis) {
@@ -156,8 +155,14 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
         asyncSearchContextPermits.asyncAcquireAllPermits(onPermitAcquired, timeout, reason);
     }
 
+    public boolean isAlive() {
+        return closed.get() == false;
+    }
+
     @Override
     public void close() {
-        asyncSearchContextPermits.close();
+        if (closed.compareAndSet(false, true)) {
+            asyncSearchContextPermits.close();
+        }
     }
 }

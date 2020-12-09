@@ -56,10 +56,5 @@ public enum AsyncSearchState {
     /**
      * The context has failed to persist to system index
      */
-    PERSIST_FAILED,
-
-    /**
-     * The context has been deleted. Terminal stage.
-     */
-    DELETED
+    PERSIST_FAILED;
 }

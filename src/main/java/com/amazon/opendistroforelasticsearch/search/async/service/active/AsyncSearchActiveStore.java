@@ -80,10 +80,11 @@ public class AsyncSearchActiveStore {
         return CollectionUtils.copyMap(activeContexts);
     }
 
-    public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
+    public synchronized boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
         AsyncSearchActiveContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
         if (asyncSearchContext != null) {
-            logger.debug("Removing {} from context map", asyncSearchContextId);
+            logger.warn("Removing async search ID [{}] from context map", asyncSearchContext.getAsyncSearchId());
+            asyncSearchContext.close();
             activeContexts.remove(asyncSearchContextId.getId());
             return true;
         }

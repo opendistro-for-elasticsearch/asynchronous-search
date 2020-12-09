@@ -50,8 +50,7 @@ public class TestClientUtils {
         return execute.actionGet();
     }
 
-    static ActionFuture<AcknowledgedResponse>
-    deleteAsyncSearch(Client client, DeleteAsyncSearchRequest request) {
+    static ActionFuture<AcknowledgedResponse> deleteAsyncSearch(Client client, DeleteAsyncSearchRequest request) {
         return client.execute(DeleteAsyncSearchAction.INSTANCE, request);
     }
 
