@@ -29,6 +29,7 @@ import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConver
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
+import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchAction;
@@ -61,15 +62,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSIST_FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
 
-public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
+public class AsyncSearchActiveContextTests extends AsyncSearchSingleNodeTestCase {
 
-    public void testAsyncSearchTransitions() throws InterruptedException, IOException, BrokenBarrierException {
+    public void testAsyncSearchTransition() throws InterruptedException, IOException, BrokenBarrierException {
         TestThreadPool threadPool = null;
         try {
             int writeThreadPoolSize = randomIntBetween(1, 2);
@@ -91,7 +90,7 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
                     threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(), threadPool::relativeTimeInMillis);
             AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                     randomNonNegativeLong());
-            boolean keepOnCompletion = randomBoolean();
+            boolean keepOnCompletion = true;
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
@@ -127,9 +126,7 @@ public class AsyncSearchActiveContextIT extends AsyncSearchSingleNodeTestCase {
                     PERSISTING,
                     AsyncSearchStateMachineException.class, threadPool);
 
-            while (context.getAsyncSearchState() != PERSISTED &&     context.getAsyncSearchState() != PERSIST_FAILED) {
-                //wait for persistence
-            }
+            TestClientUtils.assertResponsePersistence(client(), context.getAsyncSearchId());
         } finally {
             ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
         }

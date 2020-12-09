@@ -7,6 +7,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.persistence.As
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
+import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
@@ -26,17 +27,13 @@ import org.junit.After;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
 import static java.util.Collections.emptyMap;
 import static org.elasticsearch.action.ActionListener.wrap;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 
-public class AsyncSearchServiceIT extends AsyncSearchSingleNodeTestCase {
+public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
 
     public void testFindContext() throws InterruptedException {
         //create context
@@ -83,32 +80,15 @@ public class AsyncSearchServiceIT extends AsyncSearchSingleNodeTestCase {
 
         AsyncSearchProgressListener asyncSearchProgressListener = asyncSearchActiveContext.getAsyncSearchProgressListener();
         AsyncSearchState completedState;
-        if (randomBoolean()) {
+        boolean success = randomBoolean();
+        if (success) { //successful search response
             asyncSearchProgressListener.onResponse(getMockSearchResponse());
 
-            while (asyncSearchActiveContext.getAsyncSearchState() == RUNNING) {
-                //we wait for search response to be processed
-            }
-            assertEquals(asyncSearchActiveContext.getAsyncSearchState(), SUCCEEDED);
-            completedState = SUCCEEDED;
-
-        } else {
+        } else { // exception occurred in search
             asyncSearchProgressListener.onFailure(new RuntimeException("test"));
-            while (asyncSearchActiveContext.getAsyncSearchState() == RUNNING) {
-                //we wait for search error to be processed
-            }
-            assertEquals(asyncSearchActiveContext.getAsyncSearchState(), FAILED);
-            completedState = FAILED;
         }
         if (keepOnCompletion) { //persist to disk
-            while (asyncSearchActiveContext.getAsyncSearchState() == completedState) {
-                //we wait for async search response to be persisted
-            }
-            assertEquals(asyncSearchActiveContext.getAsyncSearchState(), PERSISTING);
-            while (asyncSearchActiveContext.getAsyncSearchState() == PERSISTING) {
-                //we wait for async search response to be persisted
-            }
-            assertEquals(asyncSearchActiveContext.getAsyncSearchState(), PERSISTED);
+            TestClientUtils.assertResponsePersistence(client(), context.getAsyncSearchId());
             CountDownLatch findContextLatch1 = new CountDownLatch(1);
             asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), wrap(
                     r -> {
@@ -251,27 +231,25 @@ public class AsyncSearchServiceIT extends AsyncSearchSingleNodeTestCase {
         AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
         TimeValue keepAlive = timeValueDays(9);
         boolean keepOnCompletion = true; //persist search
-        AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) asyncSearchService.createAndStoreContext(keepAlive,
+        AsyncSearchActiveContext context = (AsyncSearchActiveContext) asyncSearchService.createAndStoreContext(keepAlive,
                 keepOnCompletion,
                 System.currentTimeMillis());
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
                 emptyMap(),
-                asyncSearchActiveContext.getContextId(), asyncSearchActiveContext::getAsyncSearchId, (a, b) -> {
+                context.getContextId(), context::getAsyncSearchId, (a, b) -> {
         }, () -> true);
 
-        asyncSearchService.bootstrapSearch(task, asyncSearchActiveContext.getContextId());
-        assertEquals(asyncSearchActiveContext.getTask(), task);
-        assertEquals(asyncSearchActiveContext.getStartTimeMillis(), task.getStartTime());
-        long originalExpirationTimeMillis = asyncSearchActiveContext.getExpirationTimeMillis();
+        asyncSearchService.bootstrapSearch(task, context.getContextId());
+        assertEquals(context.getTask(), task);
+        assertEquals(context.getStartTimeMillis(), task.getStartTime());
+        long originalExpirationTimeMillis = context.getExpirationTimeMillis();
         assertEquals(originalExpirationTimeMillis, task.getStartTime() + keepAlive.millis());
-        assertEquals(asyncSearchActiveContext.getAsyncSearchState(), RUNNING);
-        asyncSearchActiveContext.getAsyncSearchProgressListener().onResponse(getMockSearchResponse());
-        while (asyncSearchActiveContext.getAsyncSearchState() != PERSISTED) {
-            //wait for persistence
-        }
+        assertEquals(context.getAsyncSearchState(), RUNNING);
+        context.getAsyncSearchProgressListener().onResponse(getMockSearchResponse());
+        TestClientUtils.assertResponsePersistence(client(), context.getAsyncSearchId());
         CountDownLatch updateLatch = new CountDownLatch(1);
-        asyncSearchService.updateKeepAliveAndGetContext(asyncSearchActiveContext.getAsyncSearchId(), keepAlive,
-                asyncSearchActiveContext.getContextId(), wrap(r -> {
+        asyncSearchService.updateKeepAliveAndGetContext(context.getAsyncSearchId(), keepAlive,
+                context.getContextId(), wrap(r -> {
                     try {
                         assertTrue(r instanceof AsyncSearchPersistenceContext);
                         assertNotEquals(r.getExpirationTimeMillis(), originalExpirationTimeMillis);

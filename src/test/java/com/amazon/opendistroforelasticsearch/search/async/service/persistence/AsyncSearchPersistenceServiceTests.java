@@ -28,7 +28,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCase {
+public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTestCase {
 
     private ThreadPool threadPool;
 
@@ -189,6 +189,7 @@ public class AsyncSearchPersistenceServiceIT extends AsyncSearchSingleNodeTestCa
         SearchRequest searchRequest = new SearchRequest().indices("index").source(new SearchSourceBuilder());
         SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
         request.keepOnCompletion(true);
+        request.waitForCompletionTimeout(TimeValue.timeValueMillis(1));
         AsyncSearchResponse asyncSearchResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), request);
         TestClientUtils.assertResponsePersistence(client(), asyncSearchResponse.getId());
         return TestClientUtils.blockingGetAsyncSearchResponse(client(), new GetAsyncSearchRequest(asyncSearchResponse.getId()));

@@ -52,6 +52,7 @@ public class AsyncSearchPostProcessor {
             asyncSearchStateMachine.trigger(new SearchFailureEvent(asyncSearchContext, exception));
             if (asyncSearchContext.shouldPersist()) {
                 asyncSearchStateMachine.trigger(new BeginPersistEvent(asyncSearchContext));
+                asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
             } else {
                 //release active context from memory immediately as persistence is not required
                 asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
@@ -69,6 +70,7 @@ public class AsyncSearchPostProcessor {
             asyncSearchStateMachine.trigger(new SearchSuccessfulEvent(asyncSearchContext, searchResponse));
             if (asyncSearchContext.shouldPersist()) {
                 asyncSearchStateMachine.trigger(new BeginPersistEvent(asyncSearchContext));
+                asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
             } else {
                 //release active context from memory immediately as persistence is not required, in such cases a longer
                 // wait_for_completion is expected
