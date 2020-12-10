@@ -21,7 +21,6 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.io.IOException;
 import java.util.Optional;
 
 /**
@@ -45,7 +44,7 @@ public class AsyncSearchPostProcessor {
         this.threadPool = threadPool;
     }
 
-    public AsyncSearchResponse processSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) throws IOException {
+    public AsyncSearchResponse processSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) {
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
@@ -61,8 +60,7 @@ public class AsyncSearchPostProcessor {
         return null;
     }
 
-    public AsyncSearchResponse processSearchResponse(SearchResponse searchResponse,
-                                                     AsyncSearchContextId asyncSearchContextId) throws IOException {
+    public AsyncSearchResponse processSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();

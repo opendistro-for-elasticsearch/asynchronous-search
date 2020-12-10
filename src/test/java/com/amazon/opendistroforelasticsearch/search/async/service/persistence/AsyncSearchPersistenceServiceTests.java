@@ -59,21 +59,20 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         persistenceService.getResponse(newAsyncSearchResponse.getId(),
                 ActionListener.wrap(r -> verifyPersistenceModel(new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
                                 asyncSearchResponse.getExpirationTimeMillis(), asyncSearchResponse.getSearchResponse()), r, getLatch),
-                        exception -> {
-                            logger.error(exception);
-                            failure(getLatch);
-                        }));
+                        e -> failure(getLatch, e)));
         getLatch.await();
 
         CountDownLatch deleteLatch = new CountDownLatch(1);
         persistenceService.deleteResponse(newAsyncSearchResponse.getId(),
-                ActionListener.wrap(r -> assertBoolean(deleteLatch, r, true), exception -> failure(deleteLatch)));
+                ActionListener.wrap(r -> assertBoolean(deleteLatch, r, true), e -> failure(deleteLatch, e)));
         deleteLatch.await();
 
         //assert failure
         CountDownLatch getLatch1 = new CountDownLatch(1);
         persistenceService.getResponse(newAsyncSearchResponse.getId(),
-                ActionListener.wrap((AsyncSearchPersistenceModel r) -> failure(getLatch1), exception -> assertRnf(getLatch1, exception)));
+                ActionListener.wrap((AsyncSearchPersistenceModel r) -> failure(getLatch1, new IllegalStateException( "no response should " +
+                        "have been found for async search " + id)), exception -> assertRnf(getLatch1, exception)))
+        ;
         getLatch1.await();
 
     }
@@ -88,14 +87,15 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         CountDownLatch createLatch = new CountDownLatch(1);
         String id = AsyncSearchIdConverter.buildAsyncId(asyncSearchId);
         persistenceService.storeResponse(id, model1, ActionListener.wrap(
-                r -> assertSuccessfulResponseCreation(id, r, createLatch), ex -> failure(createLatch)));
+                r -> assertSuccessfulResponseCreation(id, r, createLatch), e -> failure(createLatch, e)));
         createLatch.await();
         CountDownLatch latch = new CountDownLatch(2);
         //assert failure
-        persistenceService.getResponse("id", ActionListener.wrap((AsyncSearchPersistenceModel r) -> failure(latch),
+        persistenceService.getResponse("id", ActionListener.wrap((AsyncSearchPersistenceModel r) -> failure(latch,
+                new IllegalStateException("no response should have been found for async search " + id)),
                 exception -> assertRnf(latch, exception)));
         //assert failure
-        persistenceService.deleteResponse("id", ActionListener.wrap((r) -> assertBoolean(latch, r, false), exception -> failure(latch)));
+        persistenceService.deleteResponse("id", ActionListener.wrap((r) -> assertBoolean(latch, r, false), e -> failure(latch, e)));
         latch.await();
 
     }
@@ -116,20 +116,20 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         CountDownLatch createLatch = new CountDownLatch(2);
         threadPool.generic()
                 .execute(() -> persistenceService.storeResponse(id1, model1, ActionListener.wrap(
-                        r -> assertSuccessfulResponseCreation(id1, r, createLatch), ex -> failure(createLatch))));
+                        r -> assertSuccessfulResponseCreation(id1, r, createLatch), e -> failure(createLatch, e))));
         threadPool.generic()
                 .execute(() -> persistenceService.storeResponse(id2, model2, ActionListener.wrap(
-                        r -> assertSuccessfulResponseCreation(id2, r, createLatch), ex -> failure(createLatch))));
+                        r -> assertSuccessfulResponseCreation(id2, r, createLatch), e -> failure(createLatch, e))));
         createLatch.await();
 
         CountDownLatch getLatch1 = new CountDownLatch(1);
         persistenceService.getResponse(id1, ActionListener.wrap((AsyncSearchPersistenceModel r) ->
-                verifyPersistenceModel(model1, r, getLatch1), exception -> failure(getLatch1)));
+                verifyPersistenceModel(model1, r, getLatch1), e -> failure(getLatch1, e)));
         getLatch1.await();
 
         CountDownLatch getLatch2 = new CountDownLatch(1);
         persistenceService.getResponse(id2, ActionListener.wrap((AsyncSearchPersistenceModel r) ->
-                verifyPersistenceModel(model2, r, getLatch2), exception -> failure(getLatch2)));
+                verifyPersistenceModel(model2, r, getLatch2), e -> failure(getLatch2, e)));
         getLatch2.await();
     }
 
@@ -150,13 +150,13 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
                                     persistenceModel,
                                     updateLatch);
                         },
-                        e -> failure(updateLatch)));
+                        e -> failure(updateLatch, e)));
         updateLatch.await();
 
         CountDownLatch getLatch = new CountDownLatch(1);
         persistenceService.getResponse(asyncSearchResponse.getId(), ActionListener.wrap(r -> {
             verifyPersistenceModel(newPersistenceModel, r, getLatch);
-        }, e -> failure(getLatch)));
+        }, e -> failure(getLatch, e)));
         getLatch.await();
     }
 
@@ -169,9 +169,9 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         }
     }
 
-    private void failure(CountDownLatch latch) {
+    private void failure(CountDownLatch latch, Exception e) {
         latch.countDown();
-        fail();
+        fail(e.getMessage());
     }
 
     private void createDoc(AsyncSearchPersistenceService persistenceService, AsyncSearchResponse asyncSearchResponse)
@@ -181,7 +181,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
                 new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
                         asyncSearchResponse.getExpirationTimeMillis(),
                         asyncSearchResponse.getSearchResponse()),
-                ActionListener.wrap(r -> assertSuccessfulResponseCreation(asyncSearchResponse.getId(), r, latch), e -> failure(latch)));
+                ActionListener.wrap(r -> assertSuccessfulResponseCreation(asyncSearchResponse.getId(), r, latch), e -> failure(latch, e)));
         latch.await();
     }
 
@@ -225,7 +225,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
     }
 
     private void verifyPersistenceModel(
-        AsyncSearchPersistenceModel expected, AsyncSearchPersistenceModel actual, CountDownLatch latch) {
+            AsyncSearchPersistenceModel expected, AsyncSearchPersistenceModel actual, CountDownLatch latch) {
         try {
             assertEquals(expected, actual);
         } finally {
