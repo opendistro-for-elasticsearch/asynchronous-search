@@ -85,7 +85,11 @@ public class TestClientUtils {
         client.get(new GetRequest(INDEX).id(id), new ActionListener<GetResponse>() {
             @Override
             public void onResponse(GetResponse getResponse) {
-                latch.countDown();
+                if (getResponse.isExists()) {
+                    latch.countDown();
+                } else {
+                    onFailure(new Exception("Get Response doesn't exist."));
+                }
             }
 
             @Override
@@ -97,7 +101,7 @@ public class TestClientUtils {
                     } else {
                         TimeValue wait = backoff.next();
                         Thread.sleep(wait.getMillis());
-                        getResponseFromIndex(client,id, latch,backoff);
+                        getResponseFromIndex(client, id, latch, backoff);
                     }
                 } catch (InterruptedException ex) {
                     Assert.fail();
