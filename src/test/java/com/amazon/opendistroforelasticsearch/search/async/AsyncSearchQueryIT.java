@@ -60,6 +60,10 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
+/**
+ * The intent of these tests is to verify that various elements of a SearchResponse, including aggregations, hits, highlighters, are
+ * serialized and deserialized successfully
+ */
 @LuceneTestCase.SuppressCodecs("*") // requires custom completion format
 public class AsyncSearchQueryIT extends ESIntegTestCase {
 

@@ -15,11 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
-import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
@@ -29,6 +29,9 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
+/**
+ * Transport action for deleting an async search request
+ */
 public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchRoutingAction<DeleteAsyncSearchRequest, AcknowledgedResponse> {
 
     private final AsyncSearchService asyncSearchService;

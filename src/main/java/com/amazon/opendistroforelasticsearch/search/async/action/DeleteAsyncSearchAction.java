@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.search.async.action;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import org.elasticsearch.action.ActionType;
 
-
 public class DeleteAsyncSearchAction extends ActionType<AcknowledgedResponse> {
 
     public static final DeleteAsyncSearchAction INSTANCE = new DeleteAsyncSearchAction();

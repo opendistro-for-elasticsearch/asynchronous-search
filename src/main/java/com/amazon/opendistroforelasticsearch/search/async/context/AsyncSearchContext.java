@@ -28,12 +28,6 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.function.LongSupplier;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
-
 
 /**
  * Wrapper around information that needs to stay around when an async search has been submitted.
@@ -46,7 +40,7 @@ public abstract class AsyncSearchContext {
 
     protected final AsyncSearchContextId asyncSearchContextId;
     protected final LongSupplier currentTimeSupplier;
-    protected volatile AsyncSearchState currentStage = INIT;
+    protected volatile AsyncSearchState currentStage = AsyncSearchState.INIT;
     protected volatile AsyncSearchProgressListener asyncSearchProgressListener;
     protected AsyncSearchContextListener asyncSearchContextListener;
 
@@ -70,7 +64,7 @@ public abstract class AsyncSearchContext {
     }
 
     public boolean isRunning() {
-        return getAsyncSearchState() == RUNNING;
+        return getAsyncSearchState() == AsyncSearchState.RUNNING;
     }
 
     public AsyncSearchContextId getContextId() {
@@ -94,7 +88,8 @@ public abstract class AsyncSearchContext {
     }
 
     public Set<AsyncSearchState> retainedStages() {
-        return Collections.unmodifiableSet(Sets.newHashSet(INIT, RUNNING, SUCCEEDED, FAILED, PERSISTING));
+        return Collections.unmodifiableSet(Sets.newHashSet(AsyncSearchState.INIT, AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED,
+                AsyncSearchState.FAILED, AsyncSearchState.PERSISTING));
     }
 
     public AsyncSearchResponse getAsyncSearchResponse() {
