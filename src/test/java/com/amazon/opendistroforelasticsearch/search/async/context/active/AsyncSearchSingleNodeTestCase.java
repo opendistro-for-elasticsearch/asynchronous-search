@@ -79,6 +79,16 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
         client.execute(DeleteAsyncSearchAction.INSTANCE, request, listener);
     }
 
+    public static void executeSubmitAsyncSearch(Client client, SubmitAsyncSearchRequest request,
+                                                ActionListener<AsyncSearchResponse> listener) {
+        client.execute(SubmitAsyncSearchAction.INSTANCE, request, listener);
+    }
+
+    public static void executeGetAsyncSearch(Client client, GetAsyncSearchRequest request,
+                                                ActionListener<AsyncSearchResponse> listener) {
+        client.execute(GetAsyncSearchAction.INSTANCE, request, listener);
+    }
+
     @After
     public void tearDownData() throws InterruptedException {
         CountDownLatch deleteLatch = new CountDownLatch(1);

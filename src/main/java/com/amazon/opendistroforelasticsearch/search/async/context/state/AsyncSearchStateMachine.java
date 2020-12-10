@@ -96,17 +96,18 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
                 AsyncSearchTransition<? extends AsyncSearchContextEvent> transition = transitionsMap.get(transitionId);
                 execute(transition.onEvent(), event, currentState);
                 asyncSearchContext.setState(transition.targetState());
-                logger.debug("Executed event {} for async event {} ", event.getClass().getName(),
+                logger.debug("Executed event [{}] for async search id [{}] ", event.getClass().getName(),
                         event.asyncSearchContext.getAsyncSearchId());
                 BiConsumer<AsyncSearchContextId, AsyncSearchContextListener> eventListener = transition.eventListener();
                 try {
                     eventListener.accept(event.asyncSearchContext().getContextId(), asyncSearchContext.getContextListener());
                 } catch (Exception ex) {
-                    logger.error(() -> new ParameterizedMessage("Failed to execute listener for async search id : {}",
+                    logger.error(() -> new ParameterizedMessage("Failed to execute listener for async search id : [{}]",
                             event.asyncSearchContext.getAsyncSearchId()), ex);
                 }
                 return asyncSearchContext.getAsyncSearchState();
             } else {
+                logger.warn("Invalid transition from source state [{}] on event [{}]", currentState, event.getClass().getName());
                 throw new AsyncSearchStateMachineException(currentState, event);
             }
         }

@@ -4,11 +4,8 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistFailedEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.*;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.exception.AsyncSearchStateMachineException;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.service.active.AsyncSearchActiveStore;
@@ -52,8 +49,7 @@ public class AsyncSearchPostProcessor {
             if (asyncSearchContext.shouldPersist()) {
                 asyncSearchStateMachine.trigger(new BeginPersistEvent(asyncSearchContext));
             } else {
-                //release active context from memory immediately as persistence is not required
-                asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
+                discardAsyncSearchContext(asyncSearchContext);
             }
             return asyncSearchContext.getAsyncSearchResponse();
         }
@@ -70,11 +66,21 @@ public class AsyncSearchPostProcessor {
             } else {
                 //release active context from memory immediately as persistence is not required, in such cases a longer
                 // wait_for_completion is expected
-                asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
+                discardAsyncSearchContext(asyncSearchContext);
             }
             return asyncSearchContext.getAsyncSearchResponse();
         }
         return null;
+    }
+
+    private void discardAsyncSearchContext(AsyncSearchActiveContext asyncSearchActiveContext) {
+        try {
+            // possible side effect of concurrent deletes
+            asyncSearchStateMachine.trigger(new SearchDeletionEvent(asyncSearchActiveContext));
+        } catch (AsyncSearchStateMachineException ex) {
+            logger.debug(() -> new ParameterizedMessage("Failed to discard async search context with id [{}] due to",
+                    asyncSearchActiveContext.getAsyncSearchId()), ex);
+        }
     }
 
     public void persistResponse(AsyncSearchActiveContext asyncSearchContext, AsyncSearchPersistenceModel persistenceModel) {
