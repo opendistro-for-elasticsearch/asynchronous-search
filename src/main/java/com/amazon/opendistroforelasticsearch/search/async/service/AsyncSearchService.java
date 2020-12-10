@@ -226,7 +226,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 }, listener::onFailure), 2);
         Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
-            logger.debug("Active context present for async search id [{}]", id);
+            logger.warn("Active context present for async search id [{}]", id);
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
             //cancel any ongoing async search tasks
             if (asyncSearchContext.getTask() != null && asyncSearchContext.getTask().isCancelled() == false) {
@@ -248,6 +248,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 freeActiveContext(asyncSearchContext, groupedDeletionListener);
             }
         } else {
+            logger.warn("Active context NOT present for async search id [{}]", id);
             // async search context didn't exist so obviously we didn't delete
             groupedDeletionListener.onResponse(false);
             //deleted persisted context if one exists. If not the listener returns acknowledged as false
@@ -261,7 +262,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private void freeActiveContext(AsyncSearchActiveContext asyncSearchContext, GroupedActionListener<Boolean> groupedDeletionListener) {
         //Intent of the lock here is to disallow ongoing migration to system index
         // as if that is underway we might end up creating a new document post a DELETE was executed
-        logger.debug("Acquiring context permit for freeing context for async search id [{}]", asyncSearchContext.getAsyncSearchId());
+        logger.warn("Acquiring context permit for freeing context for async search id [{}]", asyncSearchContext.getAsyncSearchId());
         asyncSearchContext.acquireContextPermit(ActionListener.wrap(
                 releasable -> {
                     groupedDeletionListener.onResponse(asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId()));

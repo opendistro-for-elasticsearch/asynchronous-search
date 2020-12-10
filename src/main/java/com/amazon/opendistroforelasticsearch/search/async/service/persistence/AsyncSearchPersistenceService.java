@@ -142,18 +142,18 @@ public class AsyncSearchPersistenceService {
 
         client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX, id), ActionListener.wrap(deleteResponse -> {
             if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED) {
-                logger.debug("Delete async search {} successful. Returned result {}", id, deleteResponse.getResult());
+                logger.warn("Delete async search {} successful. Returned result {}", id, deleteResponse.getResult());
                 listener.onResponse(true);
             } else {
-                logger.debug("Delete async search {} unsuccessful. Returned result {}", id, deleteResponse.getResult());
+                logger.warn("Delete async search {} unsuccessful. Returned result {}", id, deleteResponse.getResult());
                 listener.onResponse(false);
             }
         }, e -> {
             if (ExceptionsHelper.unwrapCause(e) instanceof DocumentMissingException) {
-                logger.debug(() -> new ParameterizedMessage("Async search response doc already deleted {}", id), e);
+                logger.warn(() -> new ParameterizedMessage("Async search response doc already deleted {}", id), e);
                 listener.onResponse(false);
             } else {
-                logger.error(() -> new ParameterizedMessage("Failed to delete async search for id {}", id), e);
+                logger.warn(() -> new ParameterizedMessage("Failed to delete async search for id {}", id), e);
                 listener.onFailure(e);
             }
         }));

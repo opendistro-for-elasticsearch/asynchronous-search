@@ -52,7 +52,6 @@ public class AsyncSearchPostProcessor {
             asyncSearchStateMachine.trigger(new SearchFailureEvent(asyncSearchContext, exception));
             if (asyncSearchContext.shouldPersist()) {
                 asyncSearchStateMachine.trigger(new BeginPersistEvent(asyncSearchContext));
-                asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
             } else {
                 //release active context from memory immediately as persistence is not required
                 asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
@@ -70,7 +69,6 @@ public class AsyncSearchPostProcessor {
             asyncSearchStateMachine.trigger(new SearchSuccessfulEvent(asyncSearchContext, searchResponse));
             if (asyncSearchContext.shouldPersist()) {
                 asyncSearchStateMachine.trigger(new BeginPersistEvent(asyncSearchContext));
-                asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId());
             } else {
                 //release active context from memory immediately as persistence is not required, in such cases a longer
                 // wait_for_completion is expected
@@ -89,10 +87,8 @@ public class AsyncSearchPostProcessor {
         // acquire all permits non-blocking
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
                     // check again after acquiring permit if the context has been deleted mean while
-                    logger.debug("Async search context {} has been moved to DELETED while waiting to acquire permits for post " +
-                            "processing", asyncSearchContext.getAsyncSearchId());
                     if (asyncSearchContext.shouldPersist() == false) {
-                        logger.debug("Async search context [{}] has been moved to DELETED while waiting to acquire permits for post " +
+                        logger.warn("Async search context [{}] has been moved to DELETED while waiting to acquire permits for post " +
                                 "processing", asyncSearchContext.getAsyncSearchId());
                         releasable.close();
                         return;

@@ -8,6 +8,7 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchRe
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.common.TriConsumer;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -24,9 +25,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
 
     public void testDeleteAsyncSearchForRetainedResponse() throws InterruptedException {
-        AtomicInteger numDeleteAcknowledged = new AtomicInteger();
-        AtomicInteger numDeleteUnAcknowledged = new AtomicInteger();
-        AtomicInteger numResourceNotFound = new AtomicInteger();
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("index");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
@@ -35,8 +33,8 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 500)));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
         assertNotNull(submitResponse);
-        assertConcurrentDeletes(submitResponse.getId(), numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound,
-                () -> {
+        assertConcurrentDeletes(submitResponse.getId(),
+                (numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound) -> {
             assertEquals(1, numDeleteAcknowledged.get());
             assertEquals(0, numDeleteUnAcknowledged.get());
             assertEquals(9, numResourceNotFound.get());
@@ -44,9 +42,6 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
     }
 
     public void testDeleteAsyncSearchNoRetainedResponse() throws InterruptedException {
-        AtomicInteger numDeleteAcknowledged = new AtomicInteger();
-        AtomicInteger numDeleteUnAcknowledged = new AtomicInteger();
-        AtomicInteger numResourceNotFound = new AtomicInteger();
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("index");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
@@ -55,8 +50,8 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(5000));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
         assertNotNull(submitResponse);
-        assertConcurrentDeletes(submitResponse.getId(), numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound,
-                () -> {
+        assertConcurrentDeletes(submitResponse.getId(),
+                (numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound) -> {
             assertEquals(0, numDeleteAcknowledged.get());
             assertEquals(0, numDeleteUnAcknowledged.get());
             assertEquals(10, numResourceNotFound.get());
@@ -64,9 +59,6 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
     }
 
     public void testDeleteRunningAsyncSearchNoRetainedResponse() throws InterruptedException {
-        AtomicInteger numDeleteAcknowledged = new AtomicInteger();
-        AtomicInteger numDeleteUnAcknowledged = new AtomicInteger();
-        AtomicInteger numResourceNotFound = new AtomicInteger();
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("index");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
@@ -75,15 +67,18 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(1));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
         assertNotNull(submitResponse);
-        assertConcurrentDeletes(submitResponse.getId(), numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound,
-                () -> {
+        assertConcurrentDeletes(submitResponse.getId(),
+                (numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound) -> {
                     assertEquals(10, numDeleteAcknowledged.get() + numResourceNotFound.get());
                     assertEquals(0, numDeleteUnAcknowledged.get());
                 });
     }
 
-    private void assertConcurrentDeletes(String id, AtomicInteger numDeleteAcknowledged, AtomicInteger numDeleteUnAcknowledged,
-    AtomicInteger numResourceNotFound, Runnable assertionRunnable) throws InterruptedException {
+    private void assertConcurrentDeletes(String id, TriConsumer<AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer)
+            throws InterruptedException {
+        AtomicInteger numDeleteAcknowledged = new AtomicInteger();
+        AtomicInteger numDeleteUnAcknowledged = new AtomicInteger();
+        AtomicInteger numResourceNotFound = new AtomicInteger();
         TestThreadPool testThreadPool = null;
         try {
             testThreadPool = new TestThreadPool(AsyncSearchSingleNodeIT.class.getName());
@@ -119,7 +114,7 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
             TestThreadPool finalTestThreadPool = testThreadPool;
             operationThreads.forEach(runnable -> finalTestThreadPool.executor("generic").execute(runnable));
             countDownLatch.await();
-            assertionRunnable.run();
+            assertionConsumer.apply(numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound);
         } finally {
             ThreadPool.terminate(testThreadPool, 500, TimeUnit.MILLISECONDS);
         }
