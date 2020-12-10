@@ -86,8 +86,8 @@ public class AsyncSearchPostProcessor {
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
                     // check again after acquiring permit if the context has been deleted mean while
                     if (asyncSearchContext.shouldPersist() == false) {
-                        logger.warn("Async search context [{}] has been moved to DELETED while waiting to acquire permits for post " +
-                                "processing", asyncSearchContext.getAsyncSearchId());
+                        logger.warn(    "Async search context [{}] has been closed while waiting to acquire permits for post processing",
+                                asyncSearchContext.getAsyncSearchId());
                         releasable.close();
                         return;
                     }

@@ -23,9 +23,9 @@ import org.elasticsearch.common.unit.TimeValue;
 import java.io.IOException;
 
 /**
- * A base request for fetching async search request by id
+ * A base request for routing async search request to the right node by id.
  */
-public abstract class FetchAsyncSearchRequest<Request extends FetchAsyncSearchRequest<Request>> extends ActionRequest {
+public abstract class AsyncSearchRoutingRequest<Request extends AsyncSearchRoutingRequest<Request>> extends ActionRequest {
 
     public static final TimeValue DEFAULT_CONNECTION_TIMEOUT = TimeValue.timeValueSeconds(10);
 
@@ -36,20 +36,20 @@ public abstract class FetchAsyncSearchRequest<Request extends FetchAsyncSearchRe
 
     private final String id;
 
-    protected FetchAsyncSearchRequest(String id) {
+    protected AsyncSearchRoutingRequest(String id) {
         this.id = id;
     }
 
-    protected FetchAsyncSearchRequest(StreamInput in) throws IOException {
+    protected AsyncSearchRoutingRequest(StreamInput in) throws IOException {
         super(in);
-        connectionTimeout = in.readTimeValue();
+        connectionTimeout = in.readOptionalTimeValue();
         id = in.readString();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeTimeValue(connectionTimeout);
+        out.writeOptionalTimeValue(connectionTimeout);
         out.writeString(id);
     }
 

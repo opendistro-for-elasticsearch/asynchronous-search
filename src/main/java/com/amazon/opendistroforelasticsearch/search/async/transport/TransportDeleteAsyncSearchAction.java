@@ -29,7 +29,7 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
-public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchFetchAction<DeleteAsyncSearchRequest, AcknowledgedResponse> {
+public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchRoutingAction<DeleteAsyncSearchRequest, AcknowledgedResponse> {
 
     private final AsyncSearchService asyncSearchService;
 

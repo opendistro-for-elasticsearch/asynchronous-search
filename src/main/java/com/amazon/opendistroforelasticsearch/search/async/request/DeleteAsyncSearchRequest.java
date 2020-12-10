@@ -23,7 +23,7 @@ import java.io.IOException;
 /**
  * A request to delete an async search response based on its id
  */
-public class DeleteAsyncSearchRequest extends FetchAsyncSearchRequest<DeleteAsyncSearchRequest> {
+public class DeleteAsyncSearchRequest extends AsyncSearchRoutingRequest<DeleteAsyncSearchRequest> {
 
     public DeleteAsyncSearchRequest(String id) {
         super(id);

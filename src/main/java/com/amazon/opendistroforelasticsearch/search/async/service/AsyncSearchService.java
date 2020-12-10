@@ -274,8 +274,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     logger.warn("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
                     persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), groupedDeletionListener);
                 }
-                ), TimeValue.timeValueSeconds(5), "free context");
+        ), TimeValue.timeValueSeconds(5), "free context");
     }
+
     /**
      * If an active context is found, a permit is acquired from
      * {@linkplain com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits} and on acquisition of
@@ -351,16 +352,17 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
         @Override
         public void run() {
-            try {
-                for (AsyncSearchActiveContext asyncSearchActiveContext : asyncSearchActiveStore.getAllContexts().values()) {
+            for (AsyncSearchActiveContext asyncSearchActiveContext : asyncSearchActiveStore.getAllContexts().values()) {
+                try {
                     AsyncSearchState stage = asyncSearchActiveContext.getAsyncSearchState();
-                    if (stage != null && (
-                            !asyncSearchActiveContext.retainedStages().contains(stage) || asyncSearchActiveContext.isExpired())) {
+                    if (stage != null && (asyncSearchActiveContext.retainedStages().contains(stage) == false ||
+                            asyncSearchActiveContext.isAlive() == false || asyncSearchActiveContext.isExpired())) {
                         asyncSearchActiveStore.freeContext(asyncSearchActiveContext.getContextId());
                     }
+                } catch (Exception e) {
+                    logger.debug("Exception occured while reaping async search active context for id "
+                            + asyncSearchActiveContext.getAsyncSearchId(), e);
                 }
-            } catch (Exception e) {
-                logger.debug("Exception while reaping async search active contexts", e);
             }
         }
     }

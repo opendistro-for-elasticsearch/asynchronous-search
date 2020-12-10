@@ -112,7 +112,7 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
     public SubmitAsyncSearchRequest(StreamInput in) throws IOException {
         super(in);
         this.searchRequest = new SearchRequest(in);
-        this.waitForCompletionTimeout = in.readTimeValue();
+        this.waitForCompletionTimeout = in.readOptionalTimeValue();
         this.keepAlive = in.readTimeValue();
         this.keepOnCompletion = in.readBoolean();
     }
@@ -121,7 +121,7 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         this.searchRequest.writeTo(out);
-        out.writeTimeValue(waitForCompletionTimeout);
+        out.writeOptionalTimeValue(waitForCompletionTimeout);
         out.writeTimeValue(keepAlive);
         out.writeBoolean(keepOnCompletion);
     }

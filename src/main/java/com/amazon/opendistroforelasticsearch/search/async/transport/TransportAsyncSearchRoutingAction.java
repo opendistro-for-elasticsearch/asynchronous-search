@@ -17,9 +17,9 @@ package com.amazon.opendistroforelasticsearch.search.async.transport;
 
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
-import com.amazon.opendistroforelasticsearch.search.async.request.FetchAsyncSearchRequest;
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchRoutingRequest;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
 import org.elasticsearch.action.ActionResponse;
@@ -38,6 +38,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.ConnectTransportException;
 import org.elasticsearch.transport.RemoteTransportException;
 import org.elasticsearch.transport.TransportException;
+import org.elasticsearch.transport.TransportRequestOptions;
 import org.elasticsearch.transport.TransportService;
 
 /**
@@ -45,20 +46,19 @@ import org.elasticsearch.transport.TransportService;
  * {@link TransportSubmitAsyncSearchAction}. The class forwards the request to the coordinator and executes the
  * {@link TransportGetAsyncSearchAction} or the {@link TransportDeleteAsyncSearchAction}
  */
-public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsyncSearchRequest<Request>, Response extends ActionResponse>
+public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSearchRoutingRequest<Request>, Response extends ActionResponse>
         extends HandledTransportAction<Request, Response> {
 
-    private TransportService transportService;
-    private AsyncSearchService asyncSearchService;
-    private ClusterService clusterService;
-    private Writeable.Reader<Response> responseReader;
-    private String actionName;
-    private ThreadPool threadPool;
-    private Client client;
+    private final TransportService transportService;
+    private final ClusterService clusterService;
+    private final Writeable.Reader<Response> responseReader;
+    private final String actionName;
+    private final ThreadPool threadPool;
+    private final Client client;
 
-    public TransportAsyncSearchFetchAction(TransportService transportService, ClusterService clusterService, ThreadPool threadPool,
-                                           Client client, String actionName, ActionFilters actionFilters,
-                                           Writeable.Reader<Request> requestReader, Writeable.Reader<Response> responseReader) {
+    public TransportAsyncSearchRoutingAction(TransportService transportService, ClusterService clusterService, ThreadPool threadPool,
+                                             Client client, String actionName, ActionFilters actionFilters,
+                                             Writeable.Reader<Request> requestReader, Writeable.Reader<Response> responseReader) {
         super(actionName, transportService, actionFilters, requestReader);
         this.transportService = transportService;
         this.clusterService = clusterService;
@@ -79,7 +79,7 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
 
     public abstract void handleRequest(AsyncSearchId asyncSearchId, Request request, ActionListener<Response> listener);
 
-    class AsyncForwardAction extends AbstractRunnable {
+    final class AsyncForwardAction extends AbstractRunnable {
 
         private final ActionListener<Response> listener;
         private final Request request;
@@ -88,12 +88,19 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
         private AsyncSearchId asyncSearchId;
 
         AsyncForwardAction(Request request, ActionListener<Response> listener) {
-            this.request = request;
-            this.listener = listener;
-            this.asyncSearchId = AsyncSearchIdConverter.parseAsyncId(request.getId());
-            this.observer = new ClusterStateObserver(clusterService.state(), clusterService, request.connectionTimeout(),
-                    logger, threadPool.getThreadContext());
-            this.targetNode = clusterService.state().nodes().get(asyncSearchId.getNode());
+            try {
+                this.asyncSearchId = AsyncSearchIdConverter.parseAsyncId(request.getId());
+
+                this.request = request;
+                this.listener = listener;
+                this.observer = new ClusterStateObserver(clusterService.state(), clusterService, request.connectionTimeout(),
+                        logger, threadPool.getThreadContext());
+                this.targetNode = clusterService.state().nodes().get(asyncSearchId.getNode());
+            } catch (IllegalArgumentException e) { // failure in parsing async search
+                logger.error(e.getMessage());
+                listener.onFailure(new ResourceNotFoundException(request.getId()));
+                throw e;
+            }
         }
 
         @Override
@@ -107,8 +114,10 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
             ClusterState state = observer.setAndGetObservedState();
             // forward request only if the local node isn't the node coordinating the search and the node coordinating
             // the search exists in the cluster
+            TransportRequestOptions requestOptions = TransportRequestOptions.builder().withTimeout(request.connectionTimeout()).build();
             if (state.nodes().getLocalNode().equals(targetNode) == false && state.nodes().nodeExists(targetNode)) {
-                transportService.sendRequest(targetNode, actionName, request,
+                logger.debug("Forwarding async search id [{}] request to target node [{}]", request.getId(), targetNode);
+                transportService.sendRequest(targetNode, actionName, request, requestOptions,
                         new ActionListenerResponseHandler<Response>(listener, responseReader) {
                             @Override
                             public void handleException(final TransportException exp) {
@@ -116,13 +125,23 @@ public abstract class TransportAsyncSearchFetchAction<Request extends FetchAsync
                                 if (cause instanceof ConnectTransportException ||
                                         (exp instanceof RemoteTransportException && cause instanceof NodeClosedException)) {
                                     // we want to retry here a bit to see if the node connects backs
-                                    logger.debug("Exception received for request with id[{}] to from target node [{}],  Error: [{}]",
+                                    logger.debug("Connection exception while trying to forward request with id[{}] to " +
+                                                    "target node [{}] Error: [{}]",
                                             request.getId(), targetNode, exp.getDetailedMessage());
                                     //try on local node since we weren't able to forward
+                                    handleRequest(asyncSearchId, request, listener);
+                                } else {
+                                    logger.debug("Exception received for request with id[{}] to from target node [{}],  Error: [{}]",
+                                            request.getId(), targetNode, exp.getDetailedMessage());
                                     listener.onFailure(exp);
                                 }
-                                // handle request locally if we were not able to forward the request
-                                handleRequest(asyncSearchId, request, listener);
+                            }
+
+                            @Override
+                            public void handleResponse(Response response) {
+                                logger.debug("Received the response for async search id [{}] from target node [{}]", request.getId(),
+                                        targetNode);
+                                listener.onResponse(response);
                             }
                         });
             } else {

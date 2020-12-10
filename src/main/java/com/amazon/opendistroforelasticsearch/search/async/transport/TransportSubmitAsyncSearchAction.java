@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.search.async.transport;
 
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
@@ -69,26 +70,28 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
 
     @Override
     protected void doExecute(Task task, SubmitAsyncSearchRequest request, ActionListener<AsyncSearchResponse> listener) {
-         try {
+        AsyncSearchContext asyncSearchContext = null;
+        try {
             final long relativeStartTimeInMillis = threadPool.relativeTimeInMillis();
-            AsyncSearchContext asyncSearchContext = asyncSearchService.createAndStoreContext(request.getKeepAlive(),
+            asyncSearchContext = asyncSearchService.createAndStoreContext(request.getKeepAlive(),
                     request.getKeepOnCompletion(), relativeStartTimeInMillis);
             assert asyncSearchContext.getAsyncSearchProgressListener() != null : "missing progress listener for an active context";
             AsyncSearchProgressListener progressListener = asyncSearchContext.getAsyncSearchProgressListener();
             //set the parent task as the submit task for cancellation on connection close
             request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
+            AsyncSearchContext context = asyncSearchContext; //making it effectively final for usage in anonymous class.
             transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
                 @Override
                 public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
                     AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, AsyncSearchTask.NAME,
-                            parentTaskId, headers, asyncSearchContext::getAsyncSearchId, request);
+                            parentTaskId, headers, context::getAsyncSearchId, request);
 
-                    asyncSearchService.bootstrapSearch(asyncSearchTask, asyncSearchContext.getContextId());
+                    asyncSearchService.bootstrapSearch(asyncSearchTask, context.getContextId());
                     PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper
                             .wrapScheduledTimeout(threadPool, request.getWaitForCompletionTimeout(),
                                     AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, listener, (actionListener) -> {
                                         progressListener.searchProgressActionListener().removeListener(actionListener);
-                                        listener.onResponse(asyncSearchContext.getAsyncSearchResponse());
+                                        listener.onResponse(context.getAsyncSearchResponse());
                                     });
                     progressListener.searchProgressActionListener().addOrExecuteListener(wrappedListener);
                     return asyncSearchTask;
@@ -97,6 +100,9 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
 
         } catch (Exception e) {
             logger.error(() -> new ParameterizedMessage("Failed to submit async search request {}", request), e);
+            if (asyncSearchContext != null) {
+                ((AsyncSearchActiveContext) asyncSearchContext).close();
+            }
             listener.onFailure(e);
         }
     }

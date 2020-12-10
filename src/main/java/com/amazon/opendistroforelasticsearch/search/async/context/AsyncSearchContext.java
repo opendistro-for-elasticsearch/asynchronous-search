@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.context;
 
-import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
+import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
@@ -27,6 +27,12 @@ import org.elasticsearch.common.util.set.Sets;
 import java.util.Collections;
 import java.util.Set;
 import java.util.function.LongSupplier;
+
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
 
 
 /**
@@ -40,7 +46,7 @@ public abstract class AsyncSearchContext {
 
     protected final AsyncSearchContextId asyncSearchContextId;
     protected final LongSupplier currentTimeSupplier;
-    protected volatile AsyncSearchState currentStage = AsyncSearchState.INIT;
+    protected volatile AsyncSearchState currentStage = INIT;
     protected volatile AsyncSearchProgressListener asyncSearchProgressListener;
     protected AsyncSearchContextListener asyncSearchContextListener;
 
@@ -64,7 +70,7 @@ public abstract class AsyncSearchContext {
     }
 
     public boolean isRunning() {
-        return getAsyncSearchState() == AsyncSearchState.RUNNING;
+        return getAsyncSearchState() == RUNNING;
     }
 
     public AsyncSearchContextId getContextId() {
@@ -88,8 +94,7 @@ public abstract class AsyncSearchContext {
     }
 
     public Set<AsyncSearchState> retainedStages() {
-        return Collections.unmodifiableSet(Sets.newHashSet(
-                AsyncSearchState.INIT, AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.FAILED));
+        return Collections.unmodifiableSet(Sets.newHashSet(INIT, RUNNING, SUCCEEDED, FAILED, PERSISTING));
     }
 
     public AsyncSearchResponse getAsyncSearchResponse() {

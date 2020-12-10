@@ -15,9 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.transport;
 
-import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
+import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
@@ -43,7 +43,7 @@ import org.elasticsearch.transport.TransportService;
  * whenever both the operations complete. If the search is however not RUNNING we simply need to update keep alive either in-memory
  * or disk and invoke the response with the search response
  */
-public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchAction<GetAsyncSearchRequest, AsyncSearchResponse> {
+public class TransportGetAsyncSearchAction extends TransportAsyncSearchRoutingAction<GetAsyncSearchRequest, AsyncSearchResponse> {
 
     private static final Logger logger = LogManager.getLogger(TransportGetAsyncSearchAction.class);
     private final ThreadPool threadPool;
@@ -78,7 +78,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchFetchActi
                 asyncSearchService.findContext(request.getId(), asyncSearchId.getAsyncSearchContextId(), ActionListener.wrap(
                         (context) -> handleWaitForCompletion(context, request.getWaitForCompletionTimeout(), listener),
                         (e) -> {
-                            logger.debug(() -> new ParameterizedMessage("Unable to update and get async search request {}",
+                            logger.debug(() -> new ParameterizedMessage("Unable to get async search request {}",
                                     asyncSearchId), e);
                             listener.onFailure(e);
                         }));
