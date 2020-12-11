@@ -80,8 +80,8 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
 
     /**
      * Triggers transition from current state on receiving an event. Also invokes {@linkplain Transition#onEvent()} and
-     * {@linkplain Transition#eventListener()}. Every time a trigger is fired, the callers need to be wary of {@link ResourceNotFoundException}
-     * and be able to handle it as a result of concurrent deletes.
+     * {@linkplain Transition#eventListener()}. Every time a trigger is fired, the callers need to be wary of
+     * {@link ResourceNotFoundException} and be able to handle it as a result of concurrent deletes.
      *
      * @param event to fire
      * @return The final Async search state

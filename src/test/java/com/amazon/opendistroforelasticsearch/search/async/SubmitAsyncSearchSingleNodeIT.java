@@ -36,7 +36,8 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         submitAsyncSearchRequest.keepOnCompletion(false);
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 5000)));
         int concurrentRuns = randomIntBetween(20, 50);
-        assertConcurrentSubmits(submitAsyncSearchRequest, searchResponse, (numStartedAsyncSearch, numFailedAsyncSearch, numErrorResponseAsyncSearch) -> {
+        assertConcurrentSubmits(submitAsyncSearchRequest, searchResponse, (numStartedAsyncSearch, numFailedAsyncSearch,
+                                                                           numErrorResponseAsyncSearch) -> {
             assertEquals(concurrentRuns, numStartedAsyncSearch.get());
             assertEquals(0,  numFailedAsyncSearch.get());
             assertEquals(0,  numErrorResponseAsyncSearch.get());
@@ -52,7 +53,8 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         submitAsyncSearchRequest.keepOnCompletion(true);
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 5000)));
         int concurrentRuns = randomIntBetween(20, 50);
-        assertConcurrentSubmits(submitAsyncSearchRequest, searchResponse, (numStartedAsyncSearch, numFailedAsyncSearch, numErrorResponseAsyncSearch) -> {
+        assertConcurrentSubmits(submitAsyncSearchRequest, searchResponse, (numStartedAsyncSearch, numFailedAsyncSearch,
+                                                                           numErrorResponseAsyncSearch) -> {
             assertEquals(concurrentRuns, numStartedAsyncSearch.get());
             assertEquals(0,  numFailedAsyncSearch.get());
             assertEquals(0,  numErrorResponseAsyncSearch.get());
@@ -100,7 +102,8 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                             finalCountDownLatch.countDown();
 
                             if (submitAsyncSearchRequest.getKeepOnCompletion()) {
-                                DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(asyncSearchResponse.getId());
+                                DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(
+                                        asyncSearchResponse.getId());
                                 executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest, new ActionListener<AcknowledgedResponse>() {
                                     @Override
                                     public void onResponse(AcknowledgedResponse acknowledgedResponse) {

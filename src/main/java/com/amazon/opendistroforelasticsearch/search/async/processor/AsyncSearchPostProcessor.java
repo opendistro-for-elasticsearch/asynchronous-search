@@ -4,7 +4,11 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.*;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistFailedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.service.active.AsyncSearchActiveStore;
@@ -71,7 +75,7 @@ public class AsyncSearchPostProcessor {
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
                     // check again after acquiring permit if the context has been deleted mean while
                     if (asyncSearchContext.shouldPersist() == false) {
-                        logger.warn(    "Async search context [{}] has been closed while waiting to acquire permits for post processing",
+                        logger.warn("Async search context [{}] has been closed while waiting to acquire permits for post processing",
                                 asyncSearchContext.getAsyncSearchId());
                         releasable.close();
                         return;

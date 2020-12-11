@@ -187,9 +187,11 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
     // We need to ensure we don't throw non-serializable exception over the wire.
     private Exception translateException(Exception ex) {
         if (ex instanceof AsyncSearchStateMachineClosedException) {
-            return new ResourceNotFoundException(((AsyncSearchStateMachineClosedException) ex).getEvent().asyncSearchContext().getAsyncSearchId());
+            return new ResourceNotFoundException(((AsyncSearchStateMachineClosedException) ex).getEvent().asyncSearchContext()
+                    .getAsyncSearchId());
         } else if (ex instanceof AsyncSearchStateMachineException) {
-            return new IllegalStateException(((AsyncSearchStateMachineException) ex).getEvent().asyncSearchContext().getAsyncSearchId());
+            return new IllegalStateException(((AsyncSearchStateMachineException) ex).getEvent().asyncSearchContext()
+                    .getAsyncSearchId());
         }
         return ex;
 }

@@ -18,12 +18,6 @@ package com.amazon.opendistroforelasticsearch.search.async.plugin;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchTransition;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.*;
-import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.service.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.service.persistence.AsyncSearchPersistenceService;
@@ -58,11 +52,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.function.Supplier;
-
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.*;
 
 
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemIndexPlugin {

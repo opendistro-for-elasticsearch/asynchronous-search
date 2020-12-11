@@ -60,7 +60,8 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                     logger.info("Triggering async search gets with keep alives --->");
                     GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
                     if (update) {
-                        getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueHours(randomLongBetween(lowerKeepAliveHours, higherKeepAliveHours)));
+                        getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueHours(randomLongBetween(lowerKeepAliveHours,
+                        higherKeepAliveHours)));
                     }
                     executeGetAsyncSearch(client(), getAsyncSearchRequest, new ActionListener<AsyncSearchResponse>() {
                         @Override

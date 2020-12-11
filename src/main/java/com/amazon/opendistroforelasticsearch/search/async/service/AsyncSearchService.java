@@ -23,7 +23,13 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchTransition;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.*;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletionEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistFailedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
@@ -62,7 +68,14 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.*;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSIST_FAILED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
@@ -263,7 +276,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         }
     }
 
-    private void freeActiveAndPersistedContext(AsyncSearchActiveContext asyncSearchContext, GroupedActionListener<Boolean> groupedDeletionListener) {
+    private void freeActiveAndPersistedContext(AsyncSearchActiveContext asyncSearchContext,
+                                               GroupedActionListener<Boolean> groupedDeletionListener) {
         //Intent of the lock here is to disallow ongoing migration to system index
         // as if that is underway we might end up creating a new document post a DELETE was executed
         asyncSearchContext.acquireContextPermit(ActionListener.wrap(
@@ -369,7 +383,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
                 (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
 
-        for(AsyncSearchState state : EnumSet.of(PERSISTING, PERSISTED, PERSIST_FAILED, SUCCEEDED, FAILED, INIT, RUNNING)) {
+        for (AsyncSearchState state : EnumSet.of(PERSISTING, PERSISTED, PERSIST_FAILED, SUCCEEDED, FAILED, INIT, RUNNING)) {
             stateMachine.registerTransition(new AsyncSearchTransition<>(state, DELETED,
                     (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
                     (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletionEvent.class));
