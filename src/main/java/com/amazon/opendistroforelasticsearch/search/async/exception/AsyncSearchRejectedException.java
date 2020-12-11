@@ -26,7 +26,6 @@ public class AsyncSearchRejectedException extends ElasticsearchException {
 
     private final int limit;
 
-
     public AsyncSearchRejectedException(String message, int limit) {
         super(message);
         this.limit = limit;

@@ -40,7 +40,7 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
     private final Map<String, AsyncSearchTransition<? extends AsyncSearchContextEvent>> transitionsMap;
     private final AsyncSearchState initialState;
     private Set<AsyncSearchState> finalStates;
-    private Set<AsyncSearchState> states;
+    private final Set<AsyncSearchState> states;
 
     public AsyncSearchStateMachine(final Set<AsyncSearchState> states, final AsyncSearchState initialState) {
         super();
@@ -88,13 +88,12 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
      * @throws IllegalStateException when no transition is found  from current state on given event
      */
     @Override
-    public AsyncSearchState trigger(AsyncSearchContextEvent event) {
+    public AsyncSearchState trigger(AsyncSearchContextEvent event) throws AsyncSearchStateMachineException {
         AsyncSearchContext asyncSearchContext = event.asyncSearchContext();
         synchronized (asyncSearchContext) {
             AsyncSearchState currentState = asyncSearchContext.getAsyncSearchState();
             if (getFinalStates().contains(currentState)) {
-                //TODO we serialize the exception over the wire. See if we have a way to register our exceptions
-                throw new ResourceNotFoundException("Async search context with id "+ asyncSearchContext.getAsyncSearchId() + "already completed");
+                throw new AsyncSearchStateMachineClosedException(currentState, event);
             }
             String transitionId = getTransitionId(currentState, event.getClass());
             if (transitionsMap.containsKey(transitionId)) {
@@ -113,7 +112,7 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
                 return asyncSearchContext.getAsyncSearchState();
             } else {
                 logger.warn("Invalid transition from source state [{}] on event [{}]", currentState, event.getClass().getName());
-                throw new IllegalStateException("Invalid transition from source state" + currentState + "on event " + event.getClass().getName());
+                throw new AsyncSearchStateMachineException(currentState, event);
             }
         }
     }

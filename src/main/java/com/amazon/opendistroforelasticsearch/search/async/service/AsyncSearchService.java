@@ -21,8 +21,9 @@ import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSe
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletionEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchTransition;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.*;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
@@ -52,6 +53,7 @@ import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -60,6 +62,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.*;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
@@ -94,11 +97,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService,
                               Client client, ClusterService clusterService, ThreadPool threadPool,
-                              AsyncSearchActiveStore asyncSearchActiveStore, AsyncSearchPostProcessor asyncSearchPostProcessor,
-                              AsyncSearchStateMachine stateMachine, NamedWriteableRegistry namedWriteableRegistry) {
+                              NamedWriteableRegistry namedWriteableRegistry) {
         this.client = client;
-        this.asyncSearchActiveStore = asyncSearchActiveStore;
-        this.asyncSearchPostProcessor = asyncSearchPostProcessor;
         Settings settings = clusterService.getSettings();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(KEEP_ON_CANCELLATION, this::setKeepOnCancellation);
@@ -111,7 +111,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         // every node cleans up it's own in-memory context which should either be discarded or has expired
         this.contextReaper = threadPool.scheduleWithFixedDelay(new ContextReaper(), KEEP_ALIVE_INTERVAL_SETTING.get(settings),
                 AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
-        asyncSearchStateMachine = stateMachine;
+        asyncSearchStateMachine = initStateMachine();
+        this.asyncSearchActiveStore = new AsyncSearchActiveStore(clusterService, asyncSearchStateMachine);
+        this.asyncSearchPostProcessor = new AsyncSearchPostProcessor(persistenceService, asyncSearchActiveStore, asyncSearchStateMachine,
+                this::freeActiveContext);
         this.namedWriteableRegistry = namedWriteableRegistry;
     }
 
@@ -141,10 +144,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         }
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartTimeMillis,
-                (response) -> asyncSearchPostProcessor.processSearchResponse(response, asyncSearchContextId,
-                        (asyncSearchContext) -> freeActiveContext(asyncSearchContext)),
-                (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId,
-                        (asyncSearchContext) -> freeActiveContext(asyncSearchContext)),
+                (response) -> asyncSearchPostProcessor.processSearchResponse(response, asyncSearchContextId),
+                (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId),
                 threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME), threadPool::relativeTimeInMillis);
         AsyncSearchActiveContext asyncSearchContext = new AsyncSearchActiveContext(asyncSearchContextId, clusterService.localNode().getId(),
                 keepAlive, keepOnCompletion, threadPool, currentTimeSupplier, progressActionListener,
@@ -283,7 +284,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         try {
             asyncSearchStateMachine.trigger(new SearchDeletionEvent(asyncSearchContext));
             return true;
-        } catch (ResourceNotFoundException ex) {
+        } catch (AsyncSearchStateMachineClosedException ex) {
             logger.debug(() -> new ParameterizedMessage("Exception while freeing up active context"), ex);
             return false;
         }
@@ -329,6 +330,51 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
                             id, asyncSearchContextId, actionResponse, currentTimeSupplier, namedWriteableRegistry)), listener::onFailure));
         }
+    }
+
+
+    private AsyncSearchStateMachine initStateMachine() {
+        AsyncSearchStateMachine stateMachine = new AsyncSearchStateMachine(
+                EnumSet.allOf(AsyncSearchState.class), INIT);
+
+        stateMachine.markTerminalStates(EnumSet.of(DELETED));
+
+        stateMachine.registerTransition(new AsyncSearchTransition<>(INIT, RUNNING,
+                (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).setTask(e.getSearchTask()),
+                (contextId, listener) -> listener.onContextRunning(contextId), SearchStartedEvent.class));
+
+        stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, SUCCEEDED,
+                (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).processSearchResponse(e.getSearchResponse()),
+                (contextId, listener) -> listener.onContextCompleted(contextId), SearchSuccessfulEvent.class));
+
+        stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, FAILED,
+                (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).processSearchFailure(e.getException()),
+                (contextId, listener) -> listener.onContextFailed(contextId), SearchFailureEvent.class));
+
+        stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSISTING,
+                (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
+                        e.getAsyncSearchPersistenceModel()),
+                (contextId, listener) -> listener.onContextPersisted(contextId), BeginPersistEvent.class));
+
+        stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSISTING,
+                (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
+                        e.getAsyncSearchPersistenceModel()),
+                (contextId, listener) -> listener.onContextPersisted(contextId), BeginPersistEvent.class));
+
+        stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSISTED,
+                (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
+                (contextId, listener) -> listener.onContextPersisted(contextId), SearchResponsePersistedEvent.class));
+
+        stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSIST_FAILED,
+                (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
+                (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
+
+        for(AsyncSearchState state : EnumSet.of(PERSISTING, PERSISTED, PERSIST_FAILED, SUCCEEDED, FAILED, INIT, RUNNING)) {
+            stateMachine.registerTransition(new AsyncSearchTransition<>(state, DELETED,
+                    (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
+                    (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletionEvent.class));
+        }
+        return stateMachine;
     }
 
     @Override
