@@ -32,14 +32,13 @@ import static java.util.Collections.emptyMap;
 import static org.elasticsearch.action.ActionListener.wrap;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 
-public class AsyncSearchServicesTests extends AsyncSearchSingleNodeTestCase {
+public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
 
     public void testFindContext() throws InterruptedException {
         //create context
         AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
         TimeValue keepAlive = timeValueDays(9);
-//        boolean keepOnCompletion = randomBoolean();
-        boolean keepOnCompletion = false;
+        boolean keepOnCompletion = randomBoolean();
         AsyncSearchContext context = asyncSearchService.createAndStoreContext(keepAlive, keepOnCompletion,
                 System.currentTimeMillis());
         assertTrue(context instanceof AsyncSearchActiveContext);
