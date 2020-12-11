@@ -100,9 +100,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
 
         } catch (Exception e) {
             logger.error(() -> new ParameterizedMessage("Failed to submit async search request {}", request), e);
-            if (asyncSearchContext != null) {
-                ((AsyncSearchActiveContext) asyncSearchContext).close();
-            }
+            asyncSearchService.freeActiveContext((AsyncSearchActiveContext) asyncSearchContext);
             listener.onFailure(e);
         }
     }
