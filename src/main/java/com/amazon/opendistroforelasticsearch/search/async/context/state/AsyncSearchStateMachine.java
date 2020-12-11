@@ -17,11 +17,11 @@ package com.amazon.opendistroforelasticsearch.search.async.context.state;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.exception.AsyncSearchStateMachineException;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.elasticsearch.ResourceNotFoundException;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -80,17 +80,22 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
 
     /**
      * Triggers transition from current state on receiving an event. Also invokes {@linkplain Transition#onEvent()} and
-     * {@linkplain Transition#eventListener()}
+     * {@linkplain Transition#eventListener()}. Every time a trigger is fired, the callers need to be wary of {@link ResourceNotFoundException}
+     * and be able to handle it as a result of concurrent deletes.
      *
      * @param event to fire
      * @return The final Async search state
-     * @throws AsyncSearchStateMachineException when no transition is found  from current state on given event
+     * @throws IllegalStateException when no transition is found  from current state on given event
      */
     @Override
-    public AsyncSearchState trigger(AsyncSearchContextEvent event) throws AsyncSearchStateMachineException {
+    public AsyncSearchState trigger(AsyncSearchContextEvent event) {
         AsyncSearchContext asyncSearchContext = event.asyncSearchContext();
         synchronized (asyncSearchContext) {
             AsyncSearchState currentState = asyncSearchContext.getAsyncSearchState();
+            if (getFinalStates().contains(currentState)) {
+                //TODO we serialize the exception over the wire. See if we have a way to register our exceptions
+                throw new ResourceNotFoundException("Async search context with id "+ asyncSearchContext.getAsyncSearchId() + "already completed");
+            }
             String transitionId = getTransitionId(currentState, event.getClass());
             if (transitionsMap.containsKey(transitionId)) {
                 AsyncSearchTransition<? extends AsyncSearchContextEvent> transition = transitionsMap.get(transitionId);
@@ -108,7 +113,7 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
                 return asyncSearchContext.getAsyncSearchState();
             } else {
                 logger.warn("Invalid transition from source state [{}] on event [{}]", currentState, event.getClass().getName());
-                throw new AsyncSearchStateMachineException(currentState, event);
+                throw new IllegalStateException("Invalid transition from source state" + currentState + "on event " + event.getClass().getName());
             }
         }
     }

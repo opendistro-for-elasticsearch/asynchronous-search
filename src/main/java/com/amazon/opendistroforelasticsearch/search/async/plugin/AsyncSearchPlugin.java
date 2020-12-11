@@ -120,7 +120,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
     private AsyncSearchStateMachine getAsyncSearchStateMachineDefinition() {
         AsyncSearchStateMachine stateMachine = new AsyncSearchStateMachine(
                 EnumSet.allOf(AsyncSearchState.class), INIT);
-        stateMachine.markTerminalStates(EnumSet.of(PERSIST_FAILED, PERSISTED));
+        stateMachine.markTerminalStates(EnumSet.of(DELETED));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(INIT, RUNNING,
                 (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).setTask(e.getSearchTask()),

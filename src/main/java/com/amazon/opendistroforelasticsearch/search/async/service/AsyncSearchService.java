@@ -23,7 +23,6 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletionEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.exception.AsyncSearchStateMachineException;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
@@ -284,7 +283,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         try {
             asyncSearchStateMachine.trigger(new SearchDeletionEvent(asyncSearchContext));
             return true;
-        } catch (AsyncSearchStateMachineException ex) {
+        } catch (ResourceNotFoundException ex) {
+            logger.debug(() -> new ParameterizedMessage("Exception while freeing up active context"), ex);
             return false;
         }
     }
