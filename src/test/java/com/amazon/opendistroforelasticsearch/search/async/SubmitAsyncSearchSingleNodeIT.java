@@ -70,7 +70,7 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         TestThreadPool testThreadPool = null;
         CountDownLatch countDownLatch = null;
         try {
-            testThreadPool = new TestThreadPool(GetAsyncSearchSingleNodeIT.class.getName());
+            testThreadPool = new TestThreadPool(DeleteAsyncSearchSingleNodeIT.class.getName());
             int numThreads = concurrentRuns;
             List<Runnable> operationThreads = new ArrayList<>();
             if (submitAsyncSearchRequest.getKeepOnCompletion()) {

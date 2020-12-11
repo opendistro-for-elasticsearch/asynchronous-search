@@ -19,6 +19,7 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * Performs the processing after a search completes.
@@ -41,7 +42,8 @@ public class AsyncSearchPostProcessor {
         this.threadPool = threadPool;
     }
 
-    public AsyncSearchResponse processSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchResponse processSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId,
+                                                    Consumer<AsyncSearchActiveContext> freeActiveContextConsumer) {
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
@@ -49,14 +51,15 @@ public class AsyncSearchPostProcessor {
             if (asyncSearchContext.shouldPersist()) {
                 asyncSearchStateMachine.trigger(new BeginPersistEvent(asyncSearchContext));
             } else {
-                discardAsyncSearchContext(asyncSearchContext);
+                freeActiveContextConsumer.accept(asyncSearchContext);
             }
             return asyncSearchContext.getAsyncSearchResponse();
         }
         return null;
     }
 
-    public AsyncSearchResponse processSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
+    public AsyncSearchResponse processSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId,
+                                                     Consumer<AsyncSearchActiveContext> freeActiveContextConsumer) {
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
@@ -66,24 +69,15 @@ public class AsyncSearchPostProcessor {
             } else {
                 //release active context from memory immediately as persistence is not required, in such cases a longer
                 // wait_for_completion is expected
-                discardAsyncSearchContext(asyncSearchContext);
+                freeActiveContextConsumer.accept(asyncSearchContext);
             }
             return asyncSearchContext.getAsyncSearchResponse();
         }
         return null;
     }
 
-    private void discardAsyncSearchContext(AsyncSearchActiveContext asyncSearchActiveContext) {
-        try {
-            // possible side effect of concurrent deletes
-            asyncSearchStateMachine.trigger(new SearchDeletionEvent(asyncSearchActiveContext));
-        } catch (AsyncSearchStateMachineException ex) {
-            logger.debug(() -> new ParameterizedMessage("Failed to discard async search context with id [{}] due to",
-                    asyncSearchActiveContext.getAsyncSearchId()), ex);
-        }
-    }
-
-    public void persistResponse(AsyncSearchActiveContext asyncSearchContext, AsyncSearchPersistenceModel persistenceModel) {
+    public void persistResponse(AsyncSearchActiveContext asyncSearchContext, AsyncSearchPersistenceModel persistenceModel,
+                                Consumer<AsyncSearchActiveContext> freeActiveContextConsumer) {
         //assert we are not post processing on any other thread pool
         assert Thread.currentThread().getName().contains(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
         assert asyncSearchContext.retainedStages().contains(asyncSearchContext.getAsyncSearchState()) :
@@ -117,7 +111,7 @@ public class AsyncSearchPostProcessor {
                 }, (e) -> {
                     logger.error(() -> new ParameterizedMessage("Exception while acquiring the permit for asyncSearchContext [{}] due to ",
                             asyncSearchContext), e);
-                    asyncSearchStateMachine.trigger(new SearchResponsePersistFailedEvent(asyncSearchContext));
+                    freeActiveContextConsumer.accept(asyncSearchContext);
                 }),
                 TimeValue.timeValueSeconds(60), "persisting response");
     }

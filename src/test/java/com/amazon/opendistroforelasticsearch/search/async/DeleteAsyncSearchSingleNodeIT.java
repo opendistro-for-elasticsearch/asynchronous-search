@@ -162,7 +162,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         AtomicInteger numResourceNotFound = new AtomicInteger();
         TestThreadPool testThreadPool = null;
         try {
-            testThreadPool = new TestThreadPool(GetAsyncSearchSingleNodeIT.class.getName());
+            testThreadPool = new TestThreadPool(DeleteAsyncSearchSingleNodeIT.class.getName());
             int numThreads = concurrentRuns;
             List<Runnable> operationThreads = new ArrayList<>();
             CountDownLatch countDownLatch = new CountDownLatch(numThreads);
@@ -209,7 +209,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         AtomicInteger numResourceNotFound = new AtomicInteger();
         TestThreadPool testThreadPool = null;
         try {
-            testThreadPool = new TestThreadPool(GetAsyncSearchSingleNodeIT.class.getName());
+            testThreadPool = new TestThreadPool(DeleteAsyncSearchSingleNodeIT.class.getName());
             int numThreads = concurrentRuns;
             List<Runnable> operationThreads = new ArrayList<>();
             CountDownLatch countDownLatch = new CountDownLatch(numThreads);
