@@ -105,8 +105,11 @@ public class AsyncSearchPersistenceService {
     public void getResponse(String id, ActionListener<AsyncSearchPersistenceModel> listener) {
         if (!indexExists()) {
             listener.onFailure(new ResourceNotFoundException(id));
+            return;
         }
-        client.get(new GetRequest(ASYNC_SEARCH_RESPONSE_INDEX, id), ActionListener.wrap(getResponse ->
+        GetRequest request = new GetRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
+        request.refresh(true);
+        client.get(request, ActionListener.wrap(getResponse ->
                 {
                     if (getResponse.isExists()) {
                         Map<String, Object> source = getResponse.getSource();

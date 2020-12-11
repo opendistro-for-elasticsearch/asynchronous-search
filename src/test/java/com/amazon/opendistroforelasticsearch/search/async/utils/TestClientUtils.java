@@ -82,7 +82,7 @@ public class TestClientUtils {
     }
 
     public static void getResponseFromIndex(Client client, String id, CountDownLatch latch, Iterator<TimeValue> backoff) {
-        client.get(new GetRequest(INDEX).id(id), new ActionListener<GetResponse>() {
+        client.get(new GetRequest(INDEX).refresh(true).id(id), new ActionListener<GetResponse>() {
             @Override
             public void onResponse(GetResponse getResponse) {
                 if (getResponse.isExists()) {
