@@ -22,12 +22,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSe
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchTransition;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistFailedEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.*;
 import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.service.active.AsyncSearchActiveStore;
@@ -67,13 +62,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSIST_FAILED;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.*;
 
 
 public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemIndexPlugin {
@@ -161,6 +150,12 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
         stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSIST_FAILED,
                 (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
                 (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
+
+        for(AsyncSearchState state : EnumSet.of(PERSISTING, PERSISTED, PERSIST_FAILED, SUCCEEDED, FAILED, INIT, RUNNING)) {
+            stateMachine.registerTransition(new AsyncSearchTransition<>(state, DELETED,
+                    (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
+                    (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletionEvent.class));
+        }
         return stateMachine;
     }
 

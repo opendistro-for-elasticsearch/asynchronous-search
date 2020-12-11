@@ -21,7 +21,9 @@ import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSe
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletionEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.exception.AsyncSearchStateMachineException;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
@@ -265,7 +267,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         logger.warn("Acquiring context permit for freeing context for async search id [{}]", asyncSearchContext.getAsyncSearchId());
         asyncSearchContext.acquireContextPermit(ActionListener.wrap(
                 releasable -> {
-                    groupedDeletionListener.onResponse(asyncSearchActiveStore.freeContext(asyncSearchContext.getContextId()));
+                    try {
+                        asyncSearchStateMachine.trigger(new SearchDeletionEvent(asyncSearchContext));
+                        groupedDeletionListener.onResponse(true);
+                    } catch (AsyncSearchStateMachineException ex) {
+                        groupedDeletionListener.onResponse(false);
+                    }
                     logger.warn("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
                     persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), groupedDeletionListener);
                     releasable.close();
@@ -319,7 +326,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         }
     }
 
-
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
         // TODO listen to coordinator state failures and async search shards getting assigned
@@ -355,9 +361,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             for (AsyncSearchActiveContext asyncSearchActiveContext : asyncSearchActiveStore.getAllContexts().values()) {
                 try {
                     AsyncSearchState stage = asyncSearchActiveContext.getAsyncSearchState();
-                    if (stage != null && (asyncSearchActiveContext.retainedStages().contains(stage) == false ||
-                            asyncSearchActiveContext.isAlive() == false || asyncSearchActiveContext.isExpired())) {
-                        asyncSearchActiveStore.freeContext(asyncSearchActiveContext.getContextId());
+                    if (stage != null && (
+                            asyncSearchActiveContext.retainedStages().contains(stage) == false || asyncSearchActiveContext.isExpired())) {
+                        asyncSearchStateMachine.trigger(new SearchDeletionEvent(asyncSearchActiveContext));
                     }
                 } catch (Exception e) {
                     logger.debug("Exception occured while reaping async search active context for id "

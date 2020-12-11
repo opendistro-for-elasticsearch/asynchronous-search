@@ -69,12 +69,19 @@ public class AsyncSearchContextPermits implements Closeable {
                 release = new RunOnce(() -> {
                     logger.warn("Releasing permit(s) [{}] with reason [{}]", permits, lockDetails);
                     semaphore.release(permits);});
+                if (closed) {
+                    logger.debug("Trying to acquire permit for closed context [{}]", asyncSearchContextId);
+                    throw new IllegalStateException("trying to acquire permits on closed context ["+ asyncSearchContextId +"]");
+                }
                 return release::run;
             } else {
                 throw new TimeoutException("obtaining context lock" + asyncSearchContextId + "timed out after " +
                         timeout.getMillis() + "ms, previous lock details: [" + lockDetails + "] trying to lock for [" + details + "]");
             }
-        } catch (InterruptedException e) {
+        } catch (IllegalStateException e){
+            release.run();
+            throw new RuntimeException("Context already closed while trying to obtain context lock", e);
+        } catch (InterruptedException e ) {
             Thread.currentThread().interrupt();
             release.run();
             throw new RuntimeException("thread interrupted while trying to obtain context lock", e);

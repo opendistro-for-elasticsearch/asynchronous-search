@@ -1,9 +1,9 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
+/*
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchSingleNodeTestCase;
-import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
-import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
@@ -22,43 +22,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
+public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
 
-    public void testDeleteAsyncSearchForRetainedResponse() throws InterruptedException {
-        SearchRequest searchRequest = new SearchRequest();
-        searchRequest.indices("index");
-        searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
-        submitAsyncSearchRequest.keepOnCompletion(true);
-        submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 500)));
-        AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
-        assertNotNull(submitResponse);
-        assertConcurrentDeletes(submitResponse.getId(),
-                (numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound) -> {
-            assertEquals(1, numDeleteAcknowledged.get());
-            assertEquals(0, numDeleteUnAcknowledged.get());
-            assertEquals(9, numResourceNotFound.get());
-        });
-    }
 
-    public void testDeleteAsyncSearchNoRetainedResponse() throws InterruptedException {
-        SearchRequest searchRequest = new SearchRequest();
-        searchRequest.indices("index");
-        searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
-        submitAsyncSearchRequest.keepOnCompletion(false);
-        submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(5000));
-        AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
-        assertNotNull(submitResponse);
-        assertConcurrentDeletes(submitResponse.getId(),
-                (numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound) -> {
-            assertEquals(0, numDeleteAcknowledged.get());
-            assertEquals(0, numDeleteUnAcknowledged.get());
-            assertEquals(10, numResourceNotFound.get());
-        });
-    }
-
-    public void testDeleteRunningAsyncSearchNoRetainedResponse() throws InterruptedException {
+    public void testNoUpdateAsyncSearchForRetainedResponse() throws InterruptedException {
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("index");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
@@ -67,39 +34,45 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(1));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
         assertNotNull(submitResponse);
-        assertConcurrentDeletes(submitResponse.getId(),
+        assertConcurrentGetOrUpdates(submitResponse,
                 (numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound) -> {
                     assertEquals(10, numDeleteAcknowledged.get() + numResourceNotFound.get());
                     assertEquals(0, numDeleteUnAcknowledged.get());
-                });
+                }, false);
     }
 
-    private void assertConcurrentDeletes(String id, TriConsumer<AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer)
+    private void assertConcurrentGetOrUpdates(AsyncSearchResponse submitResponse,
+                                              TriConsumer<AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer, boolean update)
             throws InterruptedException {
         AtomicInteger numDeleteAcknowledged = new AtomicInteger();
         AtomicInteger numDeleteUnAcknowledged = new AtomicInteger();
         AtomicInteger numResourceNotFound = new AtomicInteger();
         TestThreadPool testThreadPool = null;
         try {
-            testThreadPool = new TestThreadPool(AsyncSearchSingleNodeIT.class.getName());
-            int numThreads = 10;
+            testThreadPool = new TestThreadPool(GetAsyncSearchSingleNodeIT.class.getName());
+            int numThreads = randomIntBetween(20, 50);
+            long lowerKeepAliveHours = 50;
+            long higherKeepAliveHours = 100;
             List<Runnable> operationThreads = new ArrayList<>();
             CountDownLatch countDownLatch = new CountDownLatch(numThreads);
             for (int i = 0; i < numThreads; i++) {
                 Runnable thread = () -> {
-                    logger.info("Triggering async search delete --->");
-                    DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(id);
-                    executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest, new ActionListener<AcknowledgedResponse>() {
+                    logger.info("Triggering async search gets with keep alives --->");
+                    GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
+                    if (update) {
+                        getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueHours(randomLongBetween(lowerKeepAliveHours, higherKeepAliveHours)));
+                    }
+                    executeGetAsyncSearch(client(), getAsyncSearchRequest, new ActionListener<AsyncSearchResponse>() {
                         @Override
-                        public void onResponse(AcknowledgedResponse acknowledgedResponse) {
-                            if (acknowledgedResponse.isAcknowledged()) {
-                                numDeleteAcknowledged.incrementAndGet();
+                        public void onResponse(AsyncSearchResponse asyncSearchResponse) {
+                            if (update) {
+                                //assertGre
+
                             } else {
-                                numDeleteUnAcknowledged.incrementAndGet();
+                                assertEquals(submitResponse, asyncSearchResponse);
                             }
                             countDownLatch.countDown();
                         }
-
                         @Override
                         public void onFailure(Exception e) {
                             if (e instanceof ResourceNotFoundException) {
@@ -120,3 +93,4 @@ public class AsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         }
     }
 }
+*/
