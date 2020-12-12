@@ -21,9 +21,11 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedR
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.common.TriConsumer;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
@@ -59,6 +61,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                     assertEquals(0, numDeleteUnAcknowledged.get());
                     assertEquals(concurrentRuns - 1, numResourceNotFound.get());
                 }, concurrentRuns);
+        assertDocNotPresentInAsyncSearchResponseIndex(submitResponse.getId());
     }
 
     public void testDeleteAsyncSearchNoRetainedResponseRandomTime() throws InterruptedException {
@@ -76,6 +79,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                     assertEquals(concurrentRuns, numDeleteAcknowledged.get() + numResourceNotFound.get());
                     assertEquals(0, numDeleteUnAcknowledged.get());
                 }, concurrentRuns);
+        assertDocNotPresentInAsyncSearchResponseIndex(submitResponse.getId());
     }
 
     public void testDeleteAsyncSearchPostCompletionNoRetainedResponse() throws InterruptedException {
@@ -94,6 +98,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                     assertEquals(0, numDeleteUnAcknowledged.get());
                     assertEquals(concurrentRuns, numResourceNotFound.get());
                 }, concurrentRuns);
+        assertDocNotPresentInAsyncSearchResponseIndex(submitResponse.getId());
     }
 
     public void testDeleteAsyncSearchPostCompletionForRetainedResponse() throws InterruptedException {
@@ -110,8 +115,9 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                 (numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound) -> {
                     assertEquals(1, numDeleteAcknowledged.get());
                     assertEquals(0, numDeleteUnAcknowledged.get());
-                    assertEquals(concurrentRuns-1, numResourceNotFound.get());
+                    assertEquals(concurrentRuns - 1, numResourceNotFound.get());
                 }, concurrentRuns);
+        assertDocNotPresentInAsyncSearchResponseIndex(submitResponse.getId());
     }
 
     public void testDeleteAsyncSearchInBlockedStateForRetainedResponse() throws Exception {
@@ -131,6 +137,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                     assertEquals(0, numDeleteUnAcknowledged.get());
                     assertEquals(concurrentRuns - 1, numResourceNotFound.get());
                 }, concurrentRuns, plugins);
+        assertDocNotPresentInAsyncSearchResponseIndex(submitResponse.getId());
     }
 
     public void testDeleteAsyncSearchInBlockedStateForNoRetainedResponse() throws Exception {
@@ -148,8 +155,9 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                 (numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound) -> {
                     assertEquals(1, numDeleteAcknowledged.get());
                     assertEquals(0, numDeleteUnAcknowledged.get());
-                    assertEquals(concurrentRuns-1, numResourceNotFound.get());
+                    assertEquals(concurrentRuns - 1, numResourceNotFound.get());
                 }, concurrentRuns, plugins);
+        assertDocNotPresentInAsyncSearchResponseIndex(submitResponse.getId());
     }
 
     private void assertConcurrentDeletesForBlockedSearch(String id, TriConsumer<AtomicInteger, AtomicInteger,
@@ -242,6 +250,14 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
             assertionConsumer.apply(numDeleteAcknowledged, numDeleteUnAcknowledged, numResourceNotFound);
         } finally {
             ThreadPool.terminate(testThreadPool, 500, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    private void assertDocNotPresentInAsyncSearchResponseIndex(String id) throws InterruptedException {
+        try {
+            assertFalse(client().get(new GetRequest(INDEX).refresh(true).id(id)).actionGet().isExists());
+        } catch (Exception e) {
+            assertTrue(e instanceof IndexNotFoundException);
         }
     }
 }
