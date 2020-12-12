@@ -24,7 +24,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchTransition;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletionEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchClosedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistFailedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
@@ -306,7 +306,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
     public boolean freeActiveContext(AsyncSearchActiveContext asyncSearchContext) {
         try {
-            asyncSearchStateMachine.trigger(new SearchDeletionEvent(asyncSearchContext));
+            asyncSearchStateMachine.trigger(new SearchClosedEvent(asyncSearchContext));
             return true;
         } catch (AsyncSearchStateMachineClosedException ex) {
             logger.debug(() -> new ParameterizedMessage("Exception while freeing up active context"), ex);
@@ -406,7 +406,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         for (AsyncSearchState state : EnumSet.of(PERSISTING, PERSISTED, PERSIST_FAILED, SUCCEEDED, FAILED, INIT, RUNNING)) {
             stateMachine.registerTransition(new AsyncSearchTransition<>(state, CLOSED,
                     (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
-                    (contextId, listener) -> listener.onContextClosed(contextId), SearchDeletionEvent.class));
+                    (contextId, listener) -> listener.onContextClosed(contextId), SearchClosedEvent.class));
         }
         return stateMachine;
     }

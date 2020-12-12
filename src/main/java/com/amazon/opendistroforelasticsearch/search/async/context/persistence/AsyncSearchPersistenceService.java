@@ -116,7 +116,6 @@ public class AsyncSearchPersistenceService {
             return;
         }
         GetRequest request = new GetRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
-        request.refresh(true);
         client.get(request, ActionListener.wrap(getResponse ->
                 {
                     if (getResponse.isExists()) {
