@@ -31,6 +31,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.PluginsService;
+import org.elasticsearch.index.reindex.ReindexPlugin;
 import org.elasticsearch.script.MockScriptPlugin;
 import org.elasticsearch.test.ESSingleNodeTestCase;
 import org.junit.After;
@@ -72,6 +73,7 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
         LinkedList<Class<? extends Plugin>> plugins = new LinkedList<>(super.getPlugins());
         plugins.add(SearchDelayPlugin.class);
         plugins.add(AsyncSearchPlugin.class);
+        plugins.add(ReindexPlugin.class);
         return plugins;
     }
 

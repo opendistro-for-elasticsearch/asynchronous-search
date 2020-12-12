@@ -1,6 +1,20 @@
-package com.amazon.opendistroforelasticsearch.search.async.service.persistence;
+/*
+ *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   or in the "license" file accompanying this file. This file is distributed
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *   express or implied. See the License for the specific language governing
+ *   permissions and limitations under the License.
+ */
 
-import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
+package com.amazon.opendistroforelasticsearch.search.async.context.persistence;
+
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -210,14 +224,26 @@ public class AsyncSearchPersistenceService {
      * @param expirationTimeInMillis the expiration time
      */
     public void deleteExpiredResponses(ActionListener<AcknowledgedResponse> listener, long expirationTimeInMillis) {
-        if (!indexExists()) {
+        if (indexExists() == false) {
             logger.debug("Async search index not yet created! Nothing to delete.");
             listener.onResponse(new AcknowledgedResponse(true));
         } else {
             DeleteByQueryRequest request = new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX)
                     .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS).lte(expirationTimeInMillis));
             client.execute(DeleteByQueryAction.INSTANCE, request,
-                 ActionListener.wrap(r -> listener.onResponse(new AcknowledgedResponse(true)),
+                 ActionListener.wrap(
+                         deleteResponse -> {
+                             if ((deleteResponse.getBulkFailures() != null &&  deleteResponse.getBulkFailures().size() > 0 ) ||
+                                     (deleteResponse.getSearchFailures() != null && deleteResponse.getSearchFailures().size() > 0)) {
+                                 logger.error("Failed to delete expired responses with bulk failures[{}] / search failures [{}] as ",
+                                         deleteResponse.getBulkFailures(), deleteResponse.getSearchFailures());
+                                 listener.onResponse(new AcknowledgedResponse(false));
+
+                             } else {
+                                 logger.debug("Successfully deleted expired responses");
+                                 listener.onResponse(new AcknowledgedResponse(true));
+                             }
+                         },
                         (e) -> {
                             logger.debug(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}",
                                     expirationTimeInMillis), e);

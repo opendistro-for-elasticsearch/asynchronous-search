@@ -11,8 +11,8 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.event.Se
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
-import com.amazon.opendistroforelasticsearch.search.async.service.active.AsyncSearchActiveStore;
-import com.amazon.opendistroforelasticsearch.search.async.service.persistence.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
+import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;

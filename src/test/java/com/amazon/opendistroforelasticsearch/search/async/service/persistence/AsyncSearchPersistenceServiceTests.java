@@ -1,12 +1,29 @@
+/*
+ *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   or in the "license" file accompanying this file. This file is distributed
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *   express or implied. See the License for the specific language governing
+ *   permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.search.async.service.persistence;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchSingleNodeTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
+import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.elasticsearch.ResourceNotFoundException;
@@ -158,6 +175,49 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
             verifyPersistenceModel(newPersistenceModel, r, getLatch);
         }, e -> failure(getLatch, e)));
         getLatch.await();
+    }
+
+    public void testDeleteExpiredResponse() throws InterruptedException, IOException {
+        AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
+        AsyncSearchResponse asyncSearchResponse = getAsyncSearchResponse();
+
+        CountDownLatch updateLatch = new CountDownLatch(1);
+        long newExpirationTime = System.currentTimeMillis() + new TimeValue(100, TimeUnit.MILLISECONDS).getMillis();
+        final AsyncSearchPersistenceModel newPersistenceModel = new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
+                newExpirationTime, asyncSearchResponse.getSearchResponse());
+        persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
+                newExpirationTime,
+                ActionListener.wrap(persistenceModel -> {
+
+                            verifyPersistenceModel(
+                                    newPersistenceModel,
+                                    persistenceModel,
+                                    updateLatch);
+                        },
+                        e -> failure(updateLatch, e)));
+        updateLatch.await();
+
+        CountDownLatch getLatch = new CountDownLatch(1);
+        persistenceService.getResponse(asyncSearchResponse.getId(), ActionListener.wrap(r -> {
+            verifyPersistenceModel(newPersistenceModel, r, getLatch);
+        }, e -> failure(getLatch, e)));
+        getLatch.await();
+
+        CountDownLatch deleteLatch = new CountDownLatch(1);
+        persistenceService.deleteExpiredResponses(new ActionListener<AcknowledgedResponse>() {
+            @Override
+            public void onResponse(AcknowledgedResponse acknowledgedResponse) {
+                assertTrue(acknowledgedResponse.isAcknowledged());
+                deleteLatch.countDown();
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                fail("Received exception while deleting expired response");
+
+            }
+        }, System.currentTimeMillis());
+
     }
 
     private void assertRnf(CountDownLatch latch, Exception exception) {

@@ -12,11 +12,9 @@
  *   express or implied. See the License for the specific language governing
  *   permissions and limitations under the License.
  */
-package com.amazon.opendistroforelasticsearch.search.async.service.active;
+package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
-import com.amazon.opendistroforelasticsearch.search.async.exception.AsyncSearchRejectedException;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

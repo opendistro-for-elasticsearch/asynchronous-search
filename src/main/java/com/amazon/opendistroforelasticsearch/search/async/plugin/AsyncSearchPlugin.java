@@ -19,8 +19,8 @@ import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSear
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.service.active.AsyncSearchActiveStore;
-import com.amazon.opendistroforelasticsearch.search.async.service.persistence.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
+import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportSubmitAsyncSearchAction;
