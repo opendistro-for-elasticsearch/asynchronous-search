@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.search.async.transport;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
-import com.amazon.opendistroforelasticsearch.search.async.exception.AsyncSearchRejectedException;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;

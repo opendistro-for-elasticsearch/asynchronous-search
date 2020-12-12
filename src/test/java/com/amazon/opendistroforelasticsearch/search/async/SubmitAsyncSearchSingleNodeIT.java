@@ -84,7 +84,8 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         }, concurrentRuns);
     }
 
-    private void assertConcurrentSubmitsForBlockedSearch(TriConsumer<AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer, int concurrentRuns) throws Exception {
+    private void assertConcurrentSubmitsForBlockedSearch(TriConsumer<AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer,
+                                                         int concurrentRuns) throws Exception {
         AtomicInteger numStartedAsyncSearch = new AtomicInteger();
         AtomicInteger numFailedAsyncSearch = new AtomicInteger();
         AtomicInteger numRejectedAsyncSearch = new AtomicInteger();
@@ -100,7 +101,8 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                     logger.info("Triggering async search submit --->");
                     SearchRequest searchRequest = new SearchRequest("index");
                     searchRequest.source(new SearchSourceBuilder());
-                    searchRequest.source().query(scriptQuery(new Script(ScriptType.INLINE, "mockscript", SCRIPT_NAME, Collections.emptyMap())));
+                    searchRequest.source().query(scriptQuery(new Script(ScriptType.INLINE, "mockscript", SCRIPT_NAME,
+                            Collections.emptyMap())));
                     SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
                     submitAsyncSearchRequest.keepOnCompletion(false);
                     submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(5000));

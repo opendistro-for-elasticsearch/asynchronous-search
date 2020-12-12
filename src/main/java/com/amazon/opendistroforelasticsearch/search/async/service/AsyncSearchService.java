@@ -70,7 +70,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.CLOSED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
@@ -199,10 +199,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     public void findContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<AsyncSearchContext> listener) {
         Optional<AsyncSearchActiveContext> asyncSearchActiveContext = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchActiveContext.isPresent()) {
-            logger.warn("Active context is present for async search ID [{}]", id);
+            logger.debug("Active context is present for async search ID [{}]", id);
             listener.onResponse(asyncSearchActiveContext.get());
         } else {
-            logger.warn("Active context is not present for async search ID [{}]", id);
+            logger.debug("Active context is not present for async search ID [{}]", id);
             persistenceService.getResponse(id, ActionListener.wrap(
                  (persistenceModel) ->
                          listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId, persistenceModel,
@@ -371,7 +371,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         AsyncSearchStateMachine stateMachine = new AsyncSearchStateMachine(
                 EnumSet.allOf(AsyncSearchState.class), INIT);
 
-        stateMachine.markTerminalStates(EnumSet.of(DELETED));
+        stateMachine.markTerminalStates(EnumSet.of(CLOSED));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(INIT, RUNNING,
                 (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).setTask(e.getSearchTask()),
@@ -404,9 +404,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
 
         for (AsyncSearchState state : EnumSet.of(PERSISTING, PERSISTED, PERSIST_FAILED, SUCCEEDED, FAILED, INIT, RUNNING)) {
-            stateMachine.registerTransition(new AsyncSearchTransition<>(state, DELETED,
+            stateMachine.registerTransition(new AsyncSearchTransition<>(state, CLOSED,
                     (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
-                    (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletionEvent.class));
+                    (contextId, listener) -> listener.onContextClosed(contextId), SearchDeletionEvent.class));
         }
         return stateMachine;
     }
@@ -427,7 +427,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
     @Override
     protected void doStop() {
-        asyncSearchActiveStore.freeAllContexts();
+        for (final AsyncSearchContext context : asyncSearchActiveStore.getAllContexts().values()) {
+            freeActiveContext((AsyncSearchActiveContext) context);
+        }
     }
 
     @Override

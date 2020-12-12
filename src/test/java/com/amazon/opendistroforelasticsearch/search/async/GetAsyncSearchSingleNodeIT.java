@@ -5,11 +5,13 @@ import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.utils.QuadConsumer;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.common.TriConsumer;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.engine.VersionConflictEngineException;
 import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
@@ -43,8 +45,9 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         assertNotNull(submitResponse);
         int concurrentRuns = randomIntBetween(20, 50);
         assertConcurrentGetOrUpdates(submitResponse,
-                (numGetSuccess, numGetFailures, numResourceNotFound) -> {
-                    assertEquals(concurrentRuns, numGetSuccess.get() + numResourceNotFound.get());
+                (numGetSuccess, numGetFailures, numVersionConflictFailure, numResourceNotFoundFailures) -> {
+                    assertEquals(concurrentRuns, numGetSuccess.get() + numResourceNotFoundFailures.get()
+                            + numVersionConflictFailure.get());
                     assertEquals(0, numGetFailures.get());
                 }, false, concurrentRuns, false);
     }
@@ -60,9 +63,10 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         assertNotNull(submitResponse);
         int concurrentRuns = randomIntBetween(20, 50);
         assertConcurrentGetOrUpdates(submitResponse,
-                (numGetSuccess, numGetFailures, numResourceNotFound) -> {
+                (numGetSuccess, numGetFailures, numVersionConflictFailures, numResourceNotFoundFailures) -> {
                     assertEquals(0, numGetFailures.get());
-                    assertEquals(concurrentRuns, numGetSuccess.get() + numResourceNotFound.get());
+                    assertEquals(concurrentRuns, numGetSuccess.get() + numVersionConflictFailures.get()
+                            + numResourceNotFoundFailures.get());
                 }, true, concurrentRuns, false);
     }
 
@@ -77,9 +81,10 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         assertNotNull(submitResponse);
         int concurrentRuns = randomIntBetween(20, 50);
         assertConcurrentGetOrUpdates(submitResponse,
-                (numGetSuccess, numGetFailures, numResourceNotFound) -> {
+                (numGetSuccess, numGetFailures, numVersionConflictFailures, numResourceNotFoundFailures) -> {
                     assertEquals(0, numGetFailures.get());
-                    assertEquals(concurrentRuns, numGetSuccess.get() + numResourceNotFound.get());
+                    assertEquals(concurrentRuns, numGetSuccess.get() + numVersionConflictFailures.get()
+                            + numResourceNotFoundFailures.get());
                 }, true, concurrentRuns, true);
     }
 
@@ -94,9 +99,10 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         assertNotNull(submitResponse);
         int concurrentRuns = randomIntBetween(20, 50);
         assertConcurrentGetOrUpdates(submitResponse,
-                (numGetSuccess, numGetFailures, numResourceNotFound) -> {
+                (numGetSuccess, numGetFailures, numVersionConflictFailures, numResourceNotFoundFailures) -> {
                     assertEquals(0, numGetFailures.get());
-                    assertEquals(concurrentRuns, numGetSuccess.get() + numResourceNotFound.get());
+                    assertEquals(concurrentRuns, numGetSuccess.get() + numResourceNotFoundFailures.get()
+                            + numVersionConflictFailures.get());
                 }, false, concurrentRuns, true);
     }
 
@@ -150,10 +156,9 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         assertNotNull(submitResponse);
         int concurrentRuns = randomIntBetween(10, 20);
         assertConcurrentGetForBlockedSearch(submitResponse,
-                (numGetSuccess, numGetFailures, numResourceNotFound) -> {
+                (numGetSuccess, numGetFailures, numVersionConflictFailures) -> {
                     assertEquals(0, numGetFailures.get());
-                    assertEquals(concurrentRuns, numGetSuccess.get());
-                    assertEquals(0, numResourceNotFound.get());
+                    assertEquals(concurrentRuns, numGetSuccess.get() + numVersionConflictFailures.get());
                 }, true, concurrentRuns, false, plugins);
     }
 
@@ -169,10 +174,9 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         assertNotNull(submitResponse);
         int concurrentRuns = randomIntBetween(10, 20);
         assertConcurrentGetForBlockedSearch(submitResponse,
-                (numGetSuccess, numGetFailures, numResourceNotFound) -> {
+                (numGetSuccess, numGetFailures, numVersionConflictFailures) -> {
                     assertEquals(0, numGetFailures.get());
-                    assertEquals(concurrentRuns, numGetSuccess.get());
-                    assertEquals(0, numResourceNotFound.get());
+                    assertEquals(concurrentRuns, numGetSuccess.get() + numVersionConflictFailures.get());
                 }, true, concurrentRuns, false, plugins);
     }
 
@@ -183,7 +187,7 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
 
         AtomicInteger numGetSuccess = new AtomicInteger();
         AtomicInteger numGetFailures = new AtomicInteger();
-        AtomicInteger numResourceNotFound = new AtomicInteger();
+        AtomicInteger numVersionConflictFailures = new AtomicInteger();
         TestThreadPool testThreadPool = null;
         try {
             testThreadPool = new TestThreadPool(DeleteAsyncSearchSingleNodeIT.class.getName());
@@ -197,7 +201,8 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                     GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
                     if (update) {
                         logger.info("Triggering async search gets with keep alives --->");
-                        getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueMillis(randomLongBetween(lowerKeepAliveMillis, higherKeepAliveMillis)));
+                        getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueMillis(randomLongBetween(lowerKeepAliveMillis,
+                                higherKeepAliveMillis)));
                     }
                     getAsyncSearchRequest.setWaitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 5000)));
                     executeGetAsyncSearch(client(), getAsyncSearchRequest, new ActionListener<AsyncSearchResponse>() {
@@ -209,8 +214,8 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
 
                         @Override
                         public void onFailure(Exception e) {
-                            if (e instanceof ResourceNotFoundException) {
-                                numResourceNotFound.incrementAndGet();
+                            if (e instanceof VersionConflictEngineException) {
+                                numVersionConflictFailures.incrementAndGet();
                             } else {
                                 numGetFailures.incrementAndGet();
                             }
@@ -223,24 +228,25 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
             TestThreadPool finalTestThreadPool = testThreadPool;
             operationThreads.forEach(runnable -> finalTestThreadPool.executor("generic").execute(runnable));
             countDownLatch.await();
+            DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(submitResponse.getId());
+            CountDownLatch deleteLatch = new CountDownLatch(1);
+            executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest, ActionListener.wrap(() -> deleteLatch.countDown()));
+            deleteLatch.await();
             disableBlocks(plugins);
-            if (retainResponse) {
-                DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(submitResponse.getId());
-                executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest).actionGet();
-            }
-            assertionConsumer.apply(numGetSuccess, numGetFailures, numResourceNotFound);
+            assertionConsumer.apply(numGetSuccess, numGetFailures, numVersionConflictFailures);
         } finally {
             ThreadPool.terminate(testThreadPool, 500, TimeUnit.MILLISECONDS);
         }
     }
 
     private void assertConcurrentGetOrUpdates(AsyncSearchResponse submitResponse,
-                                              TriConsumer<AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer,
+                                              QuadConsumer<AtomicInteger, AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer,
                                               boolean update, int concurrentRuns, boolean retainResponse)
             throws InterruptedException {
         AtomicInteger numGetSuccess = new AtomicInteger();
         AtomicInteger numGetFailures = new AtomicInteger();
-        AtomicInteger numResourceNotFound = new AtomicInteger();
+        AtomicInteger numVersionConflictFailures = new AtomicInteger();
+        AtomicInteger numResourceNotFoundFailures = new AtomicInteger();
         TestThreadPool testThreadPool = null;
         try {
             testThreadPool = new TestThreadPool(GetAsyncSearchSingleNodeIT.class.getName());
@@ -254,27 +260,29 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                     GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
                     if (update) {
                         logger.info("Triggering async search gets with keep alives --->");
-                        getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueMillis(randomLongBetween(lowerKeepAliveMillis, higherKeepAliveMillis)));
+                        getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueMillis(randomLongBetween(lowerKeepAliveMillis,
+                                higherKeepAliveMillis)));
                     }
                     getAsyncSearchRequest.setWaitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 5000)));
                     executeGetAsyncSearch(client(), getAsyncSearchRequest, new ActionListener<AsyncSearchResponse>() {
                         @Override
                         public void onResponse(AsyncSearchResponse asyncSearchResponse) {
                             if (update) {
-                                assertThat(asyncSearchResponse.getExpirationTimeMillis(), greaterThanOrEqualTo(System.currentTimeMillis() + lowerKeepAliveMillis));
-                                assertThat(asyncSearchResponse.getExpirationTimeMillis(), lessThanOrEqualTo(System.currentTimeMillis() + higherKeepAliveMillis));
-                            } else {
-                                //AsyncSearchAssertions.assertSearchResponses(submitResponse.getSearchResponse(), asyncSearchResponse.getSearchResponse());
+                                assertThat(asyncSearchResponse.getExpirationTimeMillis(), greaterThanOrEqualTo(
+                                        System.currentTimeMillis() + lowerKeepAliveMillis));
+                                assertThat(asyncSearchResponse.getExpirationTimeMillis(), lessThanOrEqualTo(
+                                        System.currentTimeMillis() + higherKeepAliveMillis));
                             }
                             numGetSuccess.incrementAndGet();
                             countDownLatch.countDown();
                         }
                         @Override
                         public void onFailure(Exception e) {
-                            if (e instanceof ResourceNotFoundException) {
-                                numResourceNotFound.incrementAndGet();
+                            if (e instanceof VersionConflictEngineException) {
+                                numVersionConflictFailures.incrementAndGet();
+                            } else if (e instanceof ResourceNotFoundException) {
+                                numResourceNotFoundFailures.incrementAndGet();
                             } else {
-                                logger.warn("Failure received " , e);
                                 numGetFailures.incrementAndGet();
                             }
 
@@ -291,7 +299,8 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                 DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(submitResponse.getId());
                 executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest).actionGet();
             }
-            assertionConsumer.apply(numGetSuccess, numGetFailures, numResourceNotFound);
+            assertionConsumer.apply(numGetSuccess, numGetFailures, numVersionConflictFailures, numResourceNotFoundFailures);
+
         } finally {
             ThreadPool.terminate(testThreadPool, 500, TimeUnit.MILLISECONDS);
         }

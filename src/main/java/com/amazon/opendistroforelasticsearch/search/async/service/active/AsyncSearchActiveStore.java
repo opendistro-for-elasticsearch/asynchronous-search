@@ -15,7 +15,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.service.active;
 
 import com.amazon.opendistroforelasticsearch.search.async.exception.AsyncSearchRejectedException;
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
@@ -55,7 +54,7 @@ public class AsyncSearchActiveStore {
         this.maxRunningContext = maxRunningContext;
     }
 
-    public void putContext(AsyncSearchContextId asyncSearchContextId, AsyncSearchActiveContext asyncSearchContext) {
+    public synchronized void putContext(AsyncSearchContextId asyncSearchContextId, AsyncSearchActiveContext asyncSearchContext) {
         if (activeContexts.size() >= maxRunningContext) {
             throw new AsyncSearchRejectedException("Trying to create too many running contexts. Must be less than or equal to: ["
                     + maxRunningContext + "]. This limit can be set by changing the [" + MAX_RUNNING_CONTEXT.getKey() + "] setting.",
@@ -89,11 +88,5 @@ public class AsyncSearchActiveStore {
             return true;
         }
         return false;
-    }
-
-    public void freeAllContexts() {
-        for (final AsyncSearchContext context : activeContexts.values()) {
-            freeContext(context.getContextId());
-        }
     }
 }

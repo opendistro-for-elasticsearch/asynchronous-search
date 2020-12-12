@@ -20,11 +20,10 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
+import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentType;
@@ -118,7 +117,8 @@ public class AsyncSearchPersistenceService {
                 },
                 exception -> {
                     logger.error(() -> new ParameterizedMessage("Failed to get response for async search id {}", id), exception);
-                    listener.onFailure(exception);
+                    final Throwable cause = ExceptionsHelper.unwrapCause(exception);
+                    listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
                 }));
     }
 
@@ -147,12 +147,13 @@ public class AsyncSearchPersistenceService {
                 listener.onResponse(false);
             }
         }, e -> {
-            if (ExceptionsHelper.unwrapCause(e) instanceof DocumentMissingException) {
+            final Throwable cause = ExceptionsHelper.unwrapCause(e);
+            if (cause instanceof DocumentMissingException) {
                 logger.warn(() -> new ParameterizedMessage("Async search response doc already deleted {}", id), e);
                 listener.onResponse(false);
             } else {
                 logger.warn(() -> new ParameterizedMessage("Failed to delete async search for id {}", id), e);
-                listener.onFailure(e);
+                listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
             }
         }));
     }
@@ -190,12 +191,13 @@ public class AsyncSearchPersistenceService {
                     break;
             }
         }, exception -> {
-            if (ExceptionsHelper.unwrapCause(exception) instanceof DocumentMissingException) {
+            final Throwable cause = ExceptionsHelper.unwrapCause(exception);
+            if (cause instanceof DocumentMissingException) {
                 listener.onFailure(new ResourceNotFoundException(id));
             } else {
-                logger.error(() -> new ParameterizedMessage("Exception occurred converting updating expiration time for id {}",
+                logger.debug(() -> new ParameterizedMessage("Exception occurred updating expiration time for id {}",
                         id), exception);
-                listener.onFailure(exception);
+                listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
             }
         }));
 
@@ -215,12 +217,13 @@ public class AsyncSearchPersistenceService {
             DeleteByQueryRequest request = new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX)
                     .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS).lte(expirationTimeInMillis));
             client.execute(DeleteByQueryAction.INSTANCE, request,
-                    ActionListener.wrap(r -> listener.onResponse(new AcknowledgedResponse(true)),
-                            (e) -> {
-                                listener.onFailure(e);
-                                logger.debug(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}",
-                                        expirationTimeInMillis), e);
-                            }));
+                 ActionListener.wrap(r -> listener.onResponse(new AcknowledgedResponse(true)),
+                        (e) -> {
+                            logger.debug(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}",
+                                    expirationTimeInMillis), e);
+                            final Throwable cause = ExceptionsHelper.unwrapCause(e);
+                            listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
+                        }));
         }
     }
 

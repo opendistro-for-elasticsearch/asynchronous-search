@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
@@ -127,6 +128,7 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
         private final AtomicBoolean shouldBlock = new AtomicBoolean(true);
 
         public void disableBlock() {
+            LogManager.getLogger(AsyncSearchSingleNodeTestCase.class).info("Disabling block ----------->");
             shouldBlock.set(false);
         }
 
@@ -138,7 +140,8 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
         public Map<String, Function<Map<String, Object>, Object>> pluginScripts() {
             return Collections.singletonMap(SCRIPT_NAME, params -> {
                 try {
-                    assertBusy(() -> assertFalse(shouldBlock.get()));
+                    // multi-threaded tests taking longer than the default 10s
+                    assertBusy(() -> assertFalse(shouldBlock.get()), 60, TimeUnit.SECONDS);
                     LogManager.getLogger(AsyncSearchSingleNodeTestCase.class).info("Unblocked ----------->");
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -150,6 +153,7 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
 
     @After
     public void tearDownData() throws InterruptedException {
+
         CountDownLatch deleteLatch = new CountDownLatch(1);
         client().admin().indices().prepareDelete(INDEX).execute(ActionListener.wrap(r -> deleteLatch.countDown(), e -> {
             deleteLatch.countDown();

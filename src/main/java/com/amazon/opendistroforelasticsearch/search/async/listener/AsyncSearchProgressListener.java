@@ -194,7 +194,7 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
                     .getAsyncSearchId());
         }
         return ex;
-}
+    }
     /**
      * Invoked once search has completed with response or error.
      */

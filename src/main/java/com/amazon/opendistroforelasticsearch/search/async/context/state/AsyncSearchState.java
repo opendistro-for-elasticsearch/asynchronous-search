@@ -59,7 +59,7 @@ public enum AsyncSearchState {
     PERSIST_FAILED,
 
     /**
-     * The context has been deleted
+     * The context has been closed
      */
-    DELETED;
+    CLOSED;
 }
