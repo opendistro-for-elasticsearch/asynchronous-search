@@ -66,17 +66,12 @@ public class AsyncSearchPersistenceService {
     private final Client client;
     private final ClusterService clusterService;
     private final ThreadPool threadPool;
-    private final NamedXContentRegistry xContentRegistry;
-    private final NamedWriteableRegistry namedWriteableRegistry;
 
     @Inject
-    public AsyncSearchPersistenceService(Client client, ClusterService clusterService, ThreadPool threadPool,
-                                         NamedXContentRegistry xContentRegistry, NamedWriteableRegistry namedWriteableRegistry) {
+    public AsyncSearchPersistenceService(Client client, ClusterService clusterService, ThreadPool threadPool) {
         this.client = client;
         this.clusterService = clusterService;
         this.threadPool = threadPool;
-        this.xContentRegistry = xContentRegistry;
-        this.namedWriteableRegistry = namedWriteableRegistry;
     }
 
 
@@ -103,7 +98,7 @@ public class AsyncSearchPersistenceService {
      * @param listener invoked once get request completes. Throws ResourceNotFoundException if index doesn't exist.
      */
     public void getResponse(String id, ActionListener<AsyncSearchPersistenceModel> listener) {
-        if (!indexExists()) {
+        if (indexExists() == false) {
             listener.onFailure(new ResourceNotFoundException(id));
             return;
         }
@@ -137,7 +132,7 @@ public class AsyncSearchPersistenceService {
      */
 
     public void deleteResponse(String id, ActionListener<Boolean> listener) {
-        if (!indexExists()) {
+        if (indexExists() == false) {
             logger.warn("Async search index [{}] doesn't exists", ASYNC_SEARCH_RESPONSE_INDEX);
             listener.onResponse(false);
             return;
@@ -170,13 +165,15 @@ public class AsyncSearchPersistenceService {
      * @param listener             listener invoked with the response on completion of update request
      */
     public void updateExpirationTime(String id, long expirationTimeMillis, ActionListener<AsyncSearchPersistenceModel> listener) {
-        if (!indexExists()) {
+        if (indexExists() == false) {
             listener.onFailure(new ResourceNotFoundException(id));
+            return;
         }
         Map<String, Object> source = new HashMap<>();
         source.put(EXPIRATION_TIME_MILLIS, expirationTimeMillis);
         UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
         updateRequest.doc(source, XContentType.JSON);
+        updateRequest.retryOnConflict(5);
         updateRequest.fetchSource(FetchSourceContext.FETCH_SOURCE);
         client.update(updateRequest, ActionListener.wrap(updateResponse -> {
             switch (updateResponse.getResult()) {
@@ -196,7 +193,7 @@ public class AsyncSearchPersistenceService {
             if (ExceptionsHelper.unwrapCause(exception) instanceof DocumentMissingException) {
                 listener.onFailure(new ResourceNotFoundException(id));
             } else {
-                logger.error(() -> new ParameterizedMessage("Exception occurred converting result to XContent for id {}",
+                logger.error(() -> new ParameterizedMessage("Exception occurred converting updating expiration time for id {}",
                         id), exception);
                 listener.onFailure(exception);
             }
@@ -290,20 +287,20 @@ public class AsyncSearchPersistenceService {
             XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
             builder.startObject()
                     .startObject("properties")
-                    .startObject(START_TIME_MILLIS)
-                    .field("type", "date")
-                    .field("format", "epoch_millis")
-                    .endObject()
-                    .startObject(EXPIRATION_TIME_MILLIS)
-                    .field("type", "date")
-                    .field("format", "epoch_millis")
-                    .endObject()
-                    .startObject(RESPONSE)
-                    .field("type", "binary")
-                    .endObject()
-                    .startObject(ERROR)
-                    .field("type", "binary")
-                    .endObject()
+                        .startObject(START_TIME_MILLIS)
+                            .field("type", "date")
+                            .field("format", "epoch_millis")
+                        .endObject()
+                        .startObject(EXPIRATION_TIME_MILLIS)
+                            .field("type", "date")
+                            .field("format", "epoch_millis")
+                        .endObject()
+                        .startObject(RESPONSE)
+                            .field("type", "binary")
+                        .endObject()
+                        .startObject(ERROR)
+                            .field("type", "binary")
+                        .endObject()
                     .endObject()
                     .endObject();
             return builder;

@@ -13,7 +13,7 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async.context.active;
+package com.amazon.opendistroforelasticsearch.search.async;
 
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
@@ -24,11 +24,14 @@ import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearch
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import org.apache.logging.log4j.LogManager;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.plugins.Plugin;
+import org.elasticsearch.plugins.PluginsService;
+import org.elasticsearch.script.MockScriptPlugin;
 import org.elasticsearch.test.ESSingleNodeTestCase;
 import org.junit.After;
 import org.junit.Before;
@@ -36,6 +39,12 @@ import org.junit.Before;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 
@@ -59,7 +68,10 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
 
     @Override
     protected Collection<Class<? extends Plugin>> getPlugins() {
-        return Collections.singletonList(AsyncSearchPlugin.class);
+        LinkedList<Class<? extends Plugin>> plugins = new LinkedList<>(super.getPlugins());
+        plugins.add(SearchDelayPlugin.class);
+        plugins.add(AsyncSearchPlugin.class);
+        return plugins;
     }
 
     public static ActionFuture<AsyncSearchResponse> executeSubmitAsyncSearch(Client client, SubmitAsyncSearchRequest request) {
@@ -87,6 +99,53 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
     public static void executeGetAsyncSearch(Client client, GetAsyncSearchRequest request,
                                                 ActionListener<AsyncSearchResponse> listener) {
         client.execute(GetAsyncSearchAction.INSTANCE, request, listener);
+    }
+
+    public List<SearchDelayPlugin> initPluginFactory() {
+        List<SearchDelayPlugin> plugins = new ArrayList<>();
+        PluginsService pluginsService = getInstanceFromNode(PluginsService.class);
+        plugins.addAll(pluginsService.filterPlugins(SearchDelayPlugin.class));
+        enableBlocks(plugins);
+        return plugins;
+    }
+
+    public void disableBlocks(List<SearchDelayPlugin> plugins) {
+        for (SearchDelayPlugin plugin : plugins) {
+            plugin.disableBlock();
+        }
+    }
+
+    public void enableBlocks(List<SearchDelayPlugin> plugins) {
+        for (SearchDelayPlugin plugin : plugins) {
+            plugin.enableBlock();
+        }
+    }
+
+    public static class SearchDelayPlugin extends MockScriptPlugin {
+        public static final String SCRIPT_NAME = "search_delay";
+
+        private final AtomicBoolean shouldBlock = new AtomicBoolean(true);
+
+        public void disableBlock() {
+            shouldBlock.set(false);
+        }
+
+        public void enableBlock() {
+            shouldBlock.set(true);
+        }
+
+        @Override
+        public Map<String, Function<Map<String, Object>, Object>> pluginScripts() {
+            return Collections.singletonMap(SCRIPT_NAME, params -> {
+                try {
+                    assertBusy(() -> assertFalse(shouldBlock.get()));
+                    LogManager.getLogger(AsyncSearchSingleNodeTestCase.class).info("Unblocked ----------->");
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                return true;
+            });
+        }
     }
 
     @After

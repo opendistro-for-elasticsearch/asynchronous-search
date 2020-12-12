@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlug
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.apache.lucene.store.AlreadyClosedException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
@@ -61,7 +62,7 @@ public class AsyncSearchContextPermits implements Closeable {
         RunOnce release = new RunOnce(() -> {});
         if (closed) {
             logger.debug("Trying to acquire permit for closed context [{}]", asyncSearchContextId);
-            throw new IllegalStateException("trying to acquire permits on closed context ["+ asyncSearchContextId +"]");
+            throw new AlreadyClosedException("trying to acquire permits on closed context ["+ asyncSearchContextId +"]");
         }
         try {
             if (semaphore.tryAcquire(permits, timeout.getMillis(), TimeUnit.MILLISECONDS)) {
@@ -71,7 +72,7 @@ public class AsyncSearchContextPermits implements Closeable {
                     semaphore.release(permits);});
                 if (closed) {
                     logger.debug("Trying to acquire permit for closed context [{}]", asyncSearchContextId);
-                    throw new IllegalStateException("trying to acquire permits on closed context ["+ asyncSearchContextId +"]");
+                    throw new AlreadyClosedException("trying to acquire permits on closed context ["+ asyncSearchContextId +"]");
                 }
                 return release::run;
             } else {

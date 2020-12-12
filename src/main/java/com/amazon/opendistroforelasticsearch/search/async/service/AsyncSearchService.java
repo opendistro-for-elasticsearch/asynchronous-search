@@ -39,6 +39,8 @@ import com.amazon.opendistroforelasticsearch.search.async.service.persistence.As
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.apache.lucene.store.AlreadyClosedException;
+import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchAction;
@@ -197,15 +199,18 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     public void findContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<AsyncSearchContext> listener) {
         Optional<AsyncSearchActiveContext> asyncSearchActiveContext = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchActiveContext.isPresent()) {
+            logger.warn("Active context is present for async search ID [{}]", id);
             listener.onResponse(asyncSearchActiveContext.get());
         } else {
-            persistenceService.getResponse(id, ActionListener.wrap((persistenceModel) ->
-                            listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId, persistenceModel,
-                                    currentTimeSupplier, namedWriteableRegistry)),
-                    ex -> {
-                        logger.debug(() -> new ParameterizedMessage("Context not found for ID {}", id), ex);
-                        listener.onFailure(new ResourceNotFoundException(id));
-                    }
+            logger.warn("Active context is not present for async search ID [{}]", id);
+            persistenceService.getResponse(id, ActionListener.wrap(
+                 (persistenceModel) ->
+                         listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId, persistenceModel,
+                         currentTimeSupplier, namedWriteableRegistry)),
+                 ex -> {
+                logger.debug(() -> new ParameterizedMessage("Context not found for ID  in the system index {}", id), ex);
+                listener.onFailure(new ResourceNotFoundException(id));
+                }
             ));
         }
     }
@@ -215,7 +220,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         Map<Long, AsyncSearchActiveContext> allContexts = asyncSearchActiveStore.getAllContexts();
         return Collections.unmodifiableSet(allContexts.values().stream()
                 .filter(Objects::nonNull)
-                .filter(context -> context.isExpired())
+                .filter(AsyncSearchContext::isExpired)
                 .filter(context -> context.getTask().isCancelled() == false)
                 .map(AsyncSearchActiveContext::getTask)
                 .collect(Collectors.toSet()));
@@ -287,6 +292,11 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), groupedDeletionListener);
                     releasable.close();
                 }, exception -> {
+                    if (ExceptionsHelper.unwrapCause(exception) instanceof AlreadyClosedException == false) {
+                        // this should ideally not happen. This would mean we couldn't acquire permits within the timeout
+                        logger.warn(() -> new ParameterizedMessage("Failed to acquire permits for async search id [{}] for freeing context",
+                                asyncSearchContext.getAsyncSearchId()), exception);
+                    }
                     groupedDeletionListener.onResponse(false);
                     logger.warn("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
                     persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), groupedDeletionListener);
@@ -336,8 +346,18 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         }
                         releasable.close();
                     },
-                    //TODO introduce request timeouts to make the permit wait transparent to the client
-                    listener::onFailure), TimeValue.timeValueSeconds(5), "update keep alive");
+                    exception -> {
+                        if (ExceptionsHelper.unwrapCause(exception) instanceof AlreadyClosedException == false) {
+                            // this should ideally not happen. This would mean we couldn't acquire permits within the timeout
+                            logger.warn(() -> new ParameterizedMessage("Failed to acquire permits for async search id [{}] " +
+                                    "for updating context", asyncSearchActiveContext.getAsyncSearchId()), exception);
+                        }
+                            persistenceService.updateExpirationTime(id, requestedExpirationTime,
+                                    ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
+                                            id, asyncSearchContextId, actionResponse, currentTimeSupplier, namedWriteableRegistry)),
+                                            listener::onFailure));
+                        //TODO introduce request timeouts to make the permit wait transparent to the client
+                    }), TimeValue.timeValueSeconds(5), "update keep alive");
         } else {
             // try update the doc on the index assuming there exists one.
             persistenceService.updateExpirationTime(id, requestedExpirationTime,

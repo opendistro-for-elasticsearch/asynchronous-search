@@ -91,6 +91,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchRoutingAc
 
     private void handleWaitForCompletion(AsyncSearchContext context, TimeValue timeValue, ActionListener<AsyncSearchResponse> listener) {
         if (context.isRunning()) {
+            logger.debug("Context is running for async search id [{}]", context.getAsyncSearchId());
             AsyncSearchProgressListener progressActionListener = context.getAsyncSearchProgressListener();
             assert progressActionListener != null : "progress listener cannot be null";
             PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper.wrapScheduledTimeout(threadPool,
@@ -102,6 +103,7 @@ public class TransportGetAsyncSearchAction extends TransportAsyncSearchRoutingAc
             progressActionListener.searchProgressActionListener().addOrExecuteListener(wrappedListener);
         } else {
             // we don't need to wait any further on search progress
+            logger.debug("Context is not running for async search id [{}]", context.getAsyncSearchId());
             listener.onResponse(context.getAsyncSearchResponse());
         }
     }

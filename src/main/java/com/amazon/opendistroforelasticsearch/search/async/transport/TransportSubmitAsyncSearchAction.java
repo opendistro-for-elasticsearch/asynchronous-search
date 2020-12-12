@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.search.async.transport;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
+import com.amazon.opendistroforelasticsearch.search.async.exception.AsyncSearchRejectedException;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchTimeoutWrapper;
 import com.amazon.opendistroforelasticsearch.search.async.listener.PrioritizedActionListener;
@@ -100,7 +101,9 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
 
         } catch (Exception e) {
             logger.error(() -> new ParameterizedMessage("Failed to submit async search request {}", request), e);
-            asyncSearchService.freeActiveContext((AsyncSearchActiveContext) asyncSearchContext);
+            if (asyncSearchContext != null) {
+                asyncSearchService.freeActiveContext((AsyncSearchActiveContext) asyncSearchContext);
+            }
             listener.onFailure(e);
         }
     }

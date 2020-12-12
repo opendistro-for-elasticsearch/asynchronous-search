@@ -56,7 +56,7 @@ public class AsyncSearchActiveStore {
     }
 
     public void putContext(AsyncSearchContextId asyncSearchContextId, AsyncSearchActiveContext asyncSearchContext) {
-        if (activeContexts.values().stream().filter(context -> context.isRunning()).distinct().count() > maxRunningContext) {
+        if (activeContexts.size() >= maxRunningContext) {
             throw new AsyncSearchRejectedException("Trying to create too many running contexts. Must be less than or equal to: ["
                     + maxRunningContext + "]. This limit can be set by changing the [" + MAX_RUNNING_CONTEXT.getKey() + "] setting.",
                     maxRunningContext);
