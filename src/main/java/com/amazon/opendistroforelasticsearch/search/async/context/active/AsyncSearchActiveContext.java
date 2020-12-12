@@ -85,6 +85,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     }
 
     public void setTask(SearchTask searchTask) {
+        assert isAlive();
         assert currentStage == INIT;
         Objects.requireNonNull(searchTask);
         searchTask.setProgressListener(asyncSearchProgressListener);
@@ -95,12 +96,14 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     }
 
     public void processSearchFailure(Exception e) {
+        assert isAlive();
         if (completed.compareAndSet(false, true)) {
             error.set(e);
         }
     }
 
     public void processSearchResponse(SearchResponse response) {
+        assert isAlive();
         if (completed.compareAndSet(false, true)) {
             this.searchResponse.set(response);
         }
@@ -125,6 +128,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     }
 
     public void setExpirationTimeMillis(long expirationTimeMillis) {
+        assert isAlive();
         this.expirationTimeMillis = expirationTimeMillis;
     }
 

@@ -120,7 +120,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
-        this.currentTimeSupplier = threadPool::absoluteTimeInMillis;
+        this.currentTimeSupplier = System::currentTimeMillis;
         // every node cleans up it's own in-memory context which should either be discarded or has expired
         this.contextReaper = threadPool.scheduleWithFixedDelay(new ContextReaper(), KEEP_ALIVE_INTERVAL_SETTING.get(settings),
                 AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);

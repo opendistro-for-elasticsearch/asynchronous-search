@@ -31,6 +31,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.context.state.A
 import static java.util.Collections.emptyMap;
 import static org.elasticsearch.action.ActionListener.wrap;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
+import static org.hamcrest.Matchers.greaterThan;
 
 public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
 
@@ -212,7 +213,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
                 asyncSearchActiveContext.getContextId(), wrap(r -> {
                     try {
                         assertTrue(r instanceof AsyncSearchActiveContext);
-                        assertNotEquals(r.getExpirationTimeMillis(), originalExpirationTimeMillis);
+                        assertThat(r.getExpirationTimeMillis(), greaterThan(originalExpirationTimeMillis));
                     } finally {
                         updateLatch.countDown();
                     }
@@ -250,7 +251,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
                 context.getContextId(), wrap(r -> {
                     try {
                         assertTrue(r instanceof AsyncSearchPersistenceContext);
-                        assertNotEquals(r.getExpirationTimeMillis(), originalExpirationTimeMillis);
+                        assertThat(r.getExpirationTimeMillis(), greaterThan(originalExpirationTimeMillis));
                     } finally {
                         updateLatch.countDown();
                     }

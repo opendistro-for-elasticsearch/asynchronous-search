@@ -15,27 +15,17 @@
 
 
 package com.amazon.opendistroforelasticsearch.search.async.context.active;
-/*
+
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchContextEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.exception.AsyncSearchStateMachineException;
-import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
-import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
+import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.lucene.search.TotalHits;
-import org.elasticsearch.action.ActionListener;
+import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -46,30 +36,25 @@ import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.internal.InternalSearchResponse;
 import org.elasticsearch.search.profile.SearchProfileShardResults;
 import org.elasticsearch.search.suggest.Suggest;
+import org.elasticsearch.tasks.TaskId;
+import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.threadpool.ScalingExecutorBuilder;
 import org.elasticsearch.threadpool.TestThreadPool;
 import org.elasticsearch.threadpool.ThreadPool;
-import org.junit.After;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
+import static java.util.Collections.emptyMap;
 
-public class AsyncSearchActiveContextTests extends AsyncSearchSingleNodeTestCase {
+public class AsyncSearchActiveContextTests extends ESTestCase {
 
-    public void testAsyncSearchTransition() throws InterruptedException, IOException, BrokenBarrierException {
+    public void testInitializeContext() {
         TestThreadPool threadPool = null;
         try {
             int writeThreadPoolSize = randomIntBetween(1, 2);
@@ -85,7 +70,88 @@ public class AsyncSearchActiveContextTests extends AsyncSearchSingleNodeTestCase
                     new ScalingExecutorBuilder(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, 1,
                             Math.min(2 * availableProcessors, Math.max(128, 512)), TimeValue.timeValueMinutes(30));
             threadPool = new TestThreadPool("IndexShardOperationPermitsTests", settings, scalingExecutorBuilder);
-            AsyncSearchStateMachine stateMachine = getInstanceFromNode(AsyncSearchStateMachine.class);
+            String node = UUID.randomUUID().toString();
+            AsyncSearchProgressListener asyncSearchProgressListener = new AsyncSearchProgressListener(
+                    threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(), threadPool::relativeTimeInMillis);
+            AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
+                    randomNonNegativeLong());
+            boolean keepOnCompletion = randomBoolean();
+            TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
+            AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
+                    keepAlive, keepOnCompletion, threadPool,
+                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
+            });
+            assertEquals(AsyncSearchState.INIT, context.getAsyncSearchState());
+            assertNull(context.getTask());
+            assertNull(context.getAsyncSearchId());
+            assertEquals(context.getAsyncSearchState(), AsyncSearchState.INIT);
+        } finally {
+            ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
+        }
+    }
+
+    public void testTaskBootstrap() {
+        TestThreadPool threadPool = null;
+        try {
+            int writeThreadPoolSize = randomIntBetween(1, 2);
+            int writeThreadPoolQueueSize = randomIntBetween(1, 2);
+            Settings settings = Settings.builder()
+                    .put("thread_pool." + AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME
+                            + ".size", writeThreadPoolSize)
+                    .put("thread_pool." + AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME
+                            + ".queue_size", writeThreadPoolQueueSize)
+                    .build();
+            final int availableProcessors = EsExecutors.allocatedProcessors(settings);
+            ScalingExecutorBuilder scalingExecutorBuilder =
+                    new ScalingExecutorBuilder(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, 1,
+                            Math.min(2 * availableProcessors, Math.max(128, 512)), TimeValue.timeValueMinutes(30));
+            threadPool = new TestThreadPool("IndexShardOperationPermitsTests", settings, scalingExecutorBuilder);
+            String node = UUID.randomUUID().toString();
+            AsyncSearchProgressListener asyncSearchProgressListener = new AsyncSearchProgressListener(
+                    threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(), threadPool::relativeTimeInMillis);
+            AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
+                    randomNonNegativeLong());
+            boolean keepOnCompletion = randomBoolean();
+            TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
+            AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
+                    keepAlive, keepOnCompletion, threadPool,
+                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
+            });
+            AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport",
+                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context::getAsyncSearchId, null);
+            context.setTask(task);
+            assertEquals(task, context.getTask());
+            assertEquals(task.getStartTime(), context.getStartTimeMillis());
+            assertEquals(task.getStartTime() + keepAlive.getMillis(), context.getExpirationTimeMillis());
+            assertTrue(context.isAlive());
+            assertFalse(context.isExpired());
+            expectThrows(SetOnce.AlreadySetException.class, () -> context.setTask(task));
+            if (keepOnCompletion) {
+                assertTrue(context.shouldPersist());
+            } else {
+                assertFalse(context.shouldPersist());
+            }
+        } finally {
+            ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
+        }
+    }
+
+    public void testProcessSearchCompletion() throws InterruptedException {
+        TestThreadPool threadPool = null;
+        try {
+            int writeThreadPoolSize = randomIntBetween(1, 2);
+            int writeThreadPoolQueueSize = randomIntBetween(1, 2);
+            Settings settings = Settings.builder()
+                    .put("thread_pool." + AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME
+                            + ".size", writeThreadPoolSize)
+                    .put("thread_pool." + AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME
+                            + ".queue_size", writeThreadPoolQueueSize)
+                    .build();
+            final int availableProcessors = EsExecutors.allocatedProcessors(settings);
+            ScalingExecutorBuilder scalingExecutorBuilder =
+                    new ScalingExecutorBuilder(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, 1,
+                            Math.min(2 * availableProcessors, Math.max(128, 512)), TimeValue.timeValueMinutes(30));
+            threadPool = new TestThreadPool("IndexShardOperationPermitsTests", settings, scalingExecutorBuilder);
             String node = UUID.randomUUID().toString();
             AsyncSearchProgressListener asyncSearchProgressListener = new AsyncSearchProgressListener(
                     threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(), threadPool::relativeTimeInMillis);
@@ -97,83 +163,89 @@ public class AsyncSearchActiveContextTests extends AsyncSearchSingleNodeTestCase
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
-            assertNull(context.getTask());
-            assertNull(context.getAsyncSearchId());
-            assertEquals(context.getAsyncSearchState(), AsyncSearchState.INIT);
-            SearchTask task = new SearchTask(randomNonNegativeLong(), "transport",
-                    SearchAction.NAME, null, null, Collections.emptyMap());
-            doConcurrentStageAdvancement(stateMachine, new SearchStartedEvent(context, task), RUNNING,
-                    AsyncSearchStateMachineException.class,
-                    threadPool);
-            assertEquals(context.getAsyncSearchId(), AsyncSearchIdConverter.buildAsyncId(new AsyncSearchId(node, task.getId(),
-                    asyncSearchContextId)));
-            assertEquals(task, context.getTask());
-            assertEquals(context.getAsyncSearchState(), RUNNING);
-            assertEquals(context.getStartTimeMillis(), task.getStartTime());
-            assertEquals(context.getExpirationTimeMillis(), task.getStartTime() + keepAlive.millis());
-            if (randomBoolean()) {//success
-                doConcurrentStageAdvancement(stateMachine, new SearchSuccessfulEvent(context, getMockSearchResponse()), SUCCEEDED,
-                        AsyncSearchStateMachineException.class, threadPool);
-                assertNotNull(context.getSearchResponse());
-                assertNull(context.getSearchError());
-            } else { //failure
-                doConcurrentStageAdvancement(stateMachine, new SearchFailureEvent(context, new RuntimeException("test")), FAILED,
-                        AsyncSearchStateMachineException.class, threadPool);
-                assertNull(context.getSearchResponse());
-                assertNotNull(context.getSearchError());
+
+            int numThreads = 10;
+            AtomicInteger numSuccesses = new AtomicInteger();
+            List<Runnable> runnables = new ArrayList<>();
+            CountDownLatch countDownLatch = new CountDownLatch(numThreads);
+            for (int i = 0; i < numThreads; i++) {
+                Runnable runnable = () -> {
+                    if(randomBoolean()) {
+                        SearchResponse mockSearchResponse = getMockSearchResponse();
+                        context.processSearchResponse(mockSearchResponse);
+                        if (mockSearchResponse.equals(context.getSearchResponse())) {
+                            numSuccesses.getAndIncrement();
+                            assertNull(context.getSearchError());
+                        }
+                    } else {
+                        RuntimeException e = new RuntimeException(UUID.randomUUID().toString());
+                        context.processSearchFailure(e);
+                        if(e.equals(context.getSearchError())) {
+                            numSuccesses.getAndIncrement();
+                            assertNull(context.getSearchResponse());
+                        }
+                    }
+                    countDownLatch.countDown();
+                };
+                runnables.add(runnable);
             }
+            for (Runnable r : runnables) {
+                threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(r);
+            }
+            countDownLatch.await();
+            assertEquals(numSuccesses.get(),1);
 
-            doConcurrentStageAdvancement(stateMachine, new BeginPersistEvent(context),
-                    PERSISTING,
-                    AsyncSearchStateMachineException.class, threadPool);
 
-            TestClientUtils.assertResponsePersistence(client(), context.getAsyncSearchId());
         } finally {
             ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
         }
     }
 
-    private <T extends Throwable> void doConcurrentStageAdvancement(AsyncSearchStateMachine asyncSearchStateMachine,
-                                                                    AsyncSearchContextEvent event,
-                                                                    AsyncSearchState finalState,
-                                                                    Class<T> throwable, ThreadPool threadPool) throws InterruptedException,
-            BrokenBarrierException {
-        int numThreads = 10;
-        List<Runnable> operationThreads = new ArrayList<>();
-        AtomicInteger numUpdateSuccesses = new AtomicInteger();
-        CyclicBarrier barrier = new CyclicBarrier(11);
-        for (int i = 0; i < numThreads; i++) {
-            Runnable thread = () -> {
-                try {
-                    asyncSearchStateMachine.trigger(event);
-                    numUpdateSuccesses.getAndIncrement();
-                } catch (Exception e) {
-                    assertTrue(throwable.isInstance(e));
-                } finally {
-                    try {
-                        barrier.await();
-                    } catch (InterruptedException | BrokenBarrierException e) {
-                        fail("stage advancement failure");
-                    }
-                }
-            };
-            operationThreads.add(thread);
-        }
-        operationThreads.forEach(runnable -> {
-            threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(runnable);
-        });
-        barrier.await();
-        assertEquals(event.toString(), 1, numUpdateSuccesses.get());
-        assertEquals(event.asyncSearchContext().getAsyncSearchState(), finalState);
-    }
 
-    @After
-    public void deleteAsyncSearchIndex() throws InterruptedException {
-        CountDownLatch deleteLatch = new CountDownLatch(1);
-        client().admin().indices().prepareDelete(INDEX).execute(ActionListener.wrap(r -> deleteLatch.countDown(), e -> {
-            deleteLatch.countDown();
-        }));
-        deleteLatch.await();
+    public void testClosedContext() {
+        TestThreadPool threadPool = null;
+        try {
+            int writeThreadPoolSize = randomIntBetween(1, 2);
+            int writeThreadPoolQueueSize = randomIntBetween(1, 2);
+            Settings settings = Settings.builder()
+                    .put("thread_pool." + AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME
+                            + ".size", writeThreadPoolSize)
+                    .put("thread_pool." + AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME
+                            + ".queue_size", writeThreadPoolQueueSize)
+                    .build();
+            final int availableProcessors = EsExecutors.allocatedProcessors(settings);
+            ScalingExecutorBuilder scalingExecutorBuilder =
+                    new ScalingExecutorBuilder(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, 1,
+                            Math.min(2 * availableProcessors, Math.max(128, 512)), TimeValue.timeValueMinutes(30));
+            threadPool = new TestThreadPool("IndexShardOperationPermitsTests", settings, scalingExecutorBuilder);
+            String node = UUID.randomUUID().toString();
+            AsyncSearchProgressListener asyncSearchProgressListener = new AsyncSearchProgressListener(
+                    threadPool.absoluteTimeInMillis(), r -> null, e -> null, threadPool.generic(), threadPool::relativeTimeInMillis);
+            AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
+                    randomNonNegativeLong());
+            boolean keepOnCompletion = randomBoolean();
+            TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
+            AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
+                    keepAlive, keepOnCompletion, threadPool,
+                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
+            });
+            AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport",
+                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context::getAsyncSearchId, null);
+            context.setTask(task);
+            assertEquals(task, context.getTask());
+            assertEquals(task.getStartTime(), context.getStartTimeMillis());
+            assertEquals(task.getStartTime() + keepAlive.getMillis(), context.getExpirationTimeMillis());
+            assertTrue(context.isAlive());
+            assertFalse(context.isExpired());
+            expectThrows(SetOnce.AlreadySetException.class, () -> context.setTask(task));
+            if (keepOnCompletion) {
+                assertTrue(keepOnCompletion);
+            } else {
+                assertFalse(keepOnCompletion);
+            }
+        } finally {
+            ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
+        }
     }
 
     protected SearchResponse getMockSearchResponse() {
@@ -187,4 +259,3 @@ public class AsyncSearchActiveContextTests extends AsyncSearchSingleNodeTestCase
     }
 }
 
-*/
