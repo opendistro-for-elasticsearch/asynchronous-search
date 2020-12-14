@@ -87,7 +87,7 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
          */
         String originalMsg = parsed.getError().getCause().getMessage();
         assertEquals(originalMsg,
-                "java.lang.RuntimeException: test");
+                "runtime_exception: test");
 
     }
 

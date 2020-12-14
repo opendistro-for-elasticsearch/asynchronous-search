@@ -97,7 +97,8 @@ public class AsyncSearchStateMachineTests extends ESTestCase {
                     numPersisting);
 
             doConcurrentStateMachineTrigger(stateMachine, new SearchStartedEvent(context, new AsyncSearchTask(randomNonNegativeLong(),
-                            "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context::getAsyncSearchId, null)),
+                            "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null,
+                            (a) -> {})),
                     RUNNING, AsyncSearchStateMachineException.class);
             assertNotNull(context.getTask());
             if (randomBoolean()) {//success or failure
