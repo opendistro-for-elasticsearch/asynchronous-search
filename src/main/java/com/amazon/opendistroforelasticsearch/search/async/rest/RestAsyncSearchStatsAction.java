@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.rest;
 
-/*
+import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchStatsRequest;
 import org.apache.logging.log4j.LogManager;
@@ -71,4 +71,4 @@ public class RestAsyncSearchStatsAction extends BaseRestHandler {
         return asyncSearchStatsRequest;
     }
 }
-*/
+
