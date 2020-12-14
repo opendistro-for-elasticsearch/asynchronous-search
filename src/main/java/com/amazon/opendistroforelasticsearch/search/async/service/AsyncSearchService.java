@@ -36,6 +36,7 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchCo
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
+import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -429,6 +430,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     protected void doClose() {
         doStop();
         contextReaper.cancel();
+    }
+
+    public AsyncSearchStats stats() {
+        return null;
     }
 
     /***
