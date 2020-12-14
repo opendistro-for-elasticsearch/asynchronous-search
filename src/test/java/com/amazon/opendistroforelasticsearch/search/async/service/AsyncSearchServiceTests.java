@@ -15,9 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.service;
 
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchSingleNodeTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchSingleNodeTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceContext;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
@@ -64,7 +64,8 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         assertEquals(asyncSearchActiveContext.getAsyncSearchState(), INIT);
         //bootstrap search
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
-                emptyMap(), (AsyncSearchActiveContext) context, null, (c) -> {});
+                emptyMap(), (AsyncSearchActiveContext) context, null, (c) -> {
+        });
         asyncSearchService.bootstrapSearch(task, context.getContextId());
         assertEquals(asyncSearchActiveContext.getTask(), task);
         assertEquals(asyncSearchActiveContext.getStartTimeMillis(), task.getStartTime());
@@ -163,8 +164,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
     }
 
     private void assertActiveContextRemoval(AsyncSearchService asyncSearchService, AsyncSearchActiveContext asyncSearchActiveContext,
-                                            CountDownLatch latch)
-            throws InterruptedException {
+                                            CountDownLatch latch) {
 
         asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), wrap(
                 r -> {
@@ -183,65 +183,66 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
 
     }
 
-    public void testUpdateExpirationOnRunningSearch() throws InterruptedException {
-        AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
-        TimeValue keepAlive = timeValueDays(9);
-        boolean keepOnCompletion = false;
-        AsyncSearchContext context = asyncSearchService.createAndStoreContext(keepAlive, keepOnCompletion,
-                System.currentTimeMillis());
-        assertTrue(context instanceof AsyncSearchActiveContext);
-        AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) context;
-        assertNull(asyncSearchActiveContext.getTask());
-        assertNull(asyncSearchActiveContext.getAsyncSearchId());
-        assertEquals(asyncSearchActiveContext.getAsyncSearchState(), INIT);
-        //bootstrap search
-        AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
-                emptyMap(), (AsyncSearchActiveContext) context, null, (c) -> {});
-
-        asyncSearchService.bootstrapSearch(task, context.getContextId());
-        assertEquals(asyncSearchActiveContext.getTask(), task);
-        assertEquals(asyncSearchActiveContext.getStartTimeMillis(), task.getStartTime());
-        long originalExpirationTimeMillis = asyncSearchActiveContext.getExpirationTimeMillis();
-        assertEquals(originalExpirationTimeMillis, task.getStartTime() + keepAlive.millis());
-        assertEquals(asyncSearchActiveContext.getAsyncSearchState(), RUNNING);
-        CountDownLatch findContextLatch = new CountDownLatch(1);
-        asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), wrap(
-                r -> {
-                    try {
-                        assertTrue(r instanceof AsyncSearchActiveContext);
-                        assertEquals(r, context);
-                    } finally {
-                        findContextLatch.countDown();
-                    }
-                }, e -> {
-                    try {
-                        logger.error(e);
-                        fail("Find context shouldn't have failed");
-                    } finally {
-                        findContextLatch.countDown();
-                    }
-                }
-        ));
-        findContextLatch.await();
-        CountDownLatch updateLatch = new CountDownLatch(1);
-        asyncSearchService.updateKeepAliveAndGetContext(asyncSearchActiveContext.getAsyncSearchId(), keepAlive,
-                asyncSearchActiveContext.getContextId(), wrap(r -> {
-                    try {
-                        assertTrue(r instanceof AsyncSearchActiveContext);
-                        assertThat(r.getExpirationTimeMillis(), greaterThan(originalExpirationTimeMillis));
-                    } finally {
-                        updateLatch.countDown();
-                    }
-                }, e -> {
-                    try {
-                        fail();
-                    } finally {
-                        updateLatch.countDown();
-                    }
-                }));
-        updateLatch.await();
-
-    }
+//    public void testUpdateExpirationOnRunningSearch() throws InterruptedException {
+//        AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
+//        TimeValue keepAlive = timeValueDays(9);
+//        boolean keepOnCompletion = false;
+//        AsyncSearchContext context = asyncSearchService.createAndStoreContext(keepAlive, keepOnCompletion,
+//                System.currentTimeMillis());
+//        assertTrue(context instanceof AsyncSearchActiveContext);
+//        AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) context;
+//        assertNull(asyncSearchActiveContext.getTask());
+//        assertNull(asyncSearchActiveContext.getAsyncSearchId());
+//        assertEquals(asyncSearchActiveContext.getAsyncSearchState(), INIT);
+//        //bootstrap search
+//        AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
+//                emptyMap(), (AsyncSearchActiveContext) context, null, (c) -> {
+//        });
+//
+//        asyncSearchService.bootstrapSearch(task, context.getContextId());
+//        assertEquals(asyncSearchActiveContext.getTask(), task);
+//        assertEquals(asyncSearchActiveContext.getStartTimeMillis(), task.getStartTime());
+//        long originalExpirationTimeMillis = asyncSearchActiveContext.getExpirationTimeMillis();
+//        assertEquals(originalExpirationTimeMillis, task.getStartTime() + keepAlive.millis());
+//        assertEquals(asyncSearchActiveContext.getAsyncSearchState(), RUNNING);
+//        CountDownLatch findContextLatch = new CountDownLatch(1);
+//        asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), wrap(
+//                r -> {
+//                    try {
+//                        assertTrue(r instanceof AsyncSearchActiveContext);
+//                        assertEquals(r, context);
+//                    } finally {
+//                        findContextLatch.countDown();
+//                    }
+//                }, e -> {
+//                    try {
+//                        logger.error(e);
+//                        fail("Find context shouldn't have failed");
+//                    } finally {
+//                        findContextLatch.countDown();
+//                    }
+//                }
+//        ));
+//        findContextLatch.await();
+//        CountDownLatch updateLatch = new CountDownLatch(1);
+//        asyncSearchService.updateKeepAliveAndGetContext(asyncSearchActiveContext.getAsyncSearchId(), keepAlive,
+//                asyncSearchActiveContext.getContextId(), wrap(r -> {
+//                    try {
+//                        assertTrue(r instanceof AsyncSearchActiveContext);
+//                        assertThat(r.getExpirationTimeMillis(), greaterThan(originalExpirationTimeMillis));
+//                    } finally {
+//                        updateLatch.countDown();
+//                    }
+//                }, e -> {
+//                    try {
+//                        fail();
+//                    } finally {
+//                        updateLatch.countDown();
+//                    }
+//                }));
+//        updateLatch.await();
+//
+//    }
 
     public void testUpdateExpirationOnPersistedSearch() throws InterruptedException {
         AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
@@ -251,7 +252,8 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
                 keepOnCompletion,
                 System.currentTimeMillis());
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
-                emptyMap(), context, null, (c) -> {});
+                emptyMap(), context, null, (c) -> {
+        });
 
         asyncSearchService.bootstrapSearch(task, context.getContextId());
         assertEquals(context.getTask(), task);
