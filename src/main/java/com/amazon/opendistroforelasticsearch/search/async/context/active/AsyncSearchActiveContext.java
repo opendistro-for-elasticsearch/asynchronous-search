@@ -15,11 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
-import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
-import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits;
+import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
+import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import org.apache.logging.log4j.LogManager;
@@ -161,11 +161,13 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     }
 
     public boolean isAlive() {
-        if (closed.get()) {
-            assert getAsyncSearchState() == CLOSED : "State must be deleted for async search id " + getAsyncSearchId();
-            return false;
+        synchronized (closed) {
+            if (closed.get()) {
+                assert getAsyncSearchState() == CLOSED : "State must be closed for async search id " + getAsyncSearchId();
+                return false;
+            }
+            return true;
         }
-        return true;
     }
 
     @Override

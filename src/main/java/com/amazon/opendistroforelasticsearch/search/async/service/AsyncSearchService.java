@@ -18,7 +18,9 @@ package com.amazon.opendistroforelasticsearch.search.async.service;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
+import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceContext;
+import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
@@ -34,8 +36,6 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchCo
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
-import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
-import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -197,17 +197,20 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         } else {
             logger.debug("Active context is not present for async search ID [{}]", id);
             persistenceService.getResponse(id, ActionListener.wrap(
-                 (persistenceModel) ->
-                         listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId, persistenceModel,
-                         currentTimeSupplier, namedWriteableRegistry)),
-                 ex -> {
-                logger.debug(() -> new ParameterizedMessage("Context not found for ID  in the system index {}", id), ex);
-                listener.onFailure(new ResourceNotFoundException(id));
-                }
+                    (persistenceModel) ->
+                            listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId, persistenceModel,
+                                    currentTimeSupplier, namedWriteableRegistry)),
+                    ex -> {
+                        logger.debug(() -> new ParameterizedMessage("Context not found for ID  in the system index {}", id), ex);
+                        listener.onFailure(new ResourceNotFoundException(id));
+                    }
             ));
         }
     }
 
+    public Map<Long, AsyncSearchActiveContext> getAllActiveContexts() {
+        return asyncSearchActiveStore.getAllContexts();
+    }
 
     public Set<SearchTask> getOverRunningTasks() {
         Map<Long, AsyncSearchActiveContext> allContexts = asyncSearchActiveStore.getAllContexts();
@@ -346,10 +349,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                             logger.warn(() -> new ParameterizedMessage("Failed to acquire permits for async search id [{}] " +
                                     "for updating context", asyncSearchActiveContext.getAsyncSearchId()), exception);
                         }
-                            persistenceService.updateExpirationTime(id, requestedExpirationTime,
-                                    ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
-                                            id, asyncSearchContextId, actionResponse, currentTimeSupplier, namedWriteableRegistry)),
-                                            listener::onFailure));
+                        persistenceService.updateExpirationTime(id, requestedExpirationTime,
+                                ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
+                                                id, asyncSearchContextId, actionResponse, currentTimeSupplier, namedWriteableRegistry)),
+                                        listener::onFailure));
                         //TODO introduce request timeouts to make the permit wait transparent to the client
                     }), TimeValue.timeValueSeconds(5), "update keep alive");
         } else {

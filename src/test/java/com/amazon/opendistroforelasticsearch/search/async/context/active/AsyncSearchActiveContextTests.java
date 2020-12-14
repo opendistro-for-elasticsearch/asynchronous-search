@@ -50,6 +50,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.CLOSED;
 import static java.util.Collections.emptyMap;
 
 public class AsyncSearchActiveContextTests extends ESTestCase {
@@ -118,7 +119,8 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
             AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport",
-                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null, (c) -> {});
+                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null, (c) -> {
+            });
             context.setTask(task);
             assertEquals(task, context.getTask());
             assertEquals(task.getStartTime(), context.getStartTimeMillis());
@@ -170,7 +172,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             CountDownLatch countDownLatch = new CountDownLatch(numThreads);
             for (int i = 0; i < numThreads; i++) {
                 Runnable runnable = () -> {
-                    if(randomBoolean()) {
+                    if (randomBoolean()) {
                         SearchResponse mockSearchResponse = getMockSearchResponse();
                         context.processSearchResponse(mockSearchResponse);
                         if (mockSearchResponse.equals(context.getSearchResponse())) {
@@ -180,7 +182,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
                     } else {
                         RuntimeException e = new RuntimeException(UUID.randomUUID().toString());
                         context.processSearchFailure(e);
-                        if(e.equals(context.getSearchError())) {
+                        if (e.equals(context.getSearchError())) {
                             numSuccesses.getAndIncrement();
                             assertNull(context.getSearchResponse());
                         }
@@ -193,16 +195,14 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
                 threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(r);
             }
             countDownLatch.await();
-            assertEquals(numSuccesses.get(),1);
-
-
+            assertEquals(numSuccesses.get(), 1);
         } finally {
             ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
         }
     }
 
 
-    public void testClosedContext() {
+    public void testClosedContext() throws InterruptedException {
         TestThreadPool threadPool = null;
         try {
             int writeThreadPoolSize = randomIntBetween(1, 2);
@@ -230,7 +230,8 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
             AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport",
-                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null, (c) -> {});
+                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null, (c) -> {
+            });
             context.setTask(task);
             assertEquals(task, context.getTask());
             assertEquals(task.getStartTime(), context.getStartTimeMillis());
@@ -238,6 +239,11 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             assertTrue(context.isAlive());
             assertFalse(context.isExpired());
             expectThrows(SetOnce.AlreadySetException.class, () -> context.setTask(task));
+            context.setState(CLOSED);
+            context.close();
+            assertFalse(context.isAlive());
+            expectThrows(AssertionError.class, () -> context.setExpirationTimeMillis(randomNonNegativeLong()));
+            expectThrows(AssertionError.class, () -> context.setTask(task));
             if (keepOnCompletion) {
                 assertTrue(keepOnCompletion);
             } else {
