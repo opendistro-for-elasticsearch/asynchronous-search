@@ -118,7 +118,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
             AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport",
-                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context::getAsyncSearchId, null);
+                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null, (c) -> {});
             context.setTask(task);
             assertEquals(task, context.getTask());
             assertEquals(task.getStartTime(), context.getStartTimeMillis());
@@ -230,7 +230,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
             });
             AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport",
-                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context::getAsyncSearchId, null);
+                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null, (c) -> {});
             context.setTask(task);
             assertEquals(task, context.getTask());
             assertEquals(task.getStartTime(), context.getStartTimeMillis());

@@ -43,6 +43,8 @@ import org.apache.lucene.store.AlreadyClosedException;
 import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksRequest;
+import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksResponse;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchTask;
 import org.elasticsearch.action.support.GroupedActionListener;
@@ -93,11 +95,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             timeValueDays(10), Setting.Property.NodeScope, Setting.Property.Dynamic);
     public static final Setting<TimeValue> KEEP_ALIVE_INTERVAL_SETTING = Setting.positiveTimeSetting("async_search.keep_alive_interval",
             timeValueMinutes(1), Setting.Property.NodeScope);
-    public static final Setting<Boolean> KEEP_ON_CANCELLATION = Setting.boolSetting("async_search.keep_on_cancellation", true,
-            Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     private volatile long maxKeepAlive;
-    private volatile boolean keepOnCancellation;
     private final AtomicLong idGenerator = new AtomicLong();
     private final Client client;
     private final ThreadPool threadPool;
@@ -116,9 +115,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.client = client;
         Settings settings = clusterService.getSettings();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(KEEP_ON_CANCELLATION, this::setKeepOnCancellation);
         setKeepAlive(MAX_KEEP_ALIVE_SETTING.get(settings));
-        setKeepOnCancellation(KEEP_ON_CANCELLATION.get(settings));
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
@@ -131,10 +128,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.asyncSearchPostProcessor = new AsyncSearchPostProcessor(persistenceService, asyncSearchActiveStore, asyncSearchStateMachine,
                 this::freeActiveContext);
         this.namedWriteableRegistry = namedWriteableRegistry;
-    }
-
-    private void setKeepOnCancellation(Boolean keepOnCancellation) {
-        this.keepOnCancellation = keepOnCancellation;
     }
 
     private void setKeepAlive(TimeValue maxKeepAlive) {
@@ -250,25 +243,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         if (asyncSearchContextOptional.isPresent()) {
             logger.warn("Active context present for async search id [{}]", id);
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
-            //cancel any ongoing async search tasks
-            if (asyncSearchContext.getTask() != null && asyncSearchContext.getTask().isCancelled() == false) {
-                client.admin().cluster().prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(),
-                        asyncSearchContext.getTask().getId()))
-                        .execute(ActionListener.wrap((response) -> {
-                                    logger.debug("Task cancellation for async search context [{}]  succeeded with response [{}] ",
-                                            id, response);
-                                    freeActiveAndPersistedContext(asyncSearchContext, groupedDeletionListener);
-                                },
-                                (e) -> {
-                                    logger.debug(() -> new ParameterizedMessage("Unable to cancel async search task [{}] " +
-                                            "for async search id [{}]", asyncSearchContext.getTask(), id), e);
-                                    freeActiveAndPersistedContext(asyncSearchContext, groupedDeletionListener);
-                                }
-                        ));
-            } else {
-                //free async search context if one exists
-                freeActiveAndPersistedContext(asyncSearchContext, groupedDeletionListener);
-            }
+            cancelAndFreeActiveAndPersistedContext(asyncSearchContext, groupedDeletionListener);
         } else {
             logger.warn("Active context NOT present for async search id [{}]", id);
             // async search context didn't exist so obviously we didn't delete
@@ -281,14 +256,32 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         }
     }
 
-    private void freeActiveAndPersistedContext(AsyncSearchActiveContext asyncSearchContext,
-                                               GroupedActionListener<Boolean> groupedDeletionListener) {
+    private void cancelTask(AsyncSearchActiveContext asyncSearchContext, String reason) {
+        if (asyncSearchContext.getTask() != null && asyncSearchContext.getTask().isCancelled() == false) {
+            try {
+                CancelTasksRequest cancelTasksRequest = new CancelTasksRequest()
+                        .setTaskId(new TaskId(clusterService.localNode().getId(), asyncSearchContext.getTask().getId())).setReason(reason);
+                CancelTasksResponse cancelTasksResponse = client.admin().cluster().cancelTasks(cancelTasksRequest).actionGet();
+                logger.debug("Successfully cancelled tasks [{}] with async search id [{}] with response [{}]",
+                        asyncSearchContext.getTask(), asyncSearchContext.getAsyncSearchId(), cancelTasksResponse);
+            } catch (Exception ex) {
+                logger.error(() -> new ParameterizedMessage("Unable to cancel async search task [{}] " +
+                        "for async search id [{}]", asyncSearchContext.getTask(), asyncSearchContext.getAsyncSearchId()), ex);
+            }
+        }
+
+    }
+
+    private void cancelAndFreeActiveAndPersistedContext(AsyncSearchActiveContext asyncSearchContext,
+                                                        GroupedActionListener<Boolean> groupedDeletionListener) {
         //Intent of the lock here is to disallow ongoing migration to system index
         // as if that is underway we might end up creating a new document post a DELETE was executed
         asyncSearchContext.acquireContextPermit(ActionListener.wrap(
                 releasable -> {
-                    groupedDeletionListener.onResponse(freeActiveContext(asyncSearchContext));
-                    logger.warn("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
+                    boolean response = freeActiveContext(asyncSearchContext);
+                    cancelTask(asyncSearchContext, "User triggered context deletion");
+                    groupedDeletionListener.onResponse(response);
+                    logger.debug("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
                     persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), groupedDeletionListener);
                     releasable.close();
                 }, exception -> {
@@ -297,8 +290,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         logger.warn(() -> new ParameterizedMessage("Failed to acquire permits for async search id [{}] for freeing context",
                                 asyncSearchContext.getAsyncSearchId()), exception);
                     }
+                    cancelTask(asyncSearchContext, "User triggered context deletion");
                     groupedDeletionListener.onResponse(false);
-                    logger.warn("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
+                    logger.debug("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
                     persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), groupedDeletionListener);
                 }
         ), TimeValue.timeValueSeconds(5), "free context");
@@ -416,10 +410,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         // TODO listen to coordinator state failures and async search shards getting assigned
     }
 
-    public boolean keepOnCancellation() {
-        return keepOnCancellation;
-    }
-
     @Override
     protected void doStart() {
 
@@ -453,7 +443,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         freeActiveContext(asyncSearchActiveContext);
                     }
                 } catch (Exception e) {
-                    logger.debug("Exception occured while reaping async search active context for id "
+                    logger.debug("Exception occurred while reaping async search active context for id "
                             + asyncSearchActiveContext.getAsyncSearchId(), e);
                 }
             }

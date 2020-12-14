@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.task;
 
+import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,7 +26,7 @@ import org.elasticsearch.tasks.TaskId;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Supplier;
+import java.util.function.Consumer;
 
 /**
  * Task storing information about a currently running {@link SearchRequest}.
@@ -34,22 +35,28 @@ public class AsyncSearchTask extends SearchTask {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchTask.class);
 
-    private final Supplier<String> asyncSearchIdSupplier;
+    private final Consumer<AsyncSearchActiveContext> freeActiveContextConsumer;
+    private final AsyncSearchActiveContext asyncSearchActiveContext;
     private final SubmitAsyncSearchRequest request;
 
     public static final String NAME = "indices:data/read/async_search";
 
     public AsyncSearchTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers,
-                           Supplier<String> asyncSearchIdSupplier, SubmitAsyncSearchRequest request) {
+                           AsyncSearchActiveContext asyncSearchContext, SubmitAsyncSearchRequest request,
+                           Consumer<AsyncSearchActiveContext> freeActiveContextConsumer) {
         super(id, type, action, null, parentTaskId, headers);
-        Objects.requireNonNull(asyncSearchIdSupplier);
-        this.asyncSearchIdSupplier = asyncSearchIdSupplier;
+        Objects.requireNonNull(asyncSearchContext);
+        Objects.requireNonNull(freeActiveContextConsumer);
+        this.freeActiveContextConsumer = freeActiveContextConsumer;
+        this.asyncSearchActiveContext = asyncSearchContext;
         this.request = request;
     }
 
     @Override
     protected void onCancelled() {
-        logger.debug("Cancelling async search context for id {}", asyncSearchIdSupplier.get());
+        logger.warn("On Cancelled async search context for id {} due to [{}]", asyncSearchActiveContext.getAsyncSearchId(),
+                getReasonCancelled());
+        freeActiveContextConsumer.accept(asyncSearchActiveContext);
     }
 
     @Override

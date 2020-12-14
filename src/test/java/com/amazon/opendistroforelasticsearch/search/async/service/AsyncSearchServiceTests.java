@@ -64,7 +64,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         assertEquals(asyncSearchActiveContext.getAsyncSearchState(), INIT);
         //bootstrap search
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
-                emptyMap(), context::getAsyncSearchId, null);
+                emptyMap(), (AsyncSearchActiveContext) context, null, (c) -> {});
         asyncSearchService.bootstrapSearch(task, context.getContextId());
         assertEquals(asyncSearchActiveContext.getTask(), task);
         assertEquals(asyncSearchActiveContext.getStartTimeMillis(), task.getStartTime());
@@ -196,7 +196,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         assertEquals(asyncSearchActiveContext.getAsyncSearchState(), INIT);
         //bootstrap search
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
-                emptyMap(), context::getAsyncSearchId, null);
+                emptyMap(), (AsyncSearchActiveContext) context, null, (c) -> {});
 
         asyncSearchService.bootstrapSearch(task, context.getContextId());
         assertEquals(asyncSearchActiveContext.getTask(), task);
@@ -251,7 +251,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
                 keepOnCompletion,
                 System.currentTimeMillis());
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
-                emptyMap(), context::getAsyncSearchId, null);
+                emptyMap(), context, null, (c) -> {});
 
         asyncSearchService.bootstrapSearch(task, context.getContextId());
         assertEquals(context.getTask(), task);

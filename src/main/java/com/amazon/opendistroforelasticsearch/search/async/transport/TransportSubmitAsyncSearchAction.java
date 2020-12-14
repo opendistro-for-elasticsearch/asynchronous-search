@@ -77,14 +77,12 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     request.getKeepOnCompletion(), relativeStartTimeInMillis);
             assert asyncSearchContext.getAsyncSearchProgressListener() != null : "missing progress listener for an active context";
             AsyncSearchProgressListener progressListener = asyncSearchContext.getAsyncSearchProgressListener();
-            //set the parent task as the submit task for cancellation on connection close
-            request.getSearchRequest().setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
             AsyncSearchContext context = asyncSearchContext; //making it effectively final for usage in anonymous class.
-            transportSearchAction.execute(new SearchRequest(request.getSearchRequest()) {
+            SearchRequest searchRequest = new SearchRequest(request.getSearchRequest()) {
                 @Override
                 public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
                     AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, AsyncSearchTask.NAME,
-                            parentTaskId, headers, context::getAsyncSearchId, request);
+                            parentTaskId, headers, (AsyncSearchActiveContext) context, request, asyncSearchService::freeActiveContext);
 
                     asyncSearchService.bootstrapSearch(asyncSearchTask, context.getContextId());
                     PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper
@@ -96,14 +94,29 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
                     progressListener.searchProgressActionListener().addOrExecuteListener(wrappedListener);
                     return asyncSearchTask;
                 }
-            }, progressListener);
+            };
+            //set the parent task as the submit task for cancellation on connection close
+            searchRequest.setParentTask(task.taskInfo(clusterService.localNode().getId(), false).getTaskId());
+            transportSearchAction.execute(searchRequest, progressListener);
 
         } catch (Exception e) {
             logger.error(() -> new ParameterizedMessage("Failed to submit async search request {}", request), e);
             if (asyncSearchContext != null) {
-                asyncSearchService.freeActiveContext((AsyncSearchActiveContext) asyncSearchContext);
+                AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) asyncSearchContext;
+                asyncSearchService.freeContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(),
+                        ActionListener.wrap((r) -> {
+                            logger.debug(() -> new ParameterizedMessage("Successfully cleaned up context on submit async" +
+                                    " search id [{}] on failure", asyncSearchActiveContext.getAsyncSearchId()), e);
+                            listener.onFailure(e);
+                        }, (ex) -> {
+                            logger.debug(() -> new ParameterizedMessage("Failed to cleaned up context on submit async search" +
+                                    " id [{}] on failure", asyncSearchActiveContext.getAsyncSearchId()), ex);
+                            listener.onFailure(e);
+                        })
+                );
+            } else {
+                listener.onFailure(e);
             }
-            listener.onFailure(e);
         }
     }
 }

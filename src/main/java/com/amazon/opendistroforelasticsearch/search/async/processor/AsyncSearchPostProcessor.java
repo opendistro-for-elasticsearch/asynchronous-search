@@ -4,6 +4,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistFailedEvent;
@@ -16,6 +17,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.persistence.As
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.unit.TimeValue;
@@ -46,24 +48,38 @@ public class AsyncSearchPostProcessor {
 
     public AsyncSearchResponse processSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) {
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
-        if (asyncSearchContextOptional.isPresent()) {
-            AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
-            asyncSearchStateMachine.trigger(new SearchFailureEvent(asyncSearchContext, exception));
-            handlePersist(asyncSearchContext);
-            return asyncSearchContext.getAsyncSearchResponse();
+        try {
+            if (asyncSearchContextOptional.isPresent()) {
+                AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
+                asyncSearchStateMachine.trigger(new SearchFailureEvent(asyncSearchContext, exception));
+                handlePersist(asyncSearchContext);
+                return asyncSearchContext.getAsyncSearchResponse();
+            }
+            // Best effort to return the response.
+            return new AsyncSearchResponse(false, -1L, -1L, null,
+                    ExceptionsHelper.convertToElastic(exception));
+        } catch (AsyncSearchStateMachineClosedException ex) {
+            // Best effort to return the response.
+            return new AsyncSearchResponse(false, -1L, -1L, null,
+                    ExceptionsHelper.convertToElastic(exception));
         }
-        return null;
     }
 
     public AsyncSearchResponse processSearchResponse(SearchResponse searchResponse, AsyncSearchContextId asyncSearchContextId) {
         final Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
-        if (asyncSearchContextOptional.isPresent()) {
-            AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
-            asyncSearchStateMachine.trigger(new SearchSuccessfulEvent(asyncSearchContext, searchResponse));
-            handlePersist(asyncSearchContext);
-            return asyncSearchContext.getAsyncSearchResponse();
+        try {
+            if (asyncSearchContextOptional.isPresent()) {
+                AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
+                asyncSearchStateMachine.trigger(new SearchSuccessfulEvent(asyncSearchContext, searchResponse));
+                handlePersist(asyncSearchContext);
+                return asyncSearchContext.getAsyncSearchResponse();
+            }
+            // Best effort to return the response.
+            return new AsyncSearchResponse(false, -1L, -1L, searchResponse, null);
+        }  catch (AsyncSearchStateMachineClosedException ex) {
+            // Best effort to return the response.
+            return new AsyncSearchResponse(false, -1L, -1L, searchResponse, null);
         }
-        return null;
     }
 
     public void persistResponse(AsyncSearchActiveContext asyncSearchContext, AsyncSearchPersistenceModel persistenceModel) {
