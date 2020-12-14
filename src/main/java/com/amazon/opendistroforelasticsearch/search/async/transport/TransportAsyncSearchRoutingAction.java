@@ -30,6 +30,7 @@ import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.ClusterStateObserver;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.common.io.stream.Writeable;
 import org.elasticsearch.common.util.concurrent.AbstractRunnable;
 import org.elasticsearch.node.NodeClosedException;
@@ -133,7 +134,8 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
                                 } else {
                                     logger.debug("Exception received for request with id[{}] to from target node [{}],  Error: [{}]",
                                             request.getId(), targetNode, exp.getDetailedMessage());
-                                    listener.onFailure(exp);
+                                    listener.onFailure(cause instanceof Exception ? (Exception) cause
+                                            : new NotSerializableExceptionWrapper(cause));
                                 }
                             }
 

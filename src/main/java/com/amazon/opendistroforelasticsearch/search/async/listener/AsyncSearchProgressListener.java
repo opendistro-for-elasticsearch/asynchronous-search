@@ -15,12 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
-import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineException;
+import com.amazon.opendistroforelasticsearch.search.async.id.ExceptionTranslator;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.SetOnce;
-import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchShard;
@@ -160,7 +158,7 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
                 result = successFunction.apply(searchResponse);
                 searchProgressActionListener.onResponse(result);
             } catch (Exception ex) {
-                Exception translatedException = translateException(ex);
+                Exception translatedException = ExceptionTranslator.translateException(ex);
                 searchProgressActionListener.onFailure(translatedException);
             } finally {
                 clearPartialResult();
@@ -176,7 +174,7 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
                 result = failureFunction.apply(e);
                 searchProgressActionListener.onResponse(result);
             } catch (Exception ex) {
-                Exception translatedException = translateException(ex);
+                Exception translatedException = ExceptionTranslator.translateException(ex);
                 searchProgressActionListener.onFailure(translatedException);
             } finally {
                 clearPartialResult();
@@ -184,17 +182,6 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
         });
     }
 
-    // We need to ensure we don't throw non-serializable exception over the wire.
-    private Exception translateException(Exception ex) {
-        if (ex instanceof AsyncSearchStateMachineClosedException) {
-            return new ResourceNotFoundException(((AsyncSearchStateMachineClosedException) ex).getEvent().asyncSearchContext()
-                    .getAsyncSearchId());
-        } else if (ex instanceof AsyncSearchStateMachineException) {
-            return new IllegalStateException(((AsyncSearchStateMachineException) ex).getEvent().asyncSearchContext()
-                    .getAsyncSearchId());
-        }
-        return ex;
-    }
     /**
      * Invoked once search has completed with response or error.
      */
