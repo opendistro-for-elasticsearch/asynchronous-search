@@ -74,7 +74,7 @@ public class AsyncSearchPersistenceService {
     public static final String USER = "user";
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceService.class);
-    public static final String ASYNC_SEARCH_RESPONSE_INDEX = ".opendistro-asynchronous_search_response";
+    public static final String ASYNC_SEARCH_RESPONSE_INDEX = ".asynchronous_search_response";
     private static final String MAPPING_TYPE = "_doc";
     /**
      * The backoff policy to use when saving a task result fails. The total wait
@@ -150,6 +150,7 @@ public class AsyncSearchPersistenceService {
      * returns true
      *
      * @param id       async search id
+     * @param user     current user
      * @param listener invoked once delete document request completes.
      */
 

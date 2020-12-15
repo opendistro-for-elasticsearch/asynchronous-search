@@ -54,7 +54,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         //create context
         AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
         TimeValue keepAlive = timeValueDays(9);
-        boolean keepOnCompletion = true;
+        boolean keepOnCompletion = randomBoolean();
         AsyncSearchContext context = asyncSearchService.createAndStoreContext(keepAlive, keepOnCompletion,
                 System.currentTimeMillis(), null);
         assertTrue(context instanceof AsyncSearchActiveContext);

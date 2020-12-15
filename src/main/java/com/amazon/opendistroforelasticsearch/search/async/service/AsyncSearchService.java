@@ -145,6 +145,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      * @param keepAlive               duration of validity of async search
      * @param keepOnCompletion        determines if response should be persisted on completion
      * @param relativeStartTimeMillis start time of {@linkplain SearchAction}
+     * @param user                    current user
      * @return the async search context
      */
     public AsyncSearchContext createAndStoreContext(TimeValue keepAlive, boolean keepOnCompletion,
@@ -251,6 +252,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      *
      * @param id                   async search id
      * @param asyncSearchContextId context id
+     * @param user                 current user
      * @param listener             listener to invoke on deletion or failure to do so
      */
     public void freeContext(String id, AsyncSearchContextId asyncSearchContextId, User user, ActionListener<Boolean> listener) {
