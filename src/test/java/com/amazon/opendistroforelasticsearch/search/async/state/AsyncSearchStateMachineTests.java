@@ -86,7 +86,7 @@ public class AsyncSearchStateMachineTests extends ESTestCase {
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
-            });
+            }, null);
             assertNull(context.getTask());
             assertEquals(context.getAsyncSearchState(), INIT);
             AtomicInteger numPersisted = new AtomicInteger();

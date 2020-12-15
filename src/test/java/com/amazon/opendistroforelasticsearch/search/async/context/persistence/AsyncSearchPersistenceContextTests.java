@@ -55,7 +55,7 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
         SearchResponse searchResponse = getMockSearchResponse();
         AsyncSearchPersistenceContext asyncSearchPersistenceContext =
                 new AsyncSearchPersistenceContext(id, asyncSearchContextId, new AsyncSearchPersistenceModel(startTimeMillis,
-                        expirationTimeMillis, searchResponse), System::currentTimeMillis,
+                        expirationTimeMillis, searchResponse, null, null), System::currentTimeMillis,
                         new NamedWriteableRegistry(Collections.emptyList()));
         assertEquals(
                 asyncSearchPersistenceContext.getAsyncSearchResponse(),
@@ -78,7 +78,8 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
         RuntimeException exception = new RuntimeException("test");
         AsyncSearchPersistenceContext asyncSearchPersistenceContext =
                 new AsyncSearchPersistenceContext(id, asyncSearchContextId, new AsyncSearchPersistenceModel(startTimeMillis,
-                        expirationTimeMillis, exception), System::currentTimeMillis, new NamedWriteableRegistry(Collections.emptyList()));
+                        expirationTimeMillis, null, exception, null),
+                        System::currentTimeMillis, new NamedWriteableRegistry(Collections.emptyList()));
         AsyncSearchResponse parsed = asyncSearchPersistenceContext.getAsyncSearchResponse();
         /*
          * we cannot compare the cause, because it will be wrapped and serialized in an outer

@@ -81,7 +81,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
-            });
+            }, null);
             assertEquals(AsyncSearchState.INIT, context.getAsyncSearchState());
             assertNull(context.getTask());
             assertNull(context.getAsyncSearchId());
@@ -117,7 +117,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
-            });
+            }, null);
             AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport",
                     SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null, (c) -> {
             });
@@ -164,7 +164,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
-            });
+            }, null);
 
             int numThreads = 10;
             AtomicInteger numSuccesses = new AtomicInteger();
@@ -228,7 +228,7 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
-            });
+            }, null);
             AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport",
                     SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null, (c) -> {
             });

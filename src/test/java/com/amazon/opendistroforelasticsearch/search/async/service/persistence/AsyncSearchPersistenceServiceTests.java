@@ -75,12 +75,13 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         CountDownLatch getLatch = new CountDownLatch(1);
         persistenceService.getResponse(newAsyncSearchResponse.getId(),
                 ActionListener.wrap(r -> verifyPersistenceModel(new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
-                                asyncSearchResponse.getExpirationTimeMillis(), asyncSearchResponse.getSearchResponse()), r, getLatch),
+                                asyncSearchResponse.getExpirationTimeMillis(), asyncSearchResponse.getSearchResponse(),
+                                null, null), r, getLatch),
                         e -> failure(getLatch, e)));
         getLatch.await();
 
         CountDownLatch deleteLatch = new CountDownLatch(1);
-        persistenceService.deleteResponse(newAsyncSearchResponse.getId(),
+        persistenceService.deleteResponse(newAsyncSearchResponse.getId(), null,
                 ActionListener.wrap(r -> assertBoolean(deleteLatch, r, true), e -> failure(deleteLatch, e)));
         deleteLatch.await();
 
@@ -100,7 +101,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         SearchResponse searchResponse = client().search(new SearchRequest(TEST_INDEX)).get();
         AsyncSearchId asyncSearchId = generateNewAsyncSearchId(transportService);
         AsyncSearchPersistenceModel model1 = new AsyncSearchPersistenceModel(System.currentTimeMillis(),
-                System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(), searchResponse);
+                System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(), searchResponse, null, null);
         CountDownLatch createLatch = new CountDownLatch(1);
         String id = AsyncSearchIdConverter.buildAsyncId(asyncSearchId);
         persistenceService.storeResponse(id, model1, ActionListener.wrap(
@@ -112,7 +113,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
                 new IllegalStateException("no response should have been found for async search " + id)),
                 exception -> assertRnf(latch, exception)));
         //assert failure
-        persistenceService.deleteResponse("id", ActionListener.wrap((r) -> assertBoolean(latch, r, false), e -> failure(latch, e)));
+        persistenceService.deleteResponse("id", null, ActionListener.wrap((r) -> assertBoolean(latch, r, false), e -> failure(latch, e)));
         latch.await();
 
     }
@@ -124,11 +125,11 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         AsyncSearchId asyncSearchId1 = generateNewAsyncSearchId(transportService);
         AsyncSearchId asyncSearchId2 = generateNewAsyncSearchId(transportService);
         AsyncSearchPersistenceModel model1 = new AsyncSearchPersistenceModel(System.currentTimeMillis(),
-                System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(), searchResponse);
+                System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(), searchResponse, null, null);
         String id1 = AsyncSearchIdConverter.buildAsyncId(asyncSearchId1);
 
         AsyncSearchPersistenceModel model2 = new AsyncSearchPersistenceModel(System.currentTimeMillis(),
-                System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(), searchResponse);
+                System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis(), searchResponse, null, null);
         String id2 = AsyncSearchIdConverter.buildAsyncId(asyncSearchId2);
         CountDownLatch createLatch = new CountDownLatch(2);
         threadPool.generic()
@@ -157,9 +158,9 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         CountDownLatch updateLatch = new CountDownLatch(1);
         long newExpirationTime = System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis();
         final AsyncSearchPersistenceModel newPersistenceModel = new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
-                newExpirationTime, asyncSearchResponse.getSearchResponse());
+                newExpirationTime, asyncSearchResponse.getSearchResponse(), null, null);
         persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
-                newExpirationTime,
+                newExpirationTime, null,
                 ActionListener.wrap(persistenceModel -> {
 
                             verifyPersistenceModel(
@@ -184,9 +185,9 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         CountDownLatch updateLatch = new CountDownLatch(1);
         long newExpirationTime = System.currentTimeMillis() + new TimeValue(100, TimeUnit.MILLISECONDS).getMillis();
         final AsyncSearchPersistenceModel newPersistenceModel = new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
-                newExpirationTime, asyncSearchResponse.getSearchResponse());
+                newExpirationTime, asyncSearchResponse.getSearchResponse(), null, null);
         persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
-                newExpirationTime,
+                newExpirationTime, null,
                 ActionListener.wrap(persistenceModel -> {
 
                             verifyPersistenceModel(
@@ -240,7 +241,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         persistenceService.storeResponse(asyncSearchResponse.getId(),
                 new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
                         asyncSearchResponse.getExpirationTimeMillis(),
-                        asyncSearchResponse.getSearchResponse()),
+                        asyncSearchResponse.getSearchResponse(), null, null),
                 ActionListener.wrap(r -> assertSuccessfulResponseCreation(asyncSearchResponse.getId(), r, latch), e -> failure(latch, e)));
         latch.await();
     }

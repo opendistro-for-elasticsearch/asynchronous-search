@@ -56,6 +56,7 @@ dependencies {
     testCompile "org.elasticsearch.plugin:reindex-client:${es_version}"
     compileOnly "org.elasticsearch.plugin:transport-netty4-client:${es_version}"
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
+    compileOnly "com.amazon.opendistroforelasticsearch:common-utils:1.11.0.1"
 }
 compileTestJava {
     classpath = classpath.filter{ File file ->

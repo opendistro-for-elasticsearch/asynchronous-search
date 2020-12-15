@@ -54,9 +54,9 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         //create context
         AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
         TimeValue keepAlive = timeValueDays(9);
-        boolean keepOnCompletion = randomBoolean();
+        boolean keepOnCompletion = true;
         AsyncSearchContext context = asyncSearchService.createAndStoreContext(keepAlive, keepOnCompletion,
-                System.currentTimeMillis());
+                System.currentTimeMillis(), null);
         assertTrue(context instanceof AsyncSearchActiveContext);
         AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) context;
         assertNull(asyncSearchActiveContext.getTask());
@@ -72,7 +72,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         assertEquals(asyncSearchActiveContext.getExpirationTimeMillis(), task.getStartTime() + keepAlive.millis());
         assertEquals(asyncSearchActiveContext.getAsyncSearchState(), RUNNING);
         CountDownLatch findContextLatch = new CountDownLatch(1);
-        asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), wrap(
+        asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), null, wrap(
                 r -> {
                     try {
                         assertTrue(r instanceof AsyncSearchActiveContext);
@@ -102,7 +102,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         if (keepOnCompletion) { //persist to disk
             TestClientUtils.assertResponsePersistence(client(), context.getAsyncSearchId());
             CountDownLatch findContextLatch1 = new CountDownLatch(1);
-            asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), wrap(
+            asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), null, wrap(
                     r -> {
                         try {
                             assertNotEquals(r, asyncSearchActiveContext);
@@ -120,7 +120,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
             ));
             findContextLatch1.await();
             CountDownLatch freeContextLatch = new CountDownLatch(1);
-            asyncSearchService.freeContext(context.getAsyncSearchId(), context.getContextId(), wrap(
+            asyncSearchService.freeContext(context.getAsyncSearchId(), context.getContextId(), null, wrap(
                     r -> {
                         try {
                             assertTrue("persistence context should be deleted", r);
@@ -142,7 +142,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
             assertActiveContextRemoval(asyncSearchService, asyncSearchActiveContext, findContextLatch1);
             findContextLatch1.await();
             CountDownLatch freeContextLatch = new CountDownLatch(1);
-            asyncSearchService.freeContext(context.getAsyncSearchId(), context.getContextId(), wrap(
+            asyncSearchService.freeContext(context.getAsyncSearchId(), context.getContextId(), null, wrap(
                     r -> {
                         try {
                             fail("No context should have been deleted");
@@ -166,7 +166,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
     private void assertActiveContextRemoval(AsyncSearchService asyncSearchService, AsyncSearchActiveContext asyncSearchActiveContext,
                                             CountDownLatch latch) {
 
-        asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), wrap(
+        asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), null, wrap(
                 r -> {
                     logger.warn("ASYNC SEARCH CONTEXT NOT YET DELETED");
                     assertTrue(r instanceof AsyncSearchActiveContext);
@@ -250,7 +250,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         boolean keepOnCompletion = true; //persist search
         AsyncSearchActiveContext context = (AsyncSearchActiveContext) asyncSearchService.createAndStoreContext(keepAlive,
                 keepOnCompletion,
-                System.currentTimeMillis());
+                System.currentTimeMillis(), null);
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
                 emptyMap(), context, null, (c) -> {
         });
@@ -265,7 +265,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         TestClientUtils.assertResponsePersistence(client(), context.getAsyncSearchId());
         CountDownLatch updateLatch = new CountDownLatch(1);
         asyncSearchService.updateKeepAliveAndGetContext(context.getAsyncSearchId(), keepAlive,
-                context.getContextId(), wrap(r -> {
+                context.getContextId(), null, wrap(r -> {
                     try {
                         assertTrue(r instanceof AsyncSearchPersistenceContext);
                         assertThat(r.getExpirationTimeMillis(), greaterThan(originalExpirationTimeMillis));
