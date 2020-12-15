@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.service.persistence;
 
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchSingleNodeTestCase;
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
@@ -65,7 +65,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         AsyncSearchId newAsyncSearchId = new AsyncSearchId(transportService.getLocalNode().getId(), 1, asyncSearchContextId);
         String id = AsyncSearchIdConverter.buildAsyncId(newAsyncSearchId);
         AsyncSearchResponse newAsyncSearchResponse = new AsyncSearchResponse(id,
-                asyncSearchResponse.isRunning(),
+                    randomAlphaOfLength(10),
                 asyncSearchResponse.getStartTimeMillis(),
                 asyncSearchResponse.getExpirationTimeMillis(),
                 asyncSearchResponse.getSearchResponse(),

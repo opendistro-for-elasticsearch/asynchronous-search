@@ -93,7 +93,7 @@ public abstract class AsyncSearchContext {
     }
 
     public AsyncSearchResponse getAsyncSearchResponse() {
-        return new AsyncSearchResponse(getAsyncSearchId(), isRunning(), getStartTimeMillis(),
+        return new AsyncSearchResponse(getAsyncSearchId(), getAsyncSearchState().toString(), getStartTimeMillis(),
                 getExpirationTimeMillis(), getSearchResponse(), getSearchError());
     }
 

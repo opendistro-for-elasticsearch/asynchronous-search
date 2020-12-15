@@ -2,7 +2,10 @@ package com.amazon.opendistroforelasticsearch.search.async.processor;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
+import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
+import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
@@ -12,8 +15,6 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.event.Se
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
-import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
-import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -24,6 +25,7 @@ import org.elasticsearch.common.unit.TimeValue;
 
 import java.util.Optional;
 import java.util.function.Consumer;
+
 
 /**
  * Performs the processing after a search completes.
@@ -56,11 +58,11 @@ public class AsyncSearchPostProcessor {
                 return asyncSearchContext.getAsyncSearchResponse();
             }
             // Best effort to return the response.
-            return new AsyncSearchResponse(false, -1L, -1L, null,
+            return new AsyncSearchResponse(AsyncSearchState.FAILED.name(), -1L, -1L, null,
                     ExceptionsHelper.convertToElastic(exception));
         } catch (AsyncSearchStateMachineClosedException ex) {
             // Best effort to return the response.
-            return new AsyncSearchResponse(false, -1L, -1L, null,
+            return new AsyncSearchResponse(AsyncSearchState.FAILED.name(), -1L, -1L, null,
                     ExceptionsHelper.convertToElastic(exception));
         }
     }
@@ -75,10 +77,10 @@ public class AsyncSearchPostProcessor {
                 return asyncSearchContext.getAsyncSearchResponse();
             }
             // Best effort to return the response.
-            return new AsyncSearchResponse(false, -1L, -1L, searchResponse, null);
-        }  catch (AsyncSearchStateMachineClosedException ex) {
+            return new AsyncSearchResponse(AsyncSearchState.SUCCEEDED.name(), -1L, -1L, searchResponse, null);
+        } catch (AsyncSearchStateMachineClosedException ex) {
             // Best effort to return the response.
-            return new AsyncSearchResponse(false, -1L, -1L, searchResponse, null);
+            return new AsyncSearchResponse(AsyncSearchState.SUCCEEDED.name(), -1L, -1L, searchResponse, null);
         }
     }
 

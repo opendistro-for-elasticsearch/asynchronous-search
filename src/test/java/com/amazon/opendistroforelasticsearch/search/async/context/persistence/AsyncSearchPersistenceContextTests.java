@@ -15,9 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.context.persistence;
 
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
-import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.search.SearchResponse;
@@ -59,7 +59,8 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
                         new NamedWriteableRegistry(Collections.emptyList()));
         assertEquals(
                 asyncSearchPersistenceContext.getAsyncSearchResponse(),
-                new AsyncSearchResponse(id, false, startTimeMillis, expirationTimeMillis, searchResponse, null));
+                new AsyncSearchResponse(id, asyncSearchPersistenceContext.getAsyncSearchState().name(), startTimeMillis,
+                        expirationTimeMillis, searchResponse, null));
     }
 
     /**
