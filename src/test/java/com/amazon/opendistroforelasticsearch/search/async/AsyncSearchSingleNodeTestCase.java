@@ -18,17 +18,21 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import org.apache.logging.log4j.LogManager;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.PluginsService;
 import org.elasticsearch.index.reindex.ReindexPlugin;
@@ -161,5 +165,24 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
             deleteLatch.countDown();
         }));
         deleteLatch.await();
+    }
+
+    public void assertDocNotPresentInAsyncSearchResponseIndex(String id) {
+        try {
+            assertFalse(client().get(new GetRequest(INDEX).refresh(true).id(id)).actionGet().isExists());
+        } catch (Exception e) {
+            assertTrue(e instanceof IndexNotFoundException);
+        }
+    }
+
+    public void assertAsyncSearchResourceCleanUp(String id) {
+        assertDocNotPresentInAsyncSearchResponseIndex(id);
+        assertActiveContextStoreEmptied();
+    }
+
+    public void assertActiveContextStoreEmptied() {
+        AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
+        Map<Long, AsyncSearchActiveContext> activeContexts = asyncSearchService.getAllActiveContexts();
+        assertTrue(activeContexts.isEmpty());
     }
 }

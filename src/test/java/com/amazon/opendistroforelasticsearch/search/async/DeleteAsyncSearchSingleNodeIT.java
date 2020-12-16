@@ -15,19 +15,15 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
-import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.common.TriConsumer;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
@@ -38,7 +34,6 @@ import org.elasticsearch.threadpool.ThreadPool;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -254,20 +249,5 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         } finally {
             ThreadPool.terminate(testThreadPool, 500, TimeUnit.MILLISECONDS);
         }
-    }
-
-    private void assertDocNotPresentInAsyncSearchResponseIndex(String id) {
-        try {
-            assertFalse(client().get(new GetRequest(INDEX).refresh(true).id(id)).actionGet().isExists());
-        } catch (Exception e) {
-            assertTrue(e instanceof IndexNotFoundException);
-        }
-    }
-
-    private void assertAsyncSearchResourceCleanUp(String id) throws InterruptedException {
-        assertDocNotPresentInAsyncSearchResponseIndex(id);
-        AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
-        Map<Long, AsyncSearchActiveContext> activeContexts = asyncSearchService.getAllActiveContexts();
-        assertTrue(activeContexts.isEmpty());
     }
 }

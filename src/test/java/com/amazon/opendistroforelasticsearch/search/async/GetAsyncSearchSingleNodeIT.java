@@ -65,6 +65,7 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                             + numVersionConflictFailure.get());
                     assertEquals(0, numGetFailures.get());
                 }, false, concurrentRuns, false);
+        assertAsyncSearchResourceCleanUp(submitResponse.getId());
     }
 
     public void testUpdateAsyncSearchForNoRetainedResponse() throws InterruptedException {
@@ -83,6 +84,7 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                     assertEquals(concurrentRuns, numGetSuccess.get() + numVersionConflictFailures.get()
                             + numResourceNotFoundFailures.get());
                 }, true, concurrentRuns, false);
+        assertAsyncSearchResourceCleanUp(submitResponse.getId());
     }
 
     public void testUpdateAsyncSearchForRetainedResponse() throws InterruptedException {
@@ -101,6 +103,7 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                     assertEquals(concurrentRuns, numGetSuccess.get() + numVersionConflictFailures.get()
                             + numResourceNotFoundFailures.get());
                 }, true, concurrentRuns, true);
+        assertAsyncSearchResourceCleanUp(submitResponse.getId());
     }
 
     public void testGetAsyncSearchForRetainedResponse() throws InterruptedException {
@@ -119,6 +122,7 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                     assertEquals(concurrentRuns, numGetSuccess.get() + numResourceNotFoundFailures.get()
                             + numVersionConflictFailures.get());
                 }, false, concurrentRuns, true);
+        assertAsyncSearchResourceCleanUp(submitResponse.getId());
     }
 
     public void testGetAsyncSearchInBlockedStateForNoRetainedResponse() throws Exception {
@@ -138,6 +142,7 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                     assertEquals(concurrentRuns, numGetSuccess.get());
                     assertEquals(0, numResourceNotFound.get());
                 }, false, concurrentRuns, false, plugins);
+        assertAsyncSearchResourceCleanUp(submitResponse.getId());
     }
 
     public void testGetAsyncSearchInBlockedStateForRetainedResponse() throws Exception {
@@ -157,6 +162,7 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                     assertEquals(concurrentRuns, numGetSuccess.get());
                     assertEquals(0, numResourceNotFound.get());
                 }, false, concurrentRuns, false, plugins);
+        assertAsyncSearchResourceCleanUp(submitResponse.getId());
     }
 
     public void testUpdateAsyncSearchInBlockedStateForRetainedResponse() throws Exception {
@@ -175,6 +181,7 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                     assertEquals(0, numGetFailures.get());
                     assertEquals(concurrentRuns, numGetSuccess.get() + numVersionConflictFailures.get());
                 }, true, concurrentRuns, false, plugins);
+        assertAsyncSearchResourceCleanUp(submitResponse.getId());
     }
 
     public void testUpdateAsyncSearchInBlockedStateForNoRetainedResponse() throws Exception {
@@ -193,6 +200,7 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                     assertEquals(0, numGetFailures.get());
                     assertEquals(concurrentRuns, numGetSuccess.get() + numVersionConflictFailures.get());
                 }, true, concurrentRuns, false, plugins);
+        assertAsyncSearchResourceCleanUp(submitResponse.getId());
     }
 
     private void assertConcurrentGetForBlockedSearch(AsyncSearchResponse submitResponse,

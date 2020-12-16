@@ -71,6 +71,7 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
             assertEquals(0,  numFailedAsyncSearch.get());
             assertEquals(0,  numErrorResponseAsyncSearch.get());
         }, concurrentRuns);
+        assertActiveContextStoreEmptied();
     }
 
     public void testSubmitAsyncSearchWithRetainedResponse() throws InterruptedException {
@@ -88,6 +89,7 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
             assertEquals(0,  numFailedAsyncSearch.get());
             assertEquals(0,  numErrorResponseAsyncSearch.get());
         }, concurrentRuns);
+        assertActiveContextStoreEmptied();
     }
 
     public void testSubmitAsyncSearchWithNoRetainedResponseBlocking() throws Exception {
@@ -97,6 +99,7 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
             assertEquals(concurrentRuns - asyncSearchConcurrentLimit,  numFailedAsyncSearch.get());
             assertEquals(concurrentRuns - asyncSearchConcurrentLimit,  numRejectedAsyncSearch.get());
         }, concurrentRuns);
+        assertActiveContextStoreEmptied();
     }
 
     private void assertConcurrentSubmitsForBlockedSearch(TriConsumer<AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer,
@@ -199,6 +202,7 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                                     @Override
                                     public void onResponse(AcknowledgedResponse acknowledgedResponse) {
                                         assertTrue(acknowledgedResponse.isAcknowledged());
+                                        assertDocNotPresentInAsyncSearchResponseIndex(asyncSearchResponse.getId());
                                         finalCountDownLatch.countDown();
                                     }
 
