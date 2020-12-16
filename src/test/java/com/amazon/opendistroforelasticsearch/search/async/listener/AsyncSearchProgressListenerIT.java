@@ -186,18 +186,18 @@ public class AsyncSearchProgressListenerIT extends ESSingleNodeTestCase {
         }
     }
 
-        private static List<SearchShard> createRandomIndices(Client client) {
-            int numIndices = randomIntBetween(3, 20);
-            for (int i = 0; i < numIndices; i++) {
-                String indexName = String.format(Locale.ROOT, "index-%03d" , i);
-                assertAcked(client.admin().indices().prepareCreate(indexName).get());
-                client.prepareIndex(indexName, "doc", Integer.toString(i)).setSource("number", i, "foo", "bar").get();
-            }
-            client.admin().indices().prepareRefresh("index-*").get();
-            ClusterSearchShardsResponse resp = client.admin().cluster().prepareSearchShards("index-*").get();
-            return Arrays.stream(resp.getGroups())
-                    .map(e -> new SearchShard(null, e.getShardId()))
-                    .sorted()
-                    .collect(Collectors.toList());
+    private static List<SearchShard> createRandomIndices(Client client) {
+        int numIndices = randomIntBetween(3, 20);
+        for (int i = 0; i < numIndices; i++) {
+            String indexName = String.format(Locale.ROOT, "index-%03d" , i);
+            assertAcked(client.admin().indices().prepareCreate(indexName).get());
+            client.prepareIndex(indexName, "doc", Integer.toString(i)).setSource("number", i, "foo", "bar").get();
         }
+        client.admin().indices().prepareRefresh("index-*").get();
+        ClusterSearchShardsResponse resp = client.admin().cluster().prepareSearchShards("index-*").get();
+        return Arrays.stream(resp.getGroups())
+                .map(e -> new SearchShard(null, e.getShardId()))
+                .sorted()
+                .collect(Collectors.toList());
     }
+}

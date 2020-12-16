@@ -87,7 +87,7 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
     @Override
     protected void onPartialReduce(List<SearchShard> shards, TotalHits totalHits,
                                    DelayableWriteable.Serialized<InternalAggregations> aggs, int reducePhase) {
-        assert reducePhase >= partialResultsHolder.reducePhase.get() : "reduce phase " + reducePhase + "less than previous phase"
+        assert reducePhase > partialResultsHolder.reducePhase.get() : "reduce phase " + reducePhase + "less than previous phase"
                 + partialResultsHolder.reducePhase.get();
         partialResultsHolder.delayedInternalAggregations.set(aggs);
         partialResultsHolder.reducePhase.set(reducePhase);
@@ -96,9 +96,11 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
 
     @Override
     protected void onFinalReduce(List<SearchShard> shards, TotalHits totalHits, InternalAggregations aggs, int reducePhase) {
-        assert reducePhase >= partialResultsHolder.reducePhase.get() : "reduce phase " + reducePhase + "less than previous phase"
+        assert reducePhase > partialResultsHolder.reducePhase.get() : "reduce phase " + reducePhase + "less than previous phase"
                 + partialResultsHolder.reducePhase.get();
         partialResultsHolder.internalAggregations.set(aggs);
+        //we don't need to hold its reference beyond this point
+        partialResultsHolder.delayedInternalAggregations.set(null);
         partialResultsHolder.reducePhase.set(reducePhase);
         partialResultsHolder.totalHits.set(totalHits);
     }
