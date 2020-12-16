@@ -58,6 +58,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import static com.amazon.opendistroforelasticsearch.search.async.UserAuthUtils.isUserValid;
 import static com.amazon.opendistroforelasticsearch.search.async.UserAuthUtils.parseUser;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
@@ -115,10 +116,11 @@ public class AsyncSearchPersistenceService {
      * Fetches and de-serializes the async search response from index.
      *
      * @param id       async search id
+     * @param user     current user
      * @param listener invoked once get request completes. Throws ResourceNotFoundException if index doesn't exist.
      */
     @SuppressWarnings("unchecked")
-    public void getResponse(String id, ActionListener<AsyncSearchPersistenceModel> listener) {
+    public void getResponse(String id, User user, ActionListener<AsyncSearchPersistenceModel> listener) {
         if (indexExists() == false) {
             listener.onFailure(new ResourceNotFoundException(id));
             return;
@@ -128,11 +130,19 @@ public class AsyncSearchPersistenceService {
                 {
                     if (getResponse.isExists()) {
                         Map<String, Object> source = getResponse.getSource();
-                        listener.onResponse(new AsyncSearchPersistenceModel((long) source.get(START_TIME_MILLIS),
+                        AsyncSearchPersistenceModel asyncSearchPersistenceModel = new AsyncSearchPersistenceModel(
+                                (long) source.get(START_TIME_MILLIS),
                                 (long) source.get(EXPIRATION_TIME_MILLIS),
                                 source.containsKey(RESPONSE) ? (String) source.get(RESPONSE) : null,
                                 source.containsKey(ERROR) ? (String) source.get(ERROR) : null,
-                                parseUser((Map<String, Object>) source.get(USER))));
+                                parseUser((Map<String, Object>) source.get(USER)));
+                        if(isUserValid(user, asyncSearchPersistenceModel.getUser())) {
+                            listener.onResponse(asyncSearchPersistenceModel);
+                        } else {
+                            logger.debug("Invalid user requesting GET persisted context for async search id {}", id);
+                            listener.onFailure(new ElasticsearchSecurityException(
+                                    "User doesn't have necessary roles to access the async search with id "+ id, RestStatus.FORBIDDEN));
+                        }
                     } else {
                         listener.onFailure(new ResourceNotFoundException(id));
                     }
@@ -255,16 +265,24 @@ public class AsyncSearchPersistenceService {
         updateRequest.fetchSource(FetchSourceContext.FETCH_SOURCE);
         client.update(updateRequest, ActionListener.wrap(updateResponse -> {
             switch (updateResponse.getResult()) {
+                case NOOP:
+                    if(user != null) {
+                        listener.onFailure(new ElasticsearchSecurityException(
+                                "User doesn't have necessary roles to access the async search with id " + id, RestStatus.FORBIDDEN));
+                    } else {
+                        Map<String, Object> updatedSource = updateResponse.getGetResult().getSource();
+                        listener.onResponse(new AsyncSearchPersistenceModel((long) updatedSource.get(START_TIME_MILLIS),
+                                (long) updatedSource.get(EXPIRATION_TIME_MILLIS),
+                                (String) updatedSource.get(RESPONSE), (String) updatedSource.get(ERROR),
+                                parseUser((Map<String, Object>) updatedSource.get(USER))));
+                    }
+                    break;
                 case UPDATED:
                     Map<String, Object> updatedSource = updateResponse.getGetResult().getSource();
                     listener.onResponse(new AsyncSearchPersistenceModel((long) updatedSource.get(START_TIME_MILLIS),
                             (long) updatedSource.get(EXPIRATION_TIME_MILLIS),
                             (String) updatedSource.get(RESPONSE), (String) updatedSource.get(ERROR),
                             parseUser((Map<String, Object>) updatedSource.get(USER))));
-                    break;
-                case NOOP:
-                    listener.onFailure(new ElasticsearchSecurityException(
-                            "User doesn't have necessary roles to access the async search with id "+ id, RestStatus.FORBIDDEN));
                     break;
                 case NOT_FOUND:
                 case DELETED:
@@ -344,6 +362,7 @@ public class AsyncSearchPersistenceService {
         source.put(ERROR, model.getError());
         source.put(EXPIRATION_TIME_MILLIS, model.getExpirationTimeMillis());
         source.put(START_TIME_MILLIS, model.getStartTimeMillis());
+        source.put(USER, model.getUser());
         IndexRequestBuilder indexRequestBuilder = client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX, MAPPING_TYPE,
                 id).setSource(source, XContentType.JSON);
         doStoreResult(STORE_BACKOFF_POLICY.iterator(), indexRequestBuilder, listener);

@@ -53,6 +53,7 @@ dependencies {
     testCompile ('junit:junit:4.12') {
         exclude group: 'org.hamcrest'
     }
+    testCompile group: "org.codelibs.elasticsearch.module", name: "lang-painless", version: "${es_version}"
     testCompile "org.elasticsearch.plugin:reindex-client:${es_version}"
     compileOnly "org.elasticsearch.plugin:transport-netty4-client:${es_version}"
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"

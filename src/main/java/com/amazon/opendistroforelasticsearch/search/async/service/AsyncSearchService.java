@@ -210,21 +210,13 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             }
         } else {
             logger.debug("Active context is not present for async search ID [{}]", id);
-            persistenceService.getResponse(id, ActionListener.wrap((
-                    persistenceModel) -> {
-                        AsyncSearchPersistenceContext asyncSearchPersistenceContext = new AsyncSearchPersistenceContext(
-                                id, asyncSearchContextId, persistenceModel,
-                                currentTimeSupplier, namedWriteableRegistry);
-                        if(isUserValid(user, asyncSearchPersistenceContext.getUser()) == false) {
-                            logger.debug("Invalid user requesting GET persisted context for async search id {}", id);
-                            listener.onFailure(new ElasticsearchSecurityException(
-                                    "User doesn't have necessary roles to access the async search with id "+ id, RestStatus.FORBIDDEN));
-                        } else {
-                            listener.onResponse(asyncSearchPersistenceContext);
-                        }},
+            persistenceService.getResponse(id, user, ActionListener.wrap(
+                    (persistenceModel) ->
+                            listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId, persistenceModel,
+                            currentTimeSupplier, namedWriteableRegistry)),
                     ex -> {
                         logger.debug(() -> new ParameterizedMessage("Context not found for ID  in the system index {}", id), ex);
-                        listener.onFailure(new ResourceNotFoundException(id));
+                        listener.onFailure(ex);
                     }
             ));
         }

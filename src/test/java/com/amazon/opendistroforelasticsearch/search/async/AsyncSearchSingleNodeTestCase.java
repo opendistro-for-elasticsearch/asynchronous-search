@@ -29,6 +29,7 @@ import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.painless.PainlessPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.PluginsService;
 import org.elasticsearch.index.reindex.ReindexPlugin;
@@ -74,6 +75,7 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
         plugins.add(SearchDelayPlugin.class);
         plugins.add(AsyncSearchPlugin.class);
         plugins.add(ReindexPlugin.class);
+        plugins.add(PainlessPlugin.class);
         return plugins;
     }
 
