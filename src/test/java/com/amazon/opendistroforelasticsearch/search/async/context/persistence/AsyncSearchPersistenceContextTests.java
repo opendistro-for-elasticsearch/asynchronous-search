@@ -59,7 +59,7 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
                         new NamedWriteableRegistry(Collections.emptyList()));
         assertEquals(
                 asyncSearchPersistenceContext.getAsyncSearchResponse(),
-                new AsyncSearchResponse(id, asyncSearchPersistenceContext.getAsyncSearchState().name(), startTimeMillis,
+                new AsyncSearchResponse(id, asyncSearchPersistenceContext.getAsyncSearchState(), startTimeMillis,
                         expirationTimeMillis, searchResponse, null));
     }
 

@@ -244,11 +244,6 @@ public class AsyncSearchActiveContextTests extends ESTestCase {
             assertFalse(context.isAlive());
             expectThrows(AssertionError.class, () -> context.setExpirationTimeMillis(randomNonNegativeLong()));
             expectThrows(AssertionError.class, () -> context.setTask(task));
-            if (keepOnCompletion) {
-                assertTrue(keepOnCompletion);
-            } else {
-                assertFalse(keepOnCompletion);
-            }
         } finally {
             ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
         }

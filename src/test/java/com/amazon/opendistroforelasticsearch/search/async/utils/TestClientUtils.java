@@ -86,7 +86,7 @@ public class TestClientUtils {
         AsyncSearchResponse getResponse;
         do {
             getResponse = blockingGetAsyncSearchResponse(client, submitResponse, getAsyncSearchRequest);
-        } while (getResponse.getStatus().equals(AsyncSearchState.RUNNING.name()));
+        } while (getResponse.getState().equals(AsyncSearchState.RUNNING.name()));
         return getResponse;
     }
 

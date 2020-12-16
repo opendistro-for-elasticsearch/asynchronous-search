@@ -58,11 +58,11 @@ public class AsyncSearchPostProcessor {
                 return asyncSearchContext.getAsyncSearchResponse();
             }
             // Best effort to return the response.
-            return new AsyncSearchResponse(AsyncSearchState.FAILED.name(), -1L, -1L, null,
+            return new AsyncSearchResponse(AsyncSearchState.FAILED, -1L, -1L, null,
                     ExceptionsHelper.convertToElastic(exception));
         } catch (AsyncSearchStateMachineClosedException ex) {
             // Best effort to return the response.
-            return new AsyncSearchResponse(AsyncSearchState.FAILED.name(), -1L, -1L, null,
+            return new AsyncSearchResponse(AsyncSearchState.FAILED, -1L, -1L, null,
                     ExceptionsHelper.convertToElastic(exception));
         }
     }
@@ -77,10 +77,10 @@ public class AsyncSearchPostProcessor {
                 return asyncSearchContext.getAsyncSearchResponse();
             }
             // Best effort to return the response.
-            return new AsyncSearchResponse(AsyncSearchState.SUCCEEDED.name(), -1L, -1L, searchResponse, null);
+            return new AsyncSearchResponse(AsyncSearchState.SUCCEEDED, -1L, -1L, searchResponse, null);
         } catch (AsyncSearchStateMachineClosedException ex) {
             // Best effort to return the response.
-            return new AsyncSearchResponse(AsyncSearchState.SUCCEEDED.name(), -1L, -1L, searchResponse, null);
+            return new AsyncSearchResponse(AsyncSearchState.SUCCEEDED, -1L, -1L, searchResponse, null);
         }
     }
 
