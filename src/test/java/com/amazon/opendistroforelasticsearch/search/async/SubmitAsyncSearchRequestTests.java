@@ -10,7 +10,6 @@ import org.elasticsearch.test.ESTestCase;
 public class SubmitAsyncSearchRequestTests extends ESTestCase {
 
     public void testValidRequest() {
-
         SearchSourceBuilder source = new SearchSourceBuilder();
         SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(new SearchRequest(new String[]{"test"}, source));
         ValidationException validationException = request.validate();
@@ -27,17 +26,13 @@ public class SubmitAsyncSearchRequestTests extends ESTestCase {
     }
 
     public void testSearchScrollFailsValidation() {
-        {
-            SearchSourceBuilder source = new SearchSourceBuilder();
-            SearchRequest searchRequest = new SearchRequest(new String[]{"test"}, source);
-            searchRequest.scroll(randomTimeValue());
-            SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
-            ValidationException validationException = request.validate();
-            assertNotNull(validationException);
-            assertEquals(1, validationException.validationErrors().size());
-            assertEquals("scrolls are not supported", validationException.validationErrors().get(0));
-        }
+        SearchSourceBuilder source = new SearchSourceBuilder();
+        SearchRequest searchRequest = new SearchRequest(new String[]{"test"}, source);
+        searchRequest.scroll(randomTimeValue());
+        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
+        ValidationException validationException = request.validate();
+        assertNotNull(validationException);
+        assertEquals(1, validationException.validationErrors().size());
+        assertEquals("scrolls are not supported", validationException.validationErrors().get(0));
     }
-
-
 }

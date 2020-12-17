@@ -87,11 +87,6 @@ public abstract class AsyncSearchContext {
         return getExpirationTimeMillis() < currentTimeSupplier.getAsLong();
     }
 
-    public Set<AsyncSearchState> retainedStages() {
-        return Collections.unmodifiableSet(Sets.newHashSet(AsyncSearchState.INIT, AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED,
-                AsyncSearchState.FAILED, AsyncSearchState.PERSISTING));
-    }
-
     public AsyncSearchResponse getAsyncSearchResponse() {
         return new AsyncSearchResponse(getAsyncSearchId(), getAsyncSearchState(), getStartTimeMillis(),
                 getExpirationTimeMillis(), getSearchResponse(), getSearchError());

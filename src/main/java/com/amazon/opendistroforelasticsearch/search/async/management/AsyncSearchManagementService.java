@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.management;
 
+import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
@@ -25,11 +26,10 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionRequestValidationException;
-import org.elasticsearch.action.search.SearchTask;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.LocalNodeMasterListener;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.Booleans;
 import org.elasticsearch.common.Randomness;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
@@ -41,7 +41,6 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.tasks.Task;
-import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportChannel;
@@ -51,10 +50,13 @@ import org.elasticsearch.transport.TransportResponseHandler;
 import org.elasticsearch.transport.TransportService;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * The service takes care of cancelling ongoing searches which have been running past their expiration time and cleaning up async search
@@ -66,7 +68,6 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
     private final ClusterService clusterService;
     private final AsyncSearchPersistenceService asyncSearchPersistenceService;
-    private final Client client;
     private final ThreadPool threadPool;
     private volatile Scheduler.Cancellable taskReaperScheduledFuture;
     private AtomicReference<ResponseCleanUpScheduler> activeResponseCleanUpScheduler = new AtomicReference<>();
@@ -77,7 +78,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
     public static final String CLEANUP_ACTION_NAME = "indices:data/read/async_search/cleanup";
 
-    public static final Setting<TimeValue> TASK_CANCELLATION_INTERVAL_SETTING =
+    public static final Setting<TimeValue> REAPER_INTERVAL_SETTING =
             Setting.timeSetting("async_search.expired.task.cancellation_interval", TimeValue.timeValueMinutes(30),
                     TimeValue.timeValueMinutes(1),
                     Setting.Property.NodeScope);
@@ -87,17 +88,16 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
                     Setting.Property.NodeScope);
 
     @Inject
-    public AsyncSearchManagementService(Settings settings, ClusterService clusterService, Client client, ThreadPool threadPool,
+    public AsyncSearchManagementService(Settings settings, ClusterService clusterService, ThreadPool threadPool,
                                         AsyncSearchService asyncSearchService, TransportService transportService,
                                         AsyncSearchPersistenceService asyncSearchPersistenceService) {
-        this.client = client;
         this.clusterService = clusterService;
         this.threadPool = threadPool;
         this.clusterService.addLocalNodeMasterListener(this);
         this.asyncSearchService = asyncSearchService;
         this.transportService = transportService;
         this.asyncSearchPersistenceService = asyncSearchPersistenceService;
-        this.taskCancellationInterval = TASK_CANCELLATION_INTERVAL_SETTING.get(settings);
+        this.taskCancellationInterval = REAPER_INTERVAL_SETTING.get(settings);
         this.responseCleanUpInterval = RESPONSE_CLEAN_UP_INTERVAL_SETTING.get(settings);
 
         transportService.registerRequestHandler(CLEANUP_ACTION_NAME, ThreadPool.Names.SAME, false, false,
@@ -109,15 +109,14 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
         @Override
         public void messageReceived(AsyncSearchCleanUpRequest request, TransportChannel channel, Task task) throws Exception {
             asyncCleanUpOperation(request, task,
-                    ActionListener.wrap(channel::sendResponse, e -> {
-                                try {
-                                    channel.sendResponse(e);
-                                } catch (Exception e1) {
-                                    logger.warn(() -> new ParameterizedMessage(
-                                            "Failed to send cleanup error response for request [{}]", request), e1);
-                                }
-                            }
-                    ));
+                ActionListener.wrap(channel::sendResponse, e -> {
+                    try {
+                        channel.sendResponse(e);
+                    } catch (Exception ex) {
+                        logger.warn(() -> new ParameterizedMessage(
+                                "Failed to send cleanup error response for request [{}]", request), ex);
+                    }
+                }));
         }
     }
 
@@ -157,7 +156,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
     @Override
     protected void doStart() {
-        taskReaperScheduledFuture = threadPool.scheduleWithFixedDelay(new TaskReaper(), taskCancellationInterval,
+        taskReaperScheduledFuture = threadPool.scheduleWithFixedDelay(new ContextReaper(), taskCancellationInterval,
                 AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
     }
 
@@ -179,7 +178,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
         taskReaperScheduledFuture.cancel();
     }
 
-    class TaskReaper implements Runnable {
+    class ContextReaper implements Runnable {
 
         @Override
         public void run() {
@@ -187,14 +186,18 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
             try (ThreadContext.StoredContext ignore = threadContext.stashContext()) {
                 // we have to execute under the system context so that if security is enabled the sync is authorized
                 threadContext.markAsSystemContext();
-                Set<SearchTask> toCancel = asyncSearchService.getOverRunningTasks();
+                Set<AsyncSearchContext> toFree = asyncSearchService.getContextsToReap();
                 // don't block on response
-                toCancel.forEach(
-                        task -> client.admin().cluster()
-                                .prepareCancelTasks().setTaskId(new TaskId(clusterService.localNode().getId(), task.getId()))
-                                .execute());
+                toFree.forEach(
+                        context -> asyncSearchService.freeContext(context.getAsyncSearchId(), context.getContextId(), ActionListener.wrap(
+                                (response) -> logger.debug("Successfully freed up context [{}] running duration [{}]",
+                                        context.getAsyncSearchId(), context.getExpirationTimeMillis() - context.getStartTimeMillis()),
+                                (exception -> logger.warn(() -> new ParameterizedMessage("Failed to cleanup async search context [{}] " +
+                                        "running duration [{}] due to ", context.getAsyncSearchId(), context.getExpirationTimeMillis() -
+                                        context.getStartTimeMillis()), exception))
+                        )));
             } catch (Exception ex) {
-                logger.error("Failed to cancel overrunning async search task", ex);
+                logger.error("Failed to free up overrunning async searches due to ", ex);
             }
         }
     }
@@ -213,10 +216,11 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
             try (ThreadContext.StoredContext ignore = threadContext.stashContext()) {
                 // we have to execute under the system context so that if security is enabled the sync is authorized
                 threadContext.markAsSystemContext();
-                // TODO ensure versioning for BWC
-                DiscoveryNode[] nodes = clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class);
-                int pos = Randomness.get().nextInt(nodes.length);
-                DiscoveryNode randomNode = nodes[pos];
+
+                List<DiscoveryNode> nodes = Stream.of(clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class))
+                        .filter((node) -> isAsyncSearchEnabledNode(node)).collect(Collectors.toList());
+                int pos = Randomness.get().nextInt(nodes.size());
+                DiscoveryNode randomNode = nodes.get(pos);
                 transportService.sendRequest(randomNode, CLEANUP_ACTION_NAME,
                         new AsyncSearchCleanUpRequest(threadPool.absoluteTimeInMillis()),
                         new TransportResponseHandler<AcknowledgedResponse>() {
@@ -254,6 +258,11 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
                 logger.error("Failed to schedule async search cleanup", ex);
                 scheduleNextWakeUp();
             }
+        }
+
+        // TODO: only here temporarily for BWC development, remove once complete
+        private boolean isAsyncSearchEnabledNode(DiscoveryNode discoveryNode) {
+            return Booleans.isTrue(discoveryNode.getAttributes().getOrDefault("asynchronous_search_enabled", "false"));
         }
 
         private void scheduleNextWakeUp() {

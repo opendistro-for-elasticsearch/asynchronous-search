@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchA
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.management.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
@@ -34,6 +35,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.component.LifecycleComponent;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.ClusterSettings;
 import org.elasticsearch.common.settings.IndexScopedSettings;
@@ -76,8 +78,13 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
-        return Collections.singletonList(new SystemIndexDescriptor(".opendistro_asynchroAnous_search_response",
+        return Collections.singletonList(new SystemIndexDescriptor(".opendistro_asynchronous_search_response",
                 "Stores the response for async search"));
+    }
+
+    @Override
+    public Collection<Class<? extends LifecycleComponent>> getGuiceServiceClasses() {
+        return Collections.singletonList(AsyncSearchManagementService.class);
     }
 
 

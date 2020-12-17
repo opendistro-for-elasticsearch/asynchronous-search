@@ -99,8 +99,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     public static final Setting<TimeValue> MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING = Setting.positiveTimeSetting(
             "async_search.max_wait_for_completion_timeout", timeValueMinutes(1), Setting.Property.NodeScope,
             Setting.Property.Dynamic);
-    public static final Setting<TimeValue> KEEP_ALIVE_INTERVAL_SETTING = Setting.positiveTimeSetting("async_search.keep_alive_interval",
-            timeValueMinutes(1), Setting.Property.NodeScope);
 
     private volatile long maxKeepAlive;
     private volatile long maxWaitForCompletion;
@@ -111,7 +109,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private final AsyncSearchPersistenceService persistenceService;
     private final AsyncSearchActiveStore asyncSearchActiveStore;
     private final AsyncSearchPostProcessor asyncSearchPostProcessor;
-    private final Scheduler.Cancellable contextReaper;
     private final LongSupplier currentTimeSupplier;
     private final AsyncSearchStateMachine asyncSearchStateMachine;
     private final NamedWriteableRegistry namedWriteableRegistry;
@@ -131,9 +128,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
         this.currentTimeSupplier = System::currentTimeMillis;
-        // every node cleans up it's own in-memory context which should either be discarded or has expired
-        this.contextReaper = threadPool.scheduleWithFixedDelay(new ContextReaper(), KEEP_ALIVE_INTERVAL_SETTING.get(settings),
-                AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
         asyncSearchStateMachine = initStateMachine();
         this.asyncSearchActiveStore = new AsyncSearchActiveStore(clusterService, asyncSearchStateMachine);
         this.asyncSearchPostProcessor = new AsyncSearchPostProcessor(persistenceService, asyncSearchActiveStore, asyncSearchStateMachine,
@@ -221,13 +215,11 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         return asyncSearchActiveStore.getAllContexts();
     }
 
-    public Set<SearchTask> getOverRunningTasks() {
+    public Set<AsyncSearchContext> getContextsToReap() {
         Map<Long, AsyncSearchActiveContext> allContexts = asyncSearchActiveStore.getAllContexts();
         return Collections.unmodifiableSet(allContexts.values().stream()
                 .filter(Objects::nonNull)
-                .filter(AsyncSearchContext::isExpired)
-                .filter(context -> context.getTask().isCancelled() == false)
-                .map(AsyncSearchActiveContext::getTask)
+                .filter((c) -> EnumSet.of(CLOSED, PERSIST_FAILED).contains(c.getAsyncSearchState()) || c.isExpired())
                 .collect(Collectors.toSet()));
     }
 
@@ -438,33 +430,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     @Override
     protected void doClose() {
         doStop();
-        contextReaper.cancel();
     }
 
     public AsyncSearchStats stats() {
         return null;
-    }
-
-    /***
-     * Reaps the active contexts ready to be expunged
-     */
-    class ContextReaper implements Runnable {
-
-        @Override
-        public void run() {
-            for (AsyncSearchActiveContext asyncSearchActiveContext : asyncSearchActiveStore.getAllContexts().values()) {
-                try {
-                    AsyncSearchState stage = asyncSearchActiveContext.getAsyncSearchState();
-                    if (stage != null && (
-                            asyncSearchActiveContext.retainedStages().contains(stage) == false || asyncSearchActiveContext.isExpired())) {
-                        freeActiveContext(asyncSearchActiveContext);
-                    }
-                } catch (Exception e) {
-                    logger.debug("Exception occurred while reaping async search active context for id "
-                            + asyncSearchActiveContext.getAsyncSearchId(), e);
-                }
-            }
-        }
     }
 
 

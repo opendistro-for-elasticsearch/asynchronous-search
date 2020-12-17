@@ -87,8 +87,6 @@ public class AsyncSearchPostProcessor {
     public void persistResponse(AsyncSearchActiveContext asyncSearchContext, AsyncSearchPersistenceModel persistenceModel) {
         //assert we are not post processing on any other thread pool
         assert Thread.currentThread().getName().contains(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME);
-        assert asyncSearchContext.retainedStages().contains(asyncSearchContext.getAsyncSearchState()) :
-                "found stage " + asyncSearchContext.getAsyncSearchState() + "that shouldn't be retained";
         // acquire all permits non-blocking
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
                     // check again after acquiring permit if the context has been deleted mean while
