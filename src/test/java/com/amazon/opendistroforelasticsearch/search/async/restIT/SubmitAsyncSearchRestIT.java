@@ -8,11 +8,14 @@ import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+
+import static org.hamcrest.Matchers.containsString;
 
 public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
 
@@ -83,10 +86,15 @@ public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
         submitAsyncSearchRequest.keepOnCompletion(false);
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(0));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
-        assertNull(submitResponse.getSearchResponse());
-        assertNull(submitResponse.getError());
-        assertNotNull(submitResponse.getId());
+
         assertEquals(AsyncSearchState.RUNNING, submitResponse.getState());
+        assertNotNull(submitResponse.getId());
+        assertNull(submitResponse.getError());
+        if (submitResponse.getSearchResponse() == null) {
+            assertEquals(submitResponse.status(), RestStatus.OK);
+        } else {
+            assertEquals(submitResponse.getSearchResponse().getTook().getMillis(), -1);
+        }
         List<AsyncSearchState> legalStates = Arrays.asList(
                 AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
         assertTrue(legalStates.contains(submitResponse.getState()));
@@ -124,27 +132,25 @@ public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
         executeDeleteAsyncSearch(new DeleteAsyncSearchRequest(submitResponse.getId()));
     }
 
-    public void testSubmitSearchRunsBeyondWaitForCompletionTimeout() {
-
-    }
-
     /**
      * run search on all indices
      */
-    public void testSubmitSearchAllIndices() {
+    public void testSubmitSearchAllIndices() throws IOException {
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
+        submitAsyncSearchRequest.keepOnCompletion(false);
+        AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
+        List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
+        assertTrue(legalStates.contains(submitResponse.getState()));
+        assertHitCount(submitResponse.getSearchResponse(), 6);
     }
 
-    public void testSubmitError() {
+    public void testSubmitError() throws IOException {
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest("afknwefwoef"));
+        AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
+        List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.FAILED, AsyncSearchState.CLOSED);
+        assertNull(submitResponse.getSearchResponse());
+        assertNotNull(submitResponse.getError());
+        assertThat(submitResponse.getError().getDetailedMessage(), containsString("index_not_found"));
+        assertTrue(legalStates.contains(submitResponse.getState()));
     }
-
-    public void testSubmitKeepAliveDefault() {
-    }
-
-    public void testSubmitKeepAliveLimitViolation() {
-    }
-
-    public void testSubmitWaitForCompletionTimeoutLimitViolation() {
-    }
-
-
 }
