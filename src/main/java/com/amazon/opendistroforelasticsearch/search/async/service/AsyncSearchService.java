@@ -60,6 +60,7 @@ import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.search.SearchService;
 import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -149,21 +150,23 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.maxKeepAlive = maxKeepAlive.millis();
     }
 
-
     /**
      * Creates a new active async search for a newly submitted async search.
      *
-     * @param request                 the {@linkplain SubmitAsyncSearchRequest}
-     * @param relativeStartTimeMillis start time of {@linkplain SearchAction}
-     * @return the async search context
+     * @param request                 the SubmitAsyncSearchRequest
+     * @param relativeStartTimeMillis the relative start time of the search in millis
+     * @param searchService           the reference for the SearchService
+     * @return the AsyncSearchContext for the submitted request
      */
-    public AsyncSearchContext createAndStoreContext(SubmitAsyncSearchRequest request, long relativeStartTimeMillis) {
+    public AsyncSearchContext createAndStoreContext(SubmitAsyncSearchRequest request, long relativeStartTimeMillis,
+                                                    SearchService searchService) {
         validateRequest(request);
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartTimeMillis,
                 (response) -> asyncSearchPostProcessor.processSearchResponse(response, asyncSearchContextId),
                 (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId),
-                threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME), threadPool::relativeTimeInMillis);
+                threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME), threadPool::relativeTimeInMillis,
+                () -> searchService.aggReduceContextBuilder(request.getSearchRequest()));
         AsyncSearchActiveContext asyncSearchContext = new AsyncSearchActiveContext(asyncSearchContextId, clusterService.localNode().getId(),
                 request.getKeepAlive(), request.getKeepOnCompletion(), threadPool, currentTimeSupplier, progressActionListener,
                 statsListener);

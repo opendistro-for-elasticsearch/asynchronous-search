@@ -33,6 +33,7 @@ import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.SearchService;
 import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.internal.InternalSearchResponse;
 import org.elasticsearch.search.profile.SearchProfileShardResults;
@@ -58,9 +59,10 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         TimeValue keepAlive = timeValueDays(9);
         boolean keepOnCompletion = randomBoolean();
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
-        submitAsyncSearchRequest.keepAlive(keepAlive);
         submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
-        AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis());
+        submitAsyncSearchRequest.keepAlive(keepAlive);
+        AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest,
+                System.currentTimeMillis(), getInstanceFromNode(SearchService.class));
         assertTrue(context instanceof AsyncSearchActiveContext);
         AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) context;
         assertNull(asyncSearchActiveContext.getTask());
@@ -172,12 +174,10 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
 
         asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), wrap(
                 r -> {
-                    logger.warn("ASYNC SEARCH CONTEXT NOT YET DELETED");
                     assertTrue(r instanceof AsyncSearchActiveContext);
                     assertActiveContextRemoval(asyncSearchService, asyncSearchActiveContext, latch);
                 }, e -> {
                     try {
-                        logger.warn("ASYNC SEARCH CONTEXT  DELETED");
                         assertTrue(e instanceof ResourceNotFoundException);
                     } finally {
                         latch.countDown();
@@ -187,76 +187,15 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
 
     }
 
-//    public void testUpdateExpirationOnRunningSearch() throws InterruptedException {
-//        AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
-//        TimeValue keepAlive = timeValueDays(9);
-//        boolean keepOnCompletion = false;
-//        AsyncSearchContext context = asyncSearchService.createAndStoreContext(keepAlive, keepOnCompletion,
-//                System.currentTimeMillis());
-//        assertTrue(context instanceof AsyncSearchActiveContext);
-//        AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) context;
-//        assertNull(asyncSearchActiveContext.getTask());
-//        assertNull(asyncSearchActiveContext.getAsyncSearchId());
-//        assertEquals(asyncSearchActiveContext.getAsyncSearchState(), INIT);
-//        //bootstrap search
-//        AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
-//                emptyMap(), (AsyncSearchActiveContext) context, null, (c) -> {
-//        });
-//
-//        asyncSearchService.bootstrapSearch(task, context.getContextId());
-//        assertEquals(asyncSearchActiveContext.getTask(), task);
-//        assertEquals(asyncSearchActiveContext.getStartTimeMillis(), task.getStartTime());
-//        long originalExpirationTimeMillis = asyncSearchActiveContext.getExpirationTimeMillis();
-//        assertEquals(originalExpirationTimeMillis, task.getStartTime() + keepAlive.millis());
-//        assertEquals(asyncSearchActiveContext.getAsyncSearchState(), RUNNING);
-//        CountDownLatch findContextLatch = new CountDownLatch(1);
-//        asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), wrap(
-//                r -> {
-//                    try {
-//                        assertTrue(r instanceof AsyncSearchActiveContext);
-//                        assertEquals(r, context);
-//                    } finally {
-//                        findContextLatch.countDown();
-//                    }
-//                }, e -> {
-//                    try {
-//                        logger.error(e);
-//                        fail("Find context shouldn't have failed");
-//                    } finally {
-//                        findContextLatch.countDown();
-//                    }
-//                }
-//        ));
-//        findContextLatch.await();
-//        CountDownLatch updateLatch = new CountDownLatch(1);
-//        asyncSearchService.updateKeepAliveAndGetContext(asyncSearchActiveContext.getAsyncSearchId(), keepAlive,
-//                asyncSearchActiveContext.getContextId(), wrap(r -> {
-//                    try {
-//                        assertTrue(r instanceof AsyncSearchActiveContext);
-//                        assertThat(r.getExpirationTimeMillis(), greaterThan(originalExpirationTimeMillis));
-//                    } finally {
-//                        updateLatch.countDown();
-//                    }
-//                }, e -> {
-//                    try {
-//                        fail();
-//                    } finally {
-//                        updateLatch.countDown();
-//                    }
-//                }));
-//        updateLatch.await();
-//
-//    }
-
     public void testUpdateExpirationOnPersistedSearch() throws InterruptedException {
         AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
         TimeValue keepAlive = timeValueDays(9);
-        boolean keepOnCompletion = true; //persist search
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
-        submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
+        SearchRequest searchRequest = new SearchRequest();
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
         submitAsyncSearchRequest.keepAlive(keepAlive);
+        submitAsyncSearchRequest.keepOnCompletion(true);
         AsyncSearchActiveContext context = (AsyncSearchActiveContext) asyncSearchService.createAndStoreContext(submitAsyncSearchRequest,
-                System.currentTimeMillis());
+                System.currentTimeMillis(), getInstanceFromNode(SearchService.class));
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
                 emptyMap(), context, null, (c) -> {
         });
