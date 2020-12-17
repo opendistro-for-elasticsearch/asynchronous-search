@@ -47,7 +47,9 @@ public class RestTestUtils {
     public static Request buildHttpRequest(SubmitAsyncSearchRequest submitAsyncSearchRequest) throws IOException {
 
         SearchRequest searchRequest = submitAsyncSearchRequest.getSearchRequest();
-        Request request = new Request(HttpPost.METHOD_NAME, AsyncSearchPlugin.BASE_URI);
+        Request request = new Request(HttpPost.METHOD_NAME,
+                /*trim first backslash*/
+                endpoint(searchRequest.indices(), AsyncSearchPlugin.BASE_URI.substring(1)));
 
         Params params = new Params();
         addSearchRequestParams(params, searchRequest);
@@ -107,7 +109,7 @@ public class RestTestUtils {
         }
     }
 
-    static String endpoint(String[] indices, String[] types, String endpoint) {
+    static String endpoint(String[] indices, String endpoint) {
         return new EndpointBuilder().addCommaSeparatedPathParts(indices)
                 .addPathPartAsIs(endpoint).build();
     }

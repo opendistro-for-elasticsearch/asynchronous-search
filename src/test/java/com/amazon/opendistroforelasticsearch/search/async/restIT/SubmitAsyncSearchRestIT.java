@@ -8,6 +8,7 @@ import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
@@ -83,10 +84,15 @@ public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
         submitAsyncSearchRequest.keepOnCompletion(false);
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(0));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
-        assertNull(submitResponse.getSearchResponse());
-        assertNull(submitResponse.getError());
-        assertNotNull(submitResponse.getId());
+
         assertEquals(AsyncSearchState.RUNNING, submitResponse.getState());
+        assertNotNull(submitResponse.getId());
+        assertNull(submitResponse.getError());
+        if (submitResponse.getSearchResponse() == null) {
+            assertEquals(submitResponse.status(), RestStatus.OK);
+        } else {
+            assertEquals(submitResponse.getSearchResponse().getTook().getMillis(), -1);
+        }
         List<AsyncSearchState> legalStates = Arrays.asList(
                 AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
         assertTrue(legalStates.contains(submitResponse.getState()));
@@ -123,28 +129,4 @@ public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
         assertEquals(getResponse, submitResponse);
         executeDeleteAsyncSearch(new DeleteAsyncSearchRequest(submitResponse.getId()));
     }
-
-    public void testSubmitSearchRunsBeyondWaitForCompletionTimeout() {
-
-    }
-
-    /**
-     * run search on all indices
-     */
-    public void testSubmitSearchAllIndices() {
-    }
-
-    public void testSubmitError() {
-    }
-
-    public void testSubmitKeepAliveDefault() {
-    }
-
-    public void testSubmitKeepAliveLimitViolation() {
-    }
-
-    public void testSubmitWaitForCompletionTimeoutLimitViolation() {
-    }
-
-
 }
