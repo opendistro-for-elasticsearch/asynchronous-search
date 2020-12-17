@@ -333,6 +333,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      */
     public void updateKeepAliveAndGetContext(String id, TimeValue keepAlive, AsyncSearchContextId asyncSearchContextId,
                                              ActionListener<AsyncSearchContext> listener) {
+        validateKeepAlive(keepAlive);
         long requestedExpirationTime = currentTimeSupplier.getAsLong() + keepAlive.getMillis();
         // find an active context on this node if one exists
         Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
@@ -468,17 +469,28 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
 
     private void validateRequest(SubmitAsyncSearchRequest request) {
-        if (request.getKeepAlive().getMillis() > maxKeepAlive) {
+        TimeValue keepAlive = request.getKeepAlive();
+        validateKeepAlive(keepAlive);
+        TimeValue waitForCompletionTimeout = request.getWaitForCompletionTimeout();
+        validateWaitForCompletionTimeout(waitForCompletionTimeout);
+    }
+
+    private void validateWaitForCompletionTimeout(TimeValue waitForCompletionTimeout) {
+        if (waitForCompletionTimeout.getMillis() > maxWaitForCompletion) {
             throw new IllegalArgumentException(
-                    "Keep alive for async search (" + request.getKeepAlive().getMillis() + ") is too large It must be less than (" +
+                    "Wait for completion timeout for async search (" + waitForCompletionTimeout.getMillis()
+                            + ") is too large It must be less than (" + TimeValue.timeValueMillis(maxWaitForCompletion)
+                            + ").This limit can be set by changing the [" + MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.getKey()
+                            + "] cluster level setting.");
+        }
+    }
+
+    private void validateKeepAlive(TimeValue keepAlive) {
+        if (keepAlive.getMillis() > maxKeepAlive) {
+            throw new IllegalArgumentException(
+                    "Keep alive for async search (" + keepAlive.getMillis() + ") is too large It must be less than (" +
                             TimeValue.timeValueMillis(maxKeepAlive) + ").This limit can be set by changing the ["
                             + MAX_KEEP_ALIVE_SETTING.getKey() + "] cluster level setting.");
-        }
-        if (request.getWaitForCompletionTimeout().getMillis() > maxWaitForCompletion) {
-            throw new IllegalArgumentException(
-                    "Keep alive for async search (" + request.getKeepAlive().getMillis() + ") is too large It must be less than (" +
-                            TimeValue.timeValueMillis(maxWaitForCompletion) + ").This limit can be set by changing the ["
-                            + MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.getKey() + "] cluster level setting.");
         }
     }
 
