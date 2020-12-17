@@ -73,8 +73,7 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
         AsyncSearchContext asyncSearchContext = null;
         try {
             final long relativeStartTimeInMillis = threadPool.relativeTimeInMillis();
-            asyncSearchContext = asyncSearchService.createAndStoreContext(request.getKeepAlive(),
-                    request.getKeepOnCompletion(), relativeStartTimeInMillis);
+            asyncSearchContext = asyncSearchService.createAndStoreContext(request, relativeStartTimeInMillis);
             assert asyncSearchContext.getAsyncSearchProgressListener() != null : "missing progress listener for an active context";
             AsyncSearchProgressListener progressListener = asyncSearchContext.getAsyncSearchProgressListener();
             AsyncSearchContext context = asyncSearchContext; //making it effectively final for usage in anonymous class.

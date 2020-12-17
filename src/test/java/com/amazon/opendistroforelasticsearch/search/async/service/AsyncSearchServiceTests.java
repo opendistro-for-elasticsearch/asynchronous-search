@@ -20,12 +20,14 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceContext;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
+import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchAction;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.common.unit.TimeValue;
@@ -55,8 +57,10 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
         TimeValue keepAlive = timeValueDays(9);
         boolean keepOnCompletion = randomBoolean();
-        AsyncSearchContext context = asyncSearchService.createAndStoreContext(keepAlive, keepOnCompletion,
-                System.currentTimeMillis());
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
+        submitAsyncSearchRequest.keepAlive(keepAlive);
+        submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
+        AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis());
         assertTrue(context instanceof AsyncSearchActiveContext);
         AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) context;
         assertNull(asyncSearchActiveContext.getTask());
@@ -248,8 +252,10 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
         TimeValue keepAlive = timeValueDays(9);
         boolean keepOnCompletion = true; //persist search
-        AsyncSearchActiveContext context = (AsyncSearchActiveContext) asyncSearchService.createAndStoreContext(keepAlive,
-                keepOnCompletion,
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
+        submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
+        submitAsyncSearchRequest.keepAlive(keepAlive);
+        AsyncSearchActiveContext context = (AsyncSearchActiveContext) asyncSearchService.createAndStoreContext(submitAsyncSearchRequest,
                 System.currentTimeMillis());
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
                 emptyMap(), context, null, (c) -> {

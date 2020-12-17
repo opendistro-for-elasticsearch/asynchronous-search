@@ -8,7 +8,8 @@ import com.amazon.opendistroforelasticsearch.search.async.utils.RestTestUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
-import org.elasticsearch.action.ActionRequest;
+import org.apache.lucene.search.TotalHits;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
@@ -28,6 +29,8 @@ import org.junit.Before;
 import java.io.IOException;
 import java.util.Collections;
 
+import static org.hamcrest.Matchers.containsString;
+
 
 /**
  * Verifies async search APIs - submit, get, delete end to end using rest client
@@ -37,30 +40,6 @@ public abstract class AsyncSearchRestTestCase extends ESRestTestCase {
 
     private final NamedXContentRegistry registry = new NamedXContentRegistry(
             new SearchModule(Settings.EMPTY, false, Collections.emptyList()).getNamedXContents());
-
-
-    final <Req extends ActionRequest, Resp> void assert404(
-            Req request, CheckedFunction<Req, Resp, Exception> apiRequestExecutor) {
-        try {
-            apiRequestExecutor.apply(request);
-            fail();
-        } catch (Exception e) {
-            assertTrue(e instanceof ResponseException);
-            assertEquals(404,
-                    ((ResponseException) e).getResponse().getStatusLine().getStatusCode());
-        }
-    }
-
-    Response deleteAsyncSearchApi(DeleteAsyncSearchRequest deleteAsyncSearchRequest) throws IOException {
-        Request request = RestTestUtils.buildHttpRequest(deleteAsyncSearchRequest);
-        return client().performRequest(request);
-    }
-
-
-    @Override
-    protected boolean preserveClusterUponCompletion() {
-        return true;
-    }
 
 
     @Before
@@ -100,7 +79,11 @@ public abstract class AsyncSearchRestTestCase extends ESRestTestCase {
         Request request = RestTestUtils.buildHttpRequest(submitAsyncSearchRequest);
         Response resp = client().performRequest(request);
         return parseEntity(resp.getEntity(), AsyncSearchResponse::fromXContent);
+    }
 
+    Response executeDeleteAsyncSearch(DeleteAsyncSearchRequest deleteAsyncSearchRequest) throws IOException {
+        Request request = RestTestUtils.buildHttpRequest(deleteAsyncSearchRequest);
+        return client().performRequest(request);
     }
 
     @After
@@ -127,13 +110,32 @@ public abstract class AsyncSearchRestTestCase extends ESRestTestCase {
         }
     }
 
-    public AsyncSearchResponse getAsyncSearchResponse(AsyncSearchResponse submitResponse,
-                                                      GetAsyncSearchRequest getAsyncSearchRequest) throws IOException {
+    protected AsyncSearchResponse getAssertedAsyncSearchResponse(AsyncSearchResponse submitResponse,
+                                                                 GetAsyncSearchRequest getAsyncSearchRequest) throws IOException {
         AsyncSearchResponse getResponse;
         getResponse = executeGetAsyncSearch(getAsyncSearchRequest);
         assertEquals(submitResponse.getId(), getResponse.getId());
         assertEquals(submitResponse.getStartTimeMillis(), getResponse.getStartTimeMillis());
         return getResponse;
+    }
+
+    protected void assertRnf(Exception e) {
+        assertTrue(e instanceof ResponseException);
+        assertThat(e.getMessage(), containsString("resource_not_found_exception"));
+        assertEquals(((ResponseException) e).getResponse().getStatusLine().getStatusCode(), 404);
+    }
+
+    protected static void assertHitCount(SearchResponse countResponse, long expectedHitCount) {
+        final TotalHits totalHits = countResponse.getHits().getTotalHits();
+        if (totalHits.relation != TotalHits.Relation.EQUAL_TO || totalHits.value != expectedHitCount) {
+            fail("Count is " + totalHits + " but " + expectedHitCount
+                    + " was expected. ");
+        }
+    }
+
+    @Override
+    protected boolean preserveClusterUponCompletion() {
+        return true;
     }
 }
 

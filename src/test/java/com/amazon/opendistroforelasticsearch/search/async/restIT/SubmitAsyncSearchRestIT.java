@@ -1,15 +1,18 @@
 package com.amazon.opendistroforelasticsearch.search.async.restIT;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
+import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
 
@@ -20,67 +23,128 @@ public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
         submitAsyncSearchRequest.keepOnCompletion(false);
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 500)));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
-        assertTrue(submitResponse.getState().name(), submitResponse.getState().equals(AsyncSearchState.RUNNING)
-                || submitResponse.getState().equals(AsyncSearchState.CLOSED)
-                || submitResponse.getState().equals(AsyncSearchState.SUCCEEDED));
+        List<AsyncSearchState> legalStates = Arrays.asList(
+                AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
+        assertTrue(legalStates.contains(submitResponse.getState()));
         GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
-        AsyncSearchResponse getResponse = null;
+        AsyncSearchResponse getResponse;
         do {
+            getResponse = null;
             try {
-                getResponse = executeGetAsyncSearch(getAsyncSearchRequest);
+                getResponse = getAssertedAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
+                if (AsyncSearchState.SUCCEEDED.equals(getResponse.getState())
+                        || AsyncSearchState.CLOSED.equals(getResponse.getState())) {
+                    assertNotNull(getResponse.getSearchResponse());
+                    assertHitCount(getResponse.getSearchResponse(), 5L);
+                }
             } catch (Exception e) {
-                assertTrue(e instanceof ResponseException);
+                assertRnf(e);
             }
-        } while (getResponse != null && (getResponse.getState().equals(AsyncSearchState.RUNNING)
-                || getResponse.getState().equals(AsyncSearchState.SUCCEEDED) || getResponse.getState().equals(AsyncSearchState.CLOSED)));
+        } while (getResponse != null && legalStates.contains(getResponse.getState()));
     }
-/*
-    @Test
-    public void submitAsyncSearchWithMatchQuery() throws IOException {
-        SearchRequest searchRequest = new SearchRequest();
-        searchRequest.indices("test");
-        searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("num", 10)));
+
+    public void testSubmitWithRetainedResponse() throws IOException {
+        SearchRequest searchRequest = new SearchRequest("test");
+        searchRequest.source(new SearchSourceBuilder());
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
-        TimeValue keepAlive = new TimeValue(10, TimeUnit.DAYS);
-        submitAsyncSearchRequest.keepAlive(keepAlive);
+        submitAsyncSearchRequest.keepOnCompletion(true);
+        submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 500)));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
-        assertTrue(submitResponse.getExpirationTimeMillis() - submitResponse.getStartTimeMillis() >= keepAlive.getMillis());
+        List<AsyncSearchState> legalStates = Arrays.asList(
+                AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.PERSISTED, AsyncSearchState.PERSISTING,
+                AsyncSearchState.CLOSED);
+        assertNotNull(submitResponse.getId());
+        assertTrue(submitResponse.getState().name(), legalStates.contains(submitResponse.getState()));
+        GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
         AsyncSearchResponse getResponse;
         do {
-            logger.info("Get async search {}", submitResponse.getId());
-            getResponse = getAsyncSearchResponse(submitResponse, new GetAsyncSearchRequest(submitResponse.getId()));
-        } while (getResponse.getState().equals(AsyncSearchState.RUNNING.name()));
-        assertEquals(getResponse.getSearchResponse().getHits().getHits().length, 1);
+            getResponse = getAssertedAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
+            if (getResponse.getState() == AsyncSearchState.RUNNING && getResponse.getSearchResponse() != null) {
+                assertEquals(getResponse.getSearchResponse().getHits().getHits().length, 0);
+            } else {
+                assertNotNull(getResponse.getSearchResponse());
+                assertNotEquals(getResponse.getSearchResponse().getTook(), -1L);
+            }
+        } while (AsyncSearchState.PERSISTED.equals(getResponse.getState()) == false);
+        getResponse = getAssertedAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
+        assertNotNull(getResponse.getSearchResponse());
+        assertEquals(AsyncSearchState.PERSISTED, getResponse.getState());
+        assertHitCount(getResponse.getSearchResponse(), 5);
+        executeDeleteAsyncSearch(new DeleteAsyncSearchRequest(submitResponse.getId()));
     }
 
-    @Test
-    public void submitAsyncSearchUpdateKeepAliveWithGet() throws IOException {
-        //create async search with default keep alive
-        SearchRequest searchRequest = new SearchRequest();
-        searchRequest.indices("test");
-        AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(new SubmitAsyncSearchRequest(searchRequest));
+    /**
+     * Before {@linkplain AsyncSearchProgressListener} onListShards() is invoked we won't have a partial search response.
+     */
+    public void testSubmitWaitForCompletionTimeoutTriggeredBeforeOnListShardsEvent() throws IOException {
+        SearchRequest searchRequest = new SearchRequest("test");
+        searchRequest.source(new SearchSourceBuilder());
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        submitAsyncSearchRequest.keepOnCompletion(false);
+        submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(0));
+        AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
+        assertNull(submitResponse.getSearchResponse());
+        assertNull(submitResponse.getError());
+        assertNotNull(submitResponse.getId());
+        assertEquals(AsyncSearchState.RUNNING, submitResponse.getState());
+        List<AsyncSearchState> legalStates = Arrays.asList(
+                AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
+        assertTrue(legalStates.contains(submitResponse.getState()));
+        GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
         AsyncSearchResponse getResponse;
         do {
-            logger.info("Get async search {}", submitResponse.getId());
-            GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
-            getAsyncSearchRequest.setKeepAlive(new TimeValue(10, TimeUnit.DAYS));
-            getResponse = getAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
-            assertTrue(getResponse.getExpirationTimeMillis() > submitResponse.getExpirationTimeMillis());
-
-        } while (getResponse.getState().equals(AsyncSearchState.RUNNING.name()));
-
-        assertEquals(getResponse.getSearchResponse().getHits().getHits().length, 5);
+            getResponse = null;
+            try {
+                getResponse = getAssertedAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
+                if (AsyncSearchState.SUCCEEDED.equals(getResponse.getState())
+                        || AsyncSearchState.CLOSED.equals(getResponse.getState())) {
+                    assertNotNull(getResponse.getSearchResponse());
+                    assertHitCount(getResponse.getSearchResponse(), 5L);
+                }
+            } catch (Exception e) {
+                assertRnf(e);
+            }
+        } while (getResponse != null && legalStates.contains(getResponse.getState()));
     }
 
-    //FIXME right now if id is not parseable or if parsed id renders a node not found its
-    // throwing 400 and 500 respectively. Should be uniformly 404?
-    @Test
-    @Ignore
-    public void accessAsyncSearchNonExistentSearchId() throws IOException {
-        String id = "FkxaVllUOTUwUWJ1NWp0Y2FXZkEyLVEUc2Vfd21uUUJaLU5fNDRNU3BvQ1AAAAAAAAAAAQ==";//a valid id
-        assert404(new GetAsyncSearchRequest(id), super::executeGetAsyncSearch);
-        assert404(new DeleteAsyncSearchRequest(id), super::deleteAsyncSearchApi);
+    public void testSubmitSearchCompletesBeforeWaitForCompletionTimeout() throws IOException {
+        SearchRequest searchRequest = new SearchRequest("test");
+        searchRequest.source(new SearchSourceBuilder());
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        submitAsyncSearchRequest.keepOnCompletion(true);
+        submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueSeconds(1));
+        AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
+        List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.PERSISTED,
+                AsyncSearchState.PERSISTING, AsyncSearchState.CLOSED);
+        assertTrue(submitResponse.getState().name(), legalStates.contains(submitResponse.getState()));
+        assertHitCount(submitResponse.getSearchResponse(), 5L);
+        GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
+        AsyncSearchResponse getResponse = getAssertedAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
+        assertEquals(getResponse, submitResponse);
+        executeDeleteAsyncSearch(new DeleteAsyncSearchRequest(submitResponse.getId()));
     }
 
- */
+    public void testSubmitSearchRunsBeyondWaitForCompletionTimeout() {
+
+    }
+
+    /**
+     * run search on all indices
+     */
+    public void testSubmitSearchAllIndices() {
+    }
+
+    public void testSubmitError() {
+    }
+
+    public void testSubmitKeepAliveDefault() {
+    }
+
+    public void testSubmitKeepAliveLimitViolation() {
+    }
+
+    public void testSubmitWaitForCompletionTimeoutLimitViolation() {
+    }
+
+
 }

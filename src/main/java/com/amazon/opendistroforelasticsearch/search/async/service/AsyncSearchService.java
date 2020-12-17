@@ -35,6 +35,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.event.Se
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
+import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats;
 import com.amazon.opendistroforelasticsearch.search.async.stats.InternalAsyncSearchStats;
 import org.apache.logging.log4j.LogManager;
@@ -94,10 +95,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
     public static final Setting<TimeValue> MAX_KEEP_ALIVE_SETTING = Setting.positiveTimeSetting("async_search.max_keep_alive",
             timeValueDays(10), Setting.Property.NodeScope, Setting.Property.Dynamic);
+    public static final Setting<TimeValue> MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING = Setting.positiveTimeSetting(
+            "async_search.max_wait_for_completion_timeout", timeValueMinutes(1), Setting.Property.NodeScope,
+            Setting.Property.Dynamic);
     public static final Setting<TimeValue> KEEP_ALIVE_INTERVAL_SETTING = Setting.positiveTimeSetting("async_search.keep_alive_interval",
             timeValueMinutes(1), Setting.Property.NodeScope);
 
     private volatile long maxKeepAlive;
+    private volatile long maxWaitForCompletion;
     private final AtomicLong idGenerator = new AtomicLong();
     private final Client client;
     private final ThreadPool threadPool;
@@ -118,6 +123,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         Settings settings = clusterService.getSettings();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
         setKeepAlive(MAX_KEEP_ALIVE_SETTING.get(settings));
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING,
+                this::setMaxWaitForCompletion);
+        setMaxWaitForCompletion(MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.get(settings));
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
@@ -133,6 +141,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.namedWriteableRegistry = namedWriteableRegistry;
     }
 
+    private void setMaxWaitForCompletion(TimeValue maxWaitForCompletion) {
+        this.maxWaitForCompletion = maxWaitForCompletion.millis();
+    }
+
     private void setKeepAlive(TimeValue maxKeepAlive) {
         this.maxKeepAlive = maxKeepAlive.millis();
     }
@@ -141,29 +153,23 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     /**
      * Creates a new active async search for a newly submitted async search.
      *
-     * @param keepAlive               duration of validity of async search
-     * @param keepOnCompletion        determines if response should be persisted on completion
+     * @param request                 the {@linkplain SubmitAsyncSearchRequest}
      * @param relativeStartTimeMillis start time of {@linkplain SearchAction}
      * @return the async search context
      */
-    public AsyncSearchContext createAndStoreContext(TimeValue keepAlive, boolean keepOnCompletion, long relativeStartTimeMillis) {
-        if (keepAlive.getMillis() > maxKeepAlive) {
-            throw new IllegalArgumentException(
-                    "Keep alive for async search (" + keepAlive.getMillis() + ") is too large It must be less than (" +
-                            TimeValue.timeValueMillis(maxKeepAlive) + ").This limit can be set by changing the ["
-                            + MAX_KEEP_ALIVE_SETTING.getKey() + "] cluster level setting.");
-        }
+    public AsyncSearchContext createAndStoreContext(SubmitAsyncSearchRequest request, long relativeStartTimeMillis) {
+        validateRequest(request);
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartTimeMillis,
                 (response) -> asyncSearchPostProcessor.processSearchResponse(response, asyncSearchContextId),
                 (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId),
                 threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME), threadPool::relativeTimeInMillis);
         AsyncSearchActiveContext asyncSearchContext = new AsyncSearchActiveContext(asyncSearchContextId, clusterService.localNode().getId(),
-                keepAlive, keepOnCompletion, threadPool, currentTimeSupplier, progressActionListener, statsListener);
+                request.getKeepAlive(), request.getKeepOnCompletion(), threadPool, currentTimeSupplier, progressActionListener,
+                statsListener);
         asyncSearchActiveStore.putContext(asyncSearchContextId, asyncSearchContext);
         return asyncSearchContext;
     }
-
 
     /**
      * Stores information of the {@linkplain SearchTask} in the async search and signals start of the the underlying
@@ -179,7 +185,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             asyncSearchStateMachine.trigger(new SearchStartedEvent(context, searchTask));
         }
     }
-
 
     /**
      * Tries to find an {@linkplain AsyncSearchActiveContext}. If not found, queries the {@linkplain AsyncSearchPersistenceService}  for
@@ -457,4 +462,21 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             }
         }
     }
+
+
+    private void validateRequest(SubmitAsyncSearchRequest request) {
+        if (request.getKeepAlive().getMillis() > maxKeepAlive) {
+            throw new IllegalArgumentException(
+                    "Keep alive for async search (" + request.getKeepAlive().getMillis() + ") is too large It must be less than (" +
+                            TimeValue.timeValueMillis(maxKeepAlive) + ").This limit can be set by changing the ["
+                            + MAX_KEEP_ALIVE_SETTING.getKey() + "] cluster level setting.");
+        }
+        if (request.getWaitForCompletionTimeout().getMillis() > maxWaitForCompletion) {
+            throw new IllegalArgumentException(
+                    "Keep alive for async search (" + request.getKeepAlive().getMillis() + ") is too large It must be less than (" +
+                            TimeValue.timeValueMillis(maxWaitForCompletion) + ").This limit can be set by changing the ["
+                            + MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.getKey() + "] cluster level setting.");
+        }
+    }
+
 }

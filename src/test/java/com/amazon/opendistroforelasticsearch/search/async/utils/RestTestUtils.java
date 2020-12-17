@@ -44,8 +44,7 @@ import java.util.StringJoiner;
 public class RestTestUtils {
     private static final XContentType REQUEST_BODY_CONTENT_TYPE = XContentType.JSON;
 
-    public static Request buildHttpRequest(
-            SubmitAsyncSearchRequest submitAsyncSearchRequest) throws IOException {
+    public static Request buildHttpRequest(SubmitAsyncSearchRequest submitAsyncSearchRequest) throws IOException {
 
         SearchRequest searchRequest = submitAsyncSearchRequest.getSearchRequest();
         Request request = new Request(HttpPost.METHOD_NAME, AsyncSearchPlugin.BASE_URI);
@@ -82,7 +81,7 @@ public class RestTestUtils {
             submitAsyncSearchRequest) {
         params.withKeepAlive(submitAsyncSearchRequest.getKeepAlive());
         params.withWaitForCompletionTimeout(submitAsyncSearchRequest.getWaitForCompletionTimeout());
-
+        params.withKeepOnCompletion(submitAsyncSearchRequest.getKeepOnCompletion());
     }
 
     static void addSearchRequestParams(Params params, SearchRequest searchRequest) {
@@ -246,6 +245,9 @@ public class RestTestUtils {
             return putParam("keep_alive", keepAlive);
         }
 
+        Params withKeepOnCompletion(boolean keepOnCompletion) {
+            return putParam("keep_on_completion", Boolean.toString(keepOnCompletion));
+        }
 
         Params withRequestCache(boolean requestCache) {
             return putParam("request_cache", Boolean.toString(requestCache));
