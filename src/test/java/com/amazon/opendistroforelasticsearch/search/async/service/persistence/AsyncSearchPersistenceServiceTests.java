@@ -56,8 +56,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         threadPool = new TestThreadPool("persistenceServiceTests");
     }
 
-    public void testCreateAndGetAndDeletee() throws IOException, InterruptedException {
-
+    public void testCreateAndGetAndDelete() throws IOException, InterruptedException {
         AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
         TransportService transportService = getInstanceFromNode(TransportService.class);
         AsyncSearchResponse asyncSearchResponse = getAsyncSearchResponse();
@@ -186,10 +185,8 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         long newExpirationTime = System.currentTimeMillis() + new TimeValue(100, TimeUnit.MILLISECONDS).getMillis();
         final AsyncSearchPersistenceModel newPersistenceModel = new AsyncSearchPersistenceModel(asyncSearchResponse.getStartTimeMillis(),
                 newExpirationTime, asyncSearchResponse.getSearchResponse());
-        persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
-                newExpirationTime,
+        persistenceService.updateExpirationTime(asyncSearchResponse.getId(), newExpirationTime,
                 ActionListener.wrap(persistenceModel -> {
-
                             verifyPersistenceModel(
                                     newPersistenceModel,
                                     persistenceModel,
