@@ -1,11 +1,13 @@
 package com.amazon.opendistroforelasticsearch.search.async.restIT;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
+import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -32,22 +34,21 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
     }
 
     public void testSubmitDefaultKeepAlive() throws IOException {
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest("test"));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
         List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
         assertTrue(legalStates.contains(submitResponse.getState()));
         assertTrue((submitResponse.getExpirationTimeMillis() > System.currentTimeMillis() + TimeValue.timeValueDays(4).getMillis()) &&
                 (submitResponse.getExpirationTimeMillis() < System.currentTimeMillis() + +TimeValue.timeValueDays(5).getMillis()));
-        assertHitCount(submitResponse.getSearchResponse(), 6);
+        assertHitCount(submitResponse.getSearchResponse(), 5);
     }
 
-    //search should complete within 1 second which is the default wait for completion timeout
     public void testSubmitDefaultWaitForCompletion() throws IOException {
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest("test"));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
         List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
         assertTrue(legalStates.contains(submitResponse.getState()));
-        assertHitCount(submitResponse.getSearchResponse(), 6);
+        assertHitCount(submitResponse.getSearchResponse(), 5);
     }
 
     /**
@@ -72,5 +73,20 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
         assertTrue(legalStates.contains(submitResponse.getState()));
     }
 
+    public void testGetWithInvalidKeepAliveUpdate() throws IOException {
+        SearchRequest searchRequest = new SearchRequest("test");
+        TimeValue keepAlive = TimeValue.timeValueDays(5);
+        searchRequest.source(new SearchSourceBuilder());
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        submitAsyncSearchRequest.keepOnCompletion(true);
+        submitAsyncSearchRequest.keepAlive(keepAlive);
+        AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
+        GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
+        getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueDays(100));
+        ResponseException responseException = expectThrows(ResponseException.class, () -> executeGetAsyncSearch(getAsyncSearchRequest));
+        assertThat(responseException.getMessage(), containsString("Keep alive for async search (" +
+                getAsyncSearchRequest.getKeepAlive().getMillis() + ") is too large"));
+
+    }
 
 }

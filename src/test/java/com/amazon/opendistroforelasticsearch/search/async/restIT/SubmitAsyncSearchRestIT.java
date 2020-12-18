@@ -7,6 +7,7 @@ import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearch
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -14,6 +15,8 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+
+import static org.hamcrest.Matchers.greaterThan;
 
 public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
 
@@ -90,8 +93,6 @@ public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
         assertNull(submitResponse.getError());
         if (submitResponse.getSearchResponse() == null) {
             assertEquals(submitResponse.status(), RestStatus.OK);
-        } else {
-            assertEquals(submitResponse.getSearchResponse().getTook().getMillis(), -1);
         }
         List<AsyncSearchState> legalStates = Arrays.asList(
                 AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
@@ -118,6 +119,7 @@ public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
         searchRequest.source(new SearchSourceBuilder());
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
         submitAsyncSearchRequest.keepOnCompletion(true);
+        submitAsyncSearchRequest.keepAlive(TimeValue.timeValueHours(5));
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueSeconds(1));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
         List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.PERSISTED,
@@ -128,5 +130,37 @@ public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
         AsyncSearchResponse getResponse = getAssertedAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
         assertEquals(getResponse, submitResponse);
         executeDeleteAsyncSearch(new DeleteAsyncSearchRequest(submitResponse.getId()));
+    }
+
+    public void testGetWithoutKeepAliveUpdate() throws IOException {
+        SearchRequest searchRequest = new SearchRequest("test");
+        searchRequest.source(new SearchSourceBuilder());
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        submitAsyncSearchRequest.keepOnCompletion(true);
+        AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
+        AsyncSearchResponse getResponse = executeGetAsyncSearch(new GetAsyncSearchRequest(submitResponse.getId()));
+        assertEquals(getResponse.getExpirationTimeMillis(), submitResponse.getExpirationTimeMillis());
+        executeDeleteAsyncSearch(new DeleteAsyncSearchRequest(submitResponse.getId()));
+        ResponseException responseException = expectThrows(ResponseException.class, () -> executeGetAsyncSearch(
+                new GetAsyncSearchRequest(submitResponse.getId())));
+        assertRnf(responseException);
+    }
+
+    public void testGetWithKeepAliveUpdate() throws IOException {
+        SearchRequest searchRequest = new SearchRequest("test");
+        TimeValue keepAlive = TimeValue.timeValueDays(5);
+        searchRequest.source(new SearchSourceBuilder());
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        submitAsyncSearchRequest.keepOnCompletion(true);
+        submitAsyncSearchRequest.keepAlive(keepAlive);
+        AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
+        GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
+        getAsyncSearchRequest.setKeepAlive(keepAlive);
+        AsyncSearchResponse getResponse = executeGetAsyncSearch(getAsyncSearchRequest);
+        assertThat(getResponse.getExpirationTimeMillis(), greaterThan(submitResponse.getExpirationTimeMillis()));
+        executeDeleteAsyncSearch(new DeleteAsyncSearchRequest(submitResponse.getId()));
+        ResponseException responseException = expectThrows(ResponseException.class, () -> executeGetAsyncSearch(
+                new GetAsyncSearchRequest(submitResponse.getId())));
+        assertRnf(responseException);
     }
 }

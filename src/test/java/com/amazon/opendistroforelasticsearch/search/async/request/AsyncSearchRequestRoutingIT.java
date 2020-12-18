@@ -11,7 +11,6 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedR
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.apache.logging.log4j.LogManager;
-import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
@@ -41,6 +40,7 @@ import java.util.function.Function;
 import static com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchRequestRoutingIT.ScriptedBlockPlugin.SCRIPT_NAME;
 import static org.elasticsearch.index.query.QueryBuilders.scriptQuery;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertAcked;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 
 @ESIntegTestCase.ClusterScope(numDataNodes = 5)
@@ -67,7 +67,7 @@ public class AsyncSearchRequestRoutingIT extends ESIntegTestCase {
     }
 
     public void testRequestForwardingToCoordinatorNodeForPersistedAsyncSearch() throws Exception {
-        String idx = randomAlphaOfLength(10).toLowerCase();
+        String idx = "idx";
         assertAcked(prepareCreate(idx)
                 .addMapping("type", "ip", "type=ip", "ips", "type=ip"));
         waitForRelocation(ClusterHealthStatus.GREEN);
@@ -115,7 +115,7 @@ public class AsyncSearchRequestRoutingIT extends ESIntegTestCase {
 
     public void testRequestForwardingToCoordinatorNodeForRunningAsyncSearch() throws Exception {
         List<ScriptedBlockPlugin> plugins = initBlockFactory();
-        String index = randomAlphaOfLength(10).toLowerCase();
+        String index = "idx";
         assertAcked(prepareCreate(index)
                 .addMapping("type", "ip", "type=ip", "ips", "type=ip"));
         waitForRelocation(ClusterHealthStatus.GREEN);
@@ -147,39 +147,43 @@ public class AsyncSearchRequestRoutingIT extends ESIntegTestCase {
         client().execute(SubmitAsyncSearchAction.INSTANCE, request, new ActionListener<AsyncSearchResponse>() {
             @Override
             public void onResponse(AsyncSearchResponse submitResponse) {
-                String id = submitResponse.getId();
-                assertNotNull(id);
-                assertEquals(AsyncSearchState.RUNNING, submitResponse.getState());
-                AsyncSearchId asyncSearchId = AsyncSearchIdConverter.parseAsyncId(id);
-                ClusterService clusterService = internalCluster().getInstance(ClusterService.class);
-                assertEquals(clusterService.state().nodes().getDataNodes().size(), 5);
-                List<String> nonCoordinatorNodeNames = new LinkedList<>();
-                clusterService.state().nodes().iterator().forEachRemaining(node -> {
-                    if (asyncSearchId.getNode().equals(node.getId()) == false)
-                        nonCoordinatorNodeNames.add(node.getName());
-                });
-                nonCoordinatorNodeNames.forEach(n -> {
-                    try {
-                        AsyncSearchResponse getResponse = client(n).execute(GetAsyncSearchAction.INSTANCE,
-                                new GetAsyncSearchRequest(id)).get();
-                        assertEquals(getResponse.getState(), AsyncSearchState.RUNNING);
-                    } catch (InterruptedException | ExecutionException e) {
-                        fail("Get async search request should not have failed");
-                    }
-                });
-                String randomNonCoordinatorNode = nonCoordinatorNodeNames.get(randomInt(nonCoordinatorNodeNames.size()));
                 try {
-                    AcknowledgedResponse acknowledgedResponse =
-                            client(randomNonCoordinatorNode).execute(DeleteAsyncSearchAction.INSTANCE, new DeleteAsyncSearchRequest(id)).get();
-                    assertTrue(acknowledgedResponse.isAcknowledged());
-                    ExecutionException executionException = expectThrows(ExecutionException.class,
-                            () -> client().execute(GetAsyncSearchAction.INSTANCE, new GetAsyncSearchRequest(id)).get());
-                    assertTrue(executionException.getCause() instanceof ResourceNotFoundException);
-                } catch (InterruptedException | ExecutionException e) {
-                    fail("Delete async search request from random non-coordinator node should have succeeded.");
-                }
+                    String id = submitResponse.getId();
+                    assertNotNull(id);
+                    assertEquals(AsyncSearchState.RUNNING, submitResponse.getState());
+                    AsyncSearchId asyncSearchId = AsyncSearchIdConverter.parseAsyncId(id);
+                    ClusterService clusterService = internalCluster().getInstance(ClusterService.class);
+                    assertEquals(clusterService.state().nodes().getDataNodes().size(), 5);
+                    List<String> nonCoordinatorNodeNames = new LinkedList<>();
+                    clusterService.state().nodes().iterator().forEachRemaining(node -> {
+                        if (asyncSearchId.getNode().equals(node.getId()) == false)
+                            nonCoordinatorNodeNames.add(node.getName());
+                    });
+                    nonCoordinatorNodeNames.forEach(n -> {
+                        try {
+                            AsyncSearchResponse getResponse = client(n).execute(GetAsyncSearchAction.INSTANCE,
+                                    new GetAsyncSearchRequest(id)).get();
+                            assertEquals(getResponse.getState(), AsyncSearchState.RUNNING);
+                        } catch (InterruptedException | ExecutionException e) {
+                            fail("Get async search request should not have failed");
+                        }
+                    });
+                    String randomNonCoordinatorNode = nonCoordinatorNodeNames.get(randomInt(nonCoordinatorNodeNames.size()));
+                    try {
+                        AcknowledgedResponse acknowledgedResponse =
+                                client(randomNonCoordinatorNode).execute(DeleteAsyncSearchAction.INSTANCE,
+                                        new DeleteAsyncSearchRequest(id)).get();
+                        assertTrue(acknowledgedResponse.isAcknowledged());
+                        ExecutionException executionException = expectThrows(ExecutionException.class,
+                                () -> client().execute(GetAsyncSearchAction.INSTANCE, new GetAsyncSearchRequest(id)).get());
+                        assertThat(executionException.getMessage(), containsString("ResourceNotFoundException"));
+                    } catch (InterruptedException | ExecutionException e) {
+                        fail("Delete async search request from random non-coordinator node should have succeeded.");
+                    }
 
-                latch.countDown();
+                } finally {
+                    latch.countDown();
+                }
             }
 
             @Override
@@ -199,7 +203,7 @@ public class AsyncSearchRequestRoutingIT extends ESIntegTestCase {
     public void testInvalidIdRequestHandling() {
         ExecutionException executionException = expectThrows(ExecutionException.class, () -> client().execute(GetAsyncSearchAction.INSTANCE,
                 new GetAsyncSearchRequest(randomAlphaOfLength(16))).get());
-        assertTrue(executionException.getCause() instanceof ResourceNotFoundException);
+        assertThat(executionException.getMessage(), containsString("ResourceNotFoundException"));
     }
 
     protected List<ScriptedBlockPlugin> initBlockFactory() {

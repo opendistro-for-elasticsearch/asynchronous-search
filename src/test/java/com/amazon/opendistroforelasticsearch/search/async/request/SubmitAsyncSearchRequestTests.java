@@ -1,6 +1,5 @@
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.request;
 
-import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.common.ValidationException;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
