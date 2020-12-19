@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.search.async;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
@@ -51,7 +52,7 @@ import java.util.function.Function;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 
 public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase {
-    protected static final String INDEX = ".asynchronous_search_response";
+    protected static final String INDEX = AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX;
     protected static final String TEST_INDEX = "index";
 
     @Override

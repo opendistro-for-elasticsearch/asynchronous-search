@@ -22,10 +22,7 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchPr
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.Nullable;
-import org.elasticsearch.common.util.set.Sets;
 
-import java.util.Collections;
-import java.util.Set;
 import java.util.function.LongSupplier;
 
 

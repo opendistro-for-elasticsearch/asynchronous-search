@@ -78,7 +78,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
 
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
-        return Collections.singletonList(new SystemIndexDescriptor(".opendistro_asynchronous_search_response",
+        return Collections.singletonList(new SystemIndexDescriptor(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX,
                 "Stores the response for async search"));
     }
 
@@ -123,7 +123,9 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
         return Arrays.asList(
                 AsyncSearchActiveStore.MAX_RUNNING_CONTEXT,
                 AsyncSearchService.MAX_KEEP_ALIVE_SETTING,
-                AsyncSearchService.MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING
+                AsyncSearchService.MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING,
+                AsyncSearchManagementService.RESPONSE_CLEAN_UP_INTERVAL_SETTING,
+                AsyncSearchManagementService.REAPER_INTERVAL_SETTING
         );
     }
 

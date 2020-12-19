@@ -31,6 +31,7 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.Booleans;
 import org.elasticsearch.common.Randomness;
+import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.io.stream.StreamInput;
@@ -80,11 +81,11 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
     public static final Setting<TimeValue> REAPER_INTERVAL_SETTING =
             Setting.timeSetting("async_search.expired.task.cancellation_interval", TimeValue.timeValueMinutes(30),
-                    TimeValue.timeValueMinutes(1),
+                    TimeValue.timeValueSeconds(5),
                     Setting.Property.NodeScope);
     public static final Setting<TimeValue> RESPONSE_CLEAN_UP_INTERVAL_SETTING =
             Setting.timeSetting("async_search.expired.response.cleanup_interval", TimeValue.timeValueMinutes(1),
-                    TimeValue.timeValueMinutes(1),
+                    TimeValue.timeValueSeconds(5),
                     Setting.Property.NodeScope);
 
     @Inject
@@ -216,8 +217,13 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
             try (ThreadContext.StoredContext ignore = threadContext.stashContext()) {
                 // we have to execute under the system context so that if security is enabled the sync is authorized
                 threadContext.markAsSystemContext();
-
-                List<DiscoveryNode> nodes = Stream.of(clusterService.state().nodes().getDataNodes().values().toArray(DiscoveryNode.class))
+                ImmutableOpenMap<String, DiscoveryNode> dataNodes = clusterService.state().nodes().getDataNodes();
+                if (dataNodes == null || dataNodes.isEmpty()) {
+                    logger.debug("Found empty data nodes [{}] for response clean up, scheduling next wake up!", dataNodes);
+                    scheduleNextWakeUp();
+                    return;
+                }
+                List<DiscoveryNode> nodes = Stream.of(dataNodes.values().toArray(DiscoveryNode.class))
                         .filter((node) -> isAsyncSearchEnabledNode(node)).collect(Collectors.toList());
                 int pos = Randomness.get().nextInt(nodes.size());
                 DiscoveryNode randomNode = nodes.get(pos);

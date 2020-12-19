@@ -67,7 +67,7 @@ public class AsyncSearchPersistenceService {
     public static final String ERROR = "error";
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceService.class);
-    public static final String ASYNC_SEARCH_RESPONSE_INDEX = ".asynchronous_search_response";
+    public static final String ASYNC_SEARCH_RESPONSE_INDEX = ".opendistro_asynchronous_search_response";
     private static final String MAPPING_TYPE = "_doc";
     /**
      * The backoff policy to use when saving a task result fails. The total wait

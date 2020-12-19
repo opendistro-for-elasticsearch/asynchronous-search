@@ -1,27 +1,14 @@
-/*
- *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- *   Licensed under the Apache License, Version 2.0 (the "License").
- *   You may not use this file except in compliance with the License.
- *   A copy of the License is located at
- *
- *       http://www.apache.org/licenses/LICENSE-2.0
- *
- *   or in the "license" file accompanying this file. This file is distributed
- *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- *   express or implied. See the License for the specific language governing
- *   permissions and limitations under the License.
- */
+package com.amazon.opendistroforelasticsearch.search.async.management;
 
-package com.amazon.opendistroforelasticsearch.search.async;
-
+import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIntegTestCase;
+import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
+import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksResponse;
-import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -30,11 +17,11 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.reindex.ReindexPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.search.SearchService;
-import org.elasticsearch.tasks.TaskInfo;
 import org.elasticsearch.test.ESIntegTestCase;
 
 import java.util.Arrays;
@@ -47,15 +34,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIntegTestCase.ScriptedBlockPlugin.SCRIPT_NAME;
 import static org.elasticsearch.index.query.QueryBuilders.scriptQuery;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertNoFailures;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.lessThan;
 
 @ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.SUITE)
-public class AsyncSearchTaskCancellationIT extends AsyncSearchIntegTestCase {
+public class AsyncSearchManagementServiceIT extends AsyncSearchIntegTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
-        return Arrays.asList(ScriptedBlockPlugin.class, AsyncSearchPlugin.class);
+        return Arrays.asList(
+                ScriptedBlockPlugin.class,
+                AsyncSearchPlugin.class,
+                ReindexPlugin.class);
     }
 
     //We need to apply blocks via ScriptedBlockPlugin, external clusters are immutable
@@ -70,6 +59,9 @@ public class AsyncSearchTaskCancellationIT extends AsyncSearchIntegTestCase {
         logger.info("Using lowLevelCancellation: {}", lowLevelCancellation);
         return Settings.builder()
                 .put(super.nodeSettings(nodeOrdinal))
+                .put("node.attr.asynchronous_search_enabled", true)
+                .put(AsyncSearchManagementService.REAPER_INTERVAL_SETTING.getKey(),  TimeValue.timeValueSeconds(5))
+                .put(AsyncSearchManagementService.RESPONSE_CLEAN_UP_INTERVAL_SETTING.getKey(),  TimeValue.timeValueSeconds(5))
                 .put(SearchService.LOW_LEVEL_CANCELLATION_SETTING.getKey(), lowLevelCancellation)
                 .build();
     }
@@ -85,19 +77,7 @@ public class AsyncSearchTaskCancellationIT extends AsyncSearchIntegTestCase {
         }
     }
 
-    private void cancelAsyncSearch(String action) {
-        ListTasksResponse listTasksResponse = client().admin().cluster().prepareListTasks().setActions(action).get();
-        assertThat(listTasksResponse.getTasks(), hasSize(1));
-        TaskInfo searchTask = listTasksResponse.getTasks().get(0);
-
-        logger.info("Cancelling search");
-        CancelTasksResponse cancelTasksResponse = client().admin().cluster().prepareCancelTasks().setTaskId(searchTask.getTaskId()).get();
-        assertThat(cancelTasksResponse.getTasks(), hasSize(1));
-        assertThat(cancelTasksResponse.getTasks().get(0).getTaskId(), equalTo(searchTask.getTaskId()));
-    }
-
-    public void testCancellationDuringQueryPhase() throws Exception {
-
+    public void  testExpiredAsyncSearchCleanUpDuringQueryPhase() throws Exception {
         List<ScriptedBlockPlugin> plugins = initBlockFactory();
         indexTestData();
 
@@ -108,13 +88,13 @@ public class AsyncSearchTaskCancellationIT extends AsyncSearchIntegTestCase {
         //We need a NodeClient to make sure the listener gets injected in the search request execution.
         //Randomized client randomly return NodeClient/TransportClient
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
-        submitAsyncSearchRequest.keepOnCompletion(false);
-        submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(10000));
+        submitAsyncSearchRequest.keepOnCompletion(true);
+        submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(1));
         testCase(internalCluster().smartClient(), submitAsyncSearchRequest, plugins);
     }
 
 
-    public void testCancellationDuringFetchPhase() throws Exception {
+    public void testExpiredAsyncSearchCleanUpDuringFetchPhase() throws Exception {
         List<ScriptedBlockPlugin> plugins = initBlockFactory();
         indexTestData();
         SearchRequest searchRequest = client().prepareSearch("test")
@@ -122,18 +102,31 @@ public class AsyncSearchTaskCancellationIT extends AsyncSearchIntegTestCase {
                         new Script(ScriptType.INLINE, "mockscript", SCRIPT_NAME, Collections.emptyMap())
                 ).request();
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
-        submitAsyncSearchRequest.keepOnCompletion(false);
-        submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(50000));
+        submitAsyncSearchRequest.keepOnCompletion(true);
+        submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(1));
         testCase(internalCluster().smartClient(), submitAsyncSearchRequest, plugins);
+    }
+
+    public void testExpiredAsyncSearchResponseFromPersistedStore() throws Exception {
+        SearchRequest searchRequest = client().prepareSearch("test")
+                .addScriptField("test_field",
+                        new Script(ScriptType.INLINE, "mockscript", SCRIPT_NAME, Collections.emptyMap())
+                ).request();
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        submitAsyncSearchRequest.keepOnCompletion(true);
+        submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(1));
+        //testCase(internalCluster().smartClient(), submitAsyncSearchRequest, plugins);
     }
 
     private void testCase(Client client, SubmitAsyncSearchRequest request, List<ScriptedBlockPlugin> plugins) throws Exception {
         final AtomicReference<SearchResponse> searchResponseRef = new AtomicReference<>();
+        final AtomicReference<AsyncSearchResponse> asyncSearchResponseRef = new AtomicReference<>();
         final AtomicReference<Exception> exceptionRef = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
         client.execute(SubmitAsyncSearchAction.INSTANCE, request, new ActionListener<AsyncSearchResponse>() {
             @Override
             public void onResponse(AsyncSearchResponse asyncSearchResponse) {
+                asyncSearchResponseRef.set(asyncSearchResponse);
                 searchResponseRef.set(asyncSearchResponse.getSearchResponse());
                 exceptionRef.set(asyncSearchResponse.getError());
                 latch.countDown();
@@ -147,10 +140,31 @@ public class AsyncSearchTaskCancellationIT extends AsyncSearchIntegTestCase {
         });
 
         awaitForBlock(plugins);
-        cancelAsyncSearch(SubmitAsyncSearchAction.NAME);
+        assertNotNull(asyncSearchResponseRef.get());
+        CountDownLatch updateLatch = new CountDownLatch(1);
+        GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(asyncSearchResponseRef.get().getId());
+        getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueMillis(1));
+        client.execute(GetAsyncSearchAction.INSTANCE, getAsyncSearchRequest, new ActionListener<AsyncSearchResponse>() {
+            @Override
+            public void onResponse(AsyncSearchResponse asyncSearchResponse) {
+                asyncSearchResponseRef.set(asyncSearchResponse);
+                exceptionRef.set(asyncSearchResponse.getError());
+                updateLatch.countDown();
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                exceptionRef.set(e);
+                updateLatch.countDown();
+            }
+        });
+        updateLatch.await();
+        assertThat(asyncSearchResponseRef.get().getExpirationTimeMillis(), lessThan(System.currentTimeMillis()));
+        boolean cleanedUp = waitUntil(() -> isResourceCleanedUp(asyncSearchResponseRef.get().getId()));
+        assertTrue(cleanedUp);
         disableBlocks(plugins);
+        waitUntil(() -> verifyTaskCancelled(AsyncSearchTask.NAME));
         logger.info("Segments {}", Strings.toString(client().admin().indices().prepareSegments("test").get()));
         latch.await();
-        ensureSearchWasCancelled(searchResponseRef.get(), exceptionRef.get());
     }
 }
