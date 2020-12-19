@@ -41,6 +41,11 @@ public abstract class AsyncSearchIntegTestCase extends ESIntegTestCase {
                 ReindexPlugin.class);
     }
 
+    @Override
+    protected double getPerTestTransportClientRatio() {
+        return 0;
+    }
+
     protected List<ScriptedBlockPlugin> initBlockFactory() {
         List<ScriptedBlockPlugin> plugins = new ArrayList<>();
         for (PluginsService pluginsService : internalCluster().getDataNodeInstances(PluginsService.class)) {

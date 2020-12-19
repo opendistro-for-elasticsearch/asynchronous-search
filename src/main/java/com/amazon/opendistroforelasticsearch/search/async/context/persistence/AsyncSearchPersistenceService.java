@@ -33,7 +33,6 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -80,7 +79,6 @@ public class AsyncSearchPersistenceService {
     private final ClusterService clusterService;
     private final ThreadPool threadPool;
 
-    @Inject
     public AsyncSearchPersistenceService(Client client, ClusterService clusterService, ThreadPool threadPool) {
         this.client = client;
         this.clusterService = clusterService;

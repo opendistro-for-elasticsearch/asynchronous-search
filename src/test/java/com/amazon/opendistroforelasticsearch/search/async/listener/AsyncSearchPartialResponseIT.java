@@ -55,6 +55,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.equalTo;
 
+@ESIntegTestCase.ClusterScope(transportClientRatio = 0)
 public class AsyncSearchPartialResponseIT extends ESIntegTestCase {
 
     private int aggregationSize = randomIntBetween(2, 4);

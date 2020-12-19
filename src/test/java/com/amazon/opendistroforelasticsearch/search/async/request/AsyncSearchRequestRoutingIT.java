@@ -43,7 +43,7 @@ import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertAcke
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 
-@ESIntegTestCase.ClusterScope(numDataNodes = 5)
+@ESIntegTestCase.ClusterScope(numDataNodes = 5, transportClientRatio = 0)
 public class AsyncSearchRequestRoutingIT extends ESIntegTestCase {
 
     @Override

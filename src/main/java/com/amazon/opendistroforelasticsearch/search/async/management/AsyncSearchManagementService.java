@@ -218,13 +218,14 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
                 // we have to execute under the system context so that if security is enabled the sync is authorized
                 threadContext.markAsSystemContext();
                 ImmutableOpenMap<String, DiscoveryNode> dataNodes = clusterService.state().nodes().getDataNodes();
-                if (dataNodes == null || dataNodes.isEmpty()) {
-                    logger.debug("Found empty data nodes [{}] for response clean up, scheduling next wake up!", dataNodes);
+                List<DiscoveryNode> nodes = Stream.of(dataNodes.values().toArray(DiscoveryNode.class))
+                        .filter((node) -> isAsyncSearchEnabledNode(node)).collect(Collectors.toList());
+                if (nodes == null || nodes.isEmpty()) {
+                    logger.debug("Found empty data nodes with async search enabled attribute [{}] for response clean up," +
+                            " scheduling next wake up!", dataNodes);
                     scheduleNextWakeUp();
                     return;
                 }
-                List<DiscoveryNode> nodes = Stream.of(dataNodes.values().toArray(DiscoveryNode.class))
-                        .filter((node) -> isAsyncSearchEnabledNode(node)).collect(Collectors.toList());
                 int pos = Randomness.get().nextInt(nodes.size());
                 DiscoveryNode randomNode = nodes.get(pos);
                 transportService.sendRequest(randomNode, CLEANUP_ACTION_NAME,
