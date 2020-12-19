@@ -1,6 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.restIT;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
+import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
@@ -86,6 +87,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
         ResponseException responseException = expectThrows(ResponseException.class, () -> executeGetAsyncSearch(getAsyncSearchRequest));
         assertThat(responseException.getMessage(), containsString("Keep alive for async search (" +
                 getAsyncSearchRequest.getKeepAlive().getMillis() + ") is too large"));
+        executeDeleteAsyncSearch(new DeleteAsyncSearchRequest(submitResponse.getId()));
 
     }
 

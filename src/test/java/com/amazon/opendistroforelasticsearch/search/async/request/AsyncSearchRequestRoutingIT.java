@@ -168,7 +168,7 @@ public class AsyncSearchRequestRoutingIT extends ESIntegTestCase {
                             fail("Get async search request should not have failed");
                         }
                     });
-                    String randomNonCoordinatorNode = nonCoordinatorNodeNames.get(randomInt(nonCoordinatorNodeNames.size()));
+                    String randomNonCoordinatorNode = nonCoordinatorNodeNames.get(randomInt(nonCoordinatorNodeNames.size()-1));
                     try {
                         AcknowledgedResponse acknowledgedResponse =
                                 client(randomNonCoordinatorNode).execute(DeleteAsyncSearchAction.INSTANCE,

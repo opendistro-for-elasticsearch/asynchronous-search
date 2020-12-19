@@ -142,7 +142,7 @@ public abstract class AsyncSearchRestTestCase extends ESRestTestCase {
         final TotalHits totalHits = countResponse.getHits().getTotalHits();
         if (totalHits.relation != TotalHits.Relation.EQUAL_TO || totalHits.value != expectedHitCount) {
             fail("Count is " + totalHits + " but " + expectedHitCount
-                    + " was expected. ");
+                    + " was expected. " + countResponse.toString());
         }
     }
 
