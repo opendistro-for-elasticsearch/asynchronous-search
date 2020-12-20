@@ -335,11 +335,15 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     releasable -> {
                         // At this point it's possible that the response would have been persisted to system index
                         if (asyncSearchActiveContext.getAsyncSearchState() == AsyncSearchState.PERSISTED) {
+                            logger.debug("Updating persistence store after state is PERSISTED async search id [{}] " +
+                                    "for updating context", asyncSearchActiveContext.getAsyncSearchId());
                             persistenceService.updateExpirationTime(id, requestedExpirationTime, ActionListener.wrap(
                                     (actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId,
                                             actionResponse, currentTimeSupplier, namedWriteableRegistry)), listener::onFailure));
                         } else {
                             asyncSearchActiveContext.setExpirationTimeMillis(requestedExpirationTime);
+                            logger.debug("Updating persistence store: NO as state is NOT PERSISTED yet async search id [{}] " +
+                                    "for updating context", asyncSearchActiveContext.getAsyncSearchId());
                             listener.onResponse(asyncSearchActiveContext);
                         }
                         releasable.close();
@@ -347,9 +351,13 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     exception -> {
                         if (ExceptionsHelper.unwrapCause(exception) instanceof AlreadyClosedException == false) {
                             // this should ideally not happen. This would mean we couldn't acquire permits within the timeout
-                            logger.warn(() -> new ParameterizedMessage("Failed to acquire permits for async search id [{}] " +
-                                    "for updating context", asyncSearchActiveContext.getAsyncSearchId()), exception);
+                            logger.warn(() -> new ParameterizedMessage("Unexpected exception. Failed to acquire permits for " +
+                                    "async search id [{}] for updating context", asyncSearchActiveContext.getAsyncSearchId()), exception);
+                            listener.onFailure(exception);
+                            return;
                         }
+                        logger.debug("Updating persistence store after failing to acquire permits for async search id [{}] for updating " +
+                                "context with expiration time [{}]", asyncSearchActiveContext.getAsyncSearchId(), requestedExpirationTime);
                         persistenceService.updateExpirationTime(id, requestedExpirationTime,
                                 ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
                                                 id, asyncSearchContextId, actionResponse, currentTimeSupplier, namedWriteableRegistry)),
@@ -358,6 +366,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     }), TimeValue.timeValueSeconds(5), "update keep alive");
         } else {
             // try update the doc on the index assuming there exists one.
+            logger.debug("Updating persistence store after active context evicted for async search id [{}] " +
+                    "for updating context", id);
             persistenceService.updateExpirationTime(id, requestedExpirationTime,
                     ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
                             id, asyncSearchContextId, actionResponse, currentTimeSupplier, namedWriteableRegistry)), listener::onFailure));
