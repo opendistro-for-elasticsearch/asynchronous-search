@@ -37,6 +37,7 @@ import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchCo
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
+import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -61,6 +62,7 @@ import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.search.SearchService;
 import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.Scheduler;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -138,21 +140,19 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.maxKeepAlive = maxKeepAlive.millis();
     }
 
-
     /**
      * Creates a new active async search for a newly submitted async search.
-     *
-     * @param keepAlive               duration of validity of async search
-     * @param keepOnCompletion        determines if response should be persisted on completion
-     * @param relativeStartTimeMillis start time of {@linkplain SearchAction}
-     * @param user                    current user
-     * @return the async search context
+     * @param request the SubmitAsyncSearchRequest
+     * @param relativeStartTimeMillis the relative start time of the search in millis
+     * @param searchService the reference for the SearchService
+     * @param user current user
+     * @return the AsyncSearchContext for the submitted request
      */
-    public AsyncSearchContext createAndStoreContext(TimeValue keepAlive, boolean keepOnCompletion,
-                                                    long relativeStartTimeMillis, User user) {
-        if (keepAlive.getMillis() > maxKeepAlive) {
+    public AsyncSearchContext createAndStoreContext(SubmitAsyncSearchRequest request, long relativeStartTimeMillis,
+                                                    SearchService searchService, User user) {
+        if (request.getKeepAlive().getMillis() > maxKeepAlive) {
             throw new IllegalArgumentException(
-                    "Keep alive for async search (" + keepAlive.getMillis() + ") is too large It must be less than (" +
+                    "Keep alive for async search (" + request.getKeepAlive().getMillis() + ") is too large It must be less than (" +
                             TimeValue.timeValueMillis(maxKeepAlive) + ").This limit can be set by changing the ["
                             + MAX_KEEP_ALIVE_SETTING.getKey() + "] cluster level setting.");
         }
@@ -160,9 +160,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartTimeMillis,
                 (response) -> asyncSearchPostProcessor.processSearchResponse(response, asyncSearchContextId),
                 (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId),
-                threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME), threadPool::relativeTimeInMillis);
+                threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME), threadPool::relativeTimeInMillis,
+                () -> searchService.aggReduceContextBuilder(request.getSearchRequest()));
         AsyncSearchActiveContext asyncSearchContext = new AsyncSearchActiveContext(asyncSearchContextId, clusterService.localNode().getId(),
-                keepAlive, keepOnCompletion, threadPool, currentTimeSupplier, progressActionListener,
+                request.getKeepAlive(), request.getKeepOnCompletion(), threadPool, currentTimeSupplier, progressActionListener,
                 /*placeholder for async search stats*/new AsyncSearchContextListener() {
         }, user);
         asyncSearchActiveStore.putContext(asyncSearchContextId, asyncSearchContext);
