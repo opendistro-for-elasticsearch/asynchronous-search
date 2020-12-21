@@ -116,6 +116,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService,
                               Client client, ClusterService clusterService, ThreadPool threadPool,
                               NamedWriteableRegistry namedWriteableRegistry) {
+        this.statsListener = new InternalAsyncSearchStats();
         this.client = client;
         Settings settings = clusterService.getSettings();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
@@ -128,10 +129,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.persistenceService = asyncSearchPersistenceService;
         this.currentTimeSupplier = System::currentTimeMillis;
         asyncSearchStateMachine = initStateMachine();
-        this.asyncSearchActiveStore = new AsyncSearchActiveStore(clusterService, asyncSearchStateMachine);
+        this.asyncSearchActiveStore = new AsyncSearchActiveStore(clusterService, asyncSearchStateMachine,
+                statsListener::onContextRejected);
         this.asyncSearchPostProcessor = new AsyncSearchPostProcessor(persistenceService, asyncSearchActiveStore, asyncSearchStateMachine,
                 this::freeActiveContext);
-        this.statsListener = new InternalAsyncSearchStats();
         this.namedWriteableRegistry = namedWriteableRegistry;
     }
 
@@ -396,12 +397,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> {}, BeginPersistEvent.class));
+                (contextId, listener) -> {
+                }, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> {}, BeginPersistEvent.class));
+                (contextId, listener) -> {
+                }, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSISTED,
                 (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),

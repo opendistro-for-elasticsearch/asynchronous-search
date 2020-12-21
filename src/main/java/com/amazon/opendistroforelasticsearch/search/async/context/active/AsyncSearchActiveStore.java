@@ -26,6 +26,7 @@ import org.elasticsearch.common.util.concurrent.ConcurrentMapLong;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency;
 
@@ -39,10 +40,12 @@ public class AsyncSearchActiveStore {
             "async_search.max_running_context", 100, 0, Setting.Property.Dynamic, Setting.Property.NodeScope);
 
     private final ConcurrentMapLong<AsyncSearchActiveContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
+    private final Consumer<AsyncSearchContextId> contextRejectionEventConsumer;
 
-
-    public AsyncSearchActiveStore(ClusterService clusterService, AsyncSearchStateMachine stateMachine) {
+    public AsyncSearchActiveStore(ClusterService clusterService, AsyncSearchStateMachine stateMachine,
+                                  Consumer<AsyncSearchContextId> contextRejectionEventConsumer) {
         Settings settings = clusterService.getSettings();
+        this.contextRejectionEventConsumer = contextRejectionEventConsumer;
         maxRunningContext = MAX_RUNNING_CONTEXT.get(settings);
         this.asyncSearchStateMachine = stateMachine;
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_RUNNING_CONTEXT, this::setMaxRunningContext);
@@ -54,6 +57,7 @@ public class AsyncSearchActiveStore {
 
     public synchronized void putContext(AsyncSearchContextId asyncSearchContextId, AsyncSearchActiveContext asyncSearchContext) {
         if (activeContexts.size() >= maxRunningContext) {
+            contextRejectionEventConsumer.accept(asyncSearchContextId);
             throw new AsyncSearchRejectedException("Trying to create too many running contexts. Must be less than or equal to: ["
                     + maxRunningContext + "]. This limit can be set by changing the [" + MAX_RUNNING_CONTEXT.getKey() + "] setting.",
                     maxRunningContext);

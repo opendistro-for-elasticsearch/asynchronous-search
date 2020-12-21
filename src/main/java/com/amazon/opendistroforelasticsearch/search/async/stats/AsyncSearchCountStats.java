@@ -28,67 +28,76 @@ import java.io.IOException;
  */
 public class AsyncSearchCountStats implements Writeable, ToXContentFragment {
 
-    private final long runningStage;
-    private final long persistedStage;
-    private final long completedStage;
-    private final long failedStage;
+    private final long runningCount;
+    private final long persistedCount;
+    private final long completedCount;
+    private final long failedCount;
+    private final long throttledCount;
 
-    public AsyncSearchCountStats(long runningStage, long persistedStage,
-                                 long completedStage, long failedStage) {
-        this.runningStage = runningStage;
-        this.persistedStage = persistedStage;
-        this.completedStage = completedStage;
-        this.failedStage = failedStage;
+    public AsyncSearchCountStats(long runningCount, long persistedCount,
+                                 long completedCount, long failedCount, long throttledCount) {
+        this.runningCount = runningCount;
+        this.persistedCount = persistedCount;
+        this.completedCount = completedCount;
+        this.failedCount = failedCount;
+        this.throttledCount = throttledCount;
     }
 
     public AsyncSearchCountStats(StreamInput in) throws IOException {
-        this.runningStage = in.readVLong();
-        this.persistedStage = in.readVLong();
-        this.completedStage = in.readVLong();
-        this.failedStage = in.readVLong();
+        this.runningCount = in.readVLong();
+        this.persistedCount = in.readVLong();
+        this.completedCount = in.readVLong();
+        this.failedCount = in.readVLong();
+        this.throttledCount = in.readVLong();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeVLong(this.runningStage);
-        out.writeVLong(this.persistedStage);
-        out.writeVLong(this.completedStage);
-        out.writeVLong(this.failedStage);
+        out.writeVLong(this.runningCount);
+        out.writeVLong(this.persistedCount);
+        out.writeVLong(this.completedCount);
+        out.writeVLong(this.failedCount);
+        out.writeVLong(this.throttledCount);
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject(Fields.ASYNC_SEARCH_STATUS);
-        builder.field(Fields.RUNNING, runningStage);
-        builder.field(Fields.PERSISTED, persistedStage);
-        builder.field(Fields.FAILED, failedStage);
-        builder.field(Fields.COMPLETED, completedStage);
+        builder.field(Fields.RUNNING, runningCount);
+        builder.field(Fields.PERSISTED, persistedCount);
+        builder.field(Fields.FAILED, failedCount);
+        builder.field(Fields.COMPLETED, completedCount);
+        builder.field(Fields.REJECTED, throttledCount);
         builder.endObject();
         return builder;
     }
 
     static final class Fields {
-
-        static final String ASYNC_SEARCH_STATUS = "async_search_stats";
-        static final String RUNNING = "async_search_running_current";
-        static final String PERSISTED = "persisted_total";
-        static final String FAILED = "async_search_failed";
-        static final String COMPLETED = "async_search_completed";
+        private static final String ASYNC_SEARCH_STATUS = "async_search_stats";
+        private static final String RUNNING = "async_search_running_current";
+        private static final String PERSISTED = "async_search_persisted";
+        private static final String FAILED = "async_search_failed";
+        private static final String COMPLETED = "async_search_completed";
+        private static final String REJECTED = "async_search_rejected";
     }
 
-    public long getRunningStage() {
-        return runningStage;
+    public long getRunningCount() {
+        return runningCount;
     }
 
-    public long getPersistedStage() {
-        return persistedStage;
+    public long getPersistedCount() {
+        return persistedCount;
     }
 
-    public long getCompletedStage() {
-        return completedStage;
+    public long getCompletedCount() {
+        return completedCount;
     }
 
-    public long getFailedStage() {
-        return failedStage;
+    public long getFailedCount() {
+        return failedCount;
+    }
+
+    public long getThrottledCount() {
+        return throttledCount;
     }
 }

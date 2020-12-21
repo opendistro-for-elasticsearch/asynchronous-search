@@ -64,4 +64,11 @@ public interface AsyncSearchContextListener {
     default void onContextRunning(AsyncSearchContextId contextId) {
 
     }
+
+    /**
+     * @param contextId Executed when async search context creation is rejected
+     */
+    default void onContextRejected(AsyncSearchContextId contextId) {
+
+    }
 }

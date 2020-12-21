@@ -10,6 +10,7 @@ import com.amazon.opendistroforelasticsearch.search.async.stats.AsyncSearchStats
 import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
@@ -20,14 +21,27 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIntegTestCase.ScriptedBlockPlugin.SCRIPT_NAME;
 import static org.elasticsearch.index.query.QueryBuilders.scriptQuery;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 
 @ESIntegTestCase.ClusterScope(numDataNodes = 5, scope = ESIntegTestCase.Scope.TEST)
 public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
+    private int asyncSearchConcurrentLimit = 20;
+
+    @Override
+    protected Settings nodeSettings(int nodeOrdinal) {
+        boolean lowLevelCancellation = randomBoolean();
+        logger.info("Using lowLevelCancellation: {}", lowLevelCancellation);
+        return Settings.builder()
+                .put(super.nodeSettings(nodeOrdinal))
+                .put("async_search.max_running_context", asyncSearchConcurrentLimit)
+                .build();
+    }
 
     public void testNodewiseStats() throws InterruptedException {
         String index = "idx";
@@ -55,15 +69,15 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
             statsResponse.getNodes().forEach(nodeStats -> {
                 AsyncSearchCountStats asyncSearchCountStats = nodeStats.getAsyncSearchCountStats();
                 if (nodeStats.getNode().equals(randomDataNode)) {
-                    assertEquals(1, asyncSearchCountStats.getPersistedStage());
-                    assertEquals(1, asyncSearchCountStats.getCompletedStage());
-                    assertEquals(0, asyncSearchCountStats.getFailedStage());
-                    assertEquals(0, asyncSearchCountStats.getRunningStage());
+                    assertEquals(1, asyncSearchCountStats.getPersistedCount());
+                    assertEquals(1, asyncSearchCountStats.getCompletedCount());
+                    assertEquals(0, asyncSearchCountStats.getFailedCount());
+                    assertEquals(0, asyncSearchCountStats.getRunningCount());
                 } else {
-                    assertEquals(0, asyncSearchCountStats.getPersistedStage());
-                    assertEquals(0, asyncSearchCountStats.getCompletedStage());
-                    assertEquals(0, asyncSearchCountStats.getFailedStage());
-                    assertEquals(0, asyncSearchCountStats.getRunningStage());
+                    assertEquals(0, asyncSearchCountStats.getPersistedCount());
+                    assertEquals(0, asyncSearchCountStats.getCompletedCount());
+                    assertEquals(0, asyncSearchCountStats.getFailedCount());
+                    assertEquals(0, asyncSearchCountStats.getRunningCount());
                 }
             });
         } catch (Exception e) {
@@ -133,16 +147,16 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
         AtomicLong actualNumPersisted = new AtomicLong();
         for (AsyncSearchStats node : statsResponse.getNodes()) {
             AsyncSearchCountStats asyncSearchCountStats = node.getAsyncSearchCountStats();
-            assertEquals(asyncSearchCountStats.getRunningStage(), 0);
+            assertEquals(asyncSearchCountStats.getRunningCount(), 0);
 
-            assertThat(expectedNumSuccesses.get(), greaterThanOrEqualTo(asyncSearchCountStats.getCompletedStage()));
-            actualNumSuccesses.getAndAdd(asyncSearchCountStats.getCompletedStage());
+            assertThat(expectedNumSuccesses.get(), greaterThanOrEqualTo(asyncSearchCountStats.getCompletedCount()));
+            actualNumSuccesses.getAndAdd(asyncSearchCountStats.getCompletedCount());
 
-            assertThat(expectedNumFailures.get(), greaterThanOrEqualTo(asyncSearchCountStats.getFailedStage()));
-            actualNumFailures.getAndAdd(asyncSearchCountStats.getFailedStage());
+            assertThat(expectedNumFailures.get(), greaterThanOrEqualTo(asyncSearchCountStats.getFailedCount()));
+            actualNumFailures.getAndAdd(asyncSearchCountStats.getFailedCount());
 
-            assertThat(expectedNumPersisted.get(), greaterThanOrEqualTo(asyncSearchCountStats.getPersistedStage()));
-            actualNumPersisted.getAndAdd(asyncSearchCountStats.getPersistedStage());
+            assertThat(expectedNumPersisted.get(), greaterThanOrEqualTo(asyncSearchCountStats.getPersistedCount()));
+            actualNumPersisted.getAndAdd(asyncSearchCountStats.getPersistedCount());
         }
 
         assertEquals(expectedNumPersisted.get(), actualNumPersisted.get());
@@ -169,10 +183,10 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
         AsyncSearchStatsResponse statsResponse = client().execute(AsyncSearchStatsAction.INSTANCE, new AsyncSearchStatsRequest()).get();
         long runningSearchCount = 0;
         for (AsyncSearchStats node : statsResponse.getNodes()) {
-            runningSearchCount += node.getAsyncSearchCountStats().getRunningStage();
-            assertEquals(node.getAsyncSearchCountStats().getCompletedStage(), 0L);
-            assertEquals(node.getAsyncSearchCountStats().getFailedStage(), 0L);
-            assertEquals(node.getAsyncSearchCountStats().getPersistedStage(), 0L);
+            runningSearchCount += node.getAsyncSearchCountStats().getRunningCount();
+            assertEquals(node.getAsyncSearchCountStats().getCompletedCount(), 0L);
+            assertEquals(node.getAsyncSearchCountStats().getFailedCount(), 0L);
+            assertEquals(node.getAsyncSearchCountStats().getPersistedCount(), 0L);
         }
         assertEquals(runningSearchCount, 1L);
         disableBlocks(plugins);
@@ -181,11 +195,72 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
         long persistedCount = 0;
         long completedCount = 0;
         for (AsyncSearchStats node : statsResponse.getNodes()) {
-            persistedCount += node.getAsyncSearchCountStats().getPersistedStage();
-            completedCount += node.getAsyncSearchCountStats().getCompletedStage();
-            assertEquals(node.getAsyncSearchCountStats().getRunningStage(), 0L);
-            assertEquals(node.getAsyncSearchCountStats().getFailedStage(), 0L);
+            persistedCount += node.getAsyncSearchCountStats().getPersistedCount();
+            completedCount += node.getAsyncSearchCountStats().getCompletedCount();
+            assertEquals(node.getAsyncSearchCountStats().getRunningCount(), 0L);
+            assertEquals(node.getAsyncSearchCountStats().getFailedCount(), 0L);
         }
         assertEquals(runningSearchCount, 1L);
+    }
+
+    public void testThrottledAsyncSearchCount() throws InterruptedException, ExecutionException {
+        String index = "idx";
+        createIndex(index);
+        indexRandom(super.ignoreExternalCluster(), client().prepareIndex(index, "type1", "1")
+                        .setSource("field1", "the quick brown fox jumps"),
+                client().prepareIndex(index, "type1", "2").setSource("field1", "quick brown"),
+                client().prepareIndex(index, "type1", "3").setSource("field1", "quick"));
+
+        List<DiscoveryNode> dataNodes = new LinkedList<>();
+        clusterService().state().nodes().getDataNodes().iterator().forEachRemaining(node -> {
+            dataNodes.add(node.value);
+        });
+        assertFalse(dataNodes.isEmpty());
+        DiscoveryNode randomDataNode = dataNodes.get(randomInt(dataNodes.size() - 1));
+        AtomicBoolean throttlingOccured = new AtomicBoolean();
+        int numThreads = 21;
+        List<Thread> threads = new ArrayList<>();
+        for (int i = 0; i < numThreads; i++) {
+            Thread t = new Thread(() -> {
+                try {
+                    List<ScriptedBlockPlugin> plugins = initBlockFactory();
+                    SearchRequest searchRequest = client().prepareSearch(index).setQuery(
+                            scriptQuery(new Script(
+                                    ScriptType.INLINE, "mockscript", SCRIPT_NAME, Collections.emptyMap())))
+                            .request();
+                    SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+                    executeSubmitAsyncSearch(client(randomDataNode.getName()), submitAsyncSearchRequest);
+                    waitUntil(() -> verifyThrottlingFromStats(throttlingOccured));
+                    disableBlocks(plugins);
+                } catch (ExecutionException e) {
+                    assertThat(e.getMessage(), containsString("Trying to create too many running contexts"));
+                } catch (InterruptedException e) {
+                    fail(e.getMessage());
+                }
+            });
+            threads.add(t);
+        }
+        threads.forEach(Thread::start);
+        for (Thread thread : threads) {
+            thread.join(100);
+        }
+    }
+
+    private boolean verifyThrottlingFromStats(AtomicBoolean throttlingOccured) {
+        if (throttlingOccured.get()) {
+            return true;
+        }
+        try {
+            AsyncSearchStatsResponse statsResponse = client().execute(AsyncSearchStatsAction.INSTANCE, new AsyncSearchStatsRequest()).get();
+            for (AsyncSearchStats nodeStats : statsResponse.getNodes()) {
+                if (nodeStats.getAsyncSearchCountStats().getThrottledCount() > 0L) {
+                    throttlingOccured.compareAndSet(false, true);
+                    return true;
+                }
+            }
+            return false;
+        } catch (InterruptedException | ExecutionException e) {
+            return false;
+        }
     }
 }
