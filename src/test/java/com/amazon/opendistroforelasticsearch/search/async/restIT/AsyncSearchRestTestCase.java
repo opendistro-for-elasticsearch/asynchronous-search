@@ -164,4 +164,3 @@ public abstract class AsyncSearchRestTestCase extends ESRestTestCase {
         assertEquals(RestStatus.OK,  RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 }
-

@@ -386,12 +386,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> listener.onContextPersisted(contextId), BeginPersistEvent.class));
+                (contextId, listener) -> {}, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> listener.onContextPersisted(contextId), BeginPersistEvent.class));
+                (contextId, listener) -> {}, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSISTED,
                 (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
@@ -431,8 +431,11 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         doStop();
     }
 
+    /**
+     * @return Async Search stats accumulated on the current node
+     */
     public AsyncSearchStats stats() {
-        return null;
+        return statsListener.stats(clusterService.localNode());
     }
 
 

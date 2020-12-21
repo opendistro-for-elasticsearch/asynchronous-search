@@ -21,9 +21,10 @@ import org.elasticsearch.common.io.stream.StreamOutput;
 
 import java.io.IOException;
 
+/**
+ * A request to get Async Search stats
+ */
 public class AsyncSearchStatsRequest extends BaseNodesRequest<AsyncSearchStatsRequest> {
-
-    public static final String ALL_STATS_KEY = "_all";
 
     /**
      * Empty constructor needed for AsyncSearchStatsTransportAction

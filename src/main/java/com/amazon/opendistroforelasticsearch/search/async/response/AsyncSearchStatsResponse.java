@@ -25,12 +25,13 @@ import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.ToXContentObject;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.common.xcontent.XContentParser;
 
 import java.io.IOException;
 import java.util.List;
 
 /**
- * Contains aggregation of async search stats from the nodes
+ * Contains aggregation of async search stats from all the nodes
  */
 public class AsyncSearchStatsResponse extends BaseNodesResponse<AsyncSearchStats> implements ToXContentObject {
     public AsyncSearchStatsResponse(StreamInput in) throws IOException {

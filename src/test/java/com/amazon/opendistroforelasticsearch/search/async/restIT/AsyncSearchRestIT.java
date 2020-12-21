@@ -18,7 +18,7 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.greaterThan;
 
-public class SubmitAsyncSearchRestIT extends AsyncSearchRestTestCase {
+public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
 
     public void testSubmitWithoutRetainedResponse() throws IOException {
         SearchRequest searchRequest = new SearchRequest("test");

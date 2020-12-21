@@ -53,8 +53,8 @@ import java.util.function.Function;
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIntegTestCase.ScriptedBlockPlugin.SCRIPT_NAME;
 import static org.elasticsearch.index.query.QueryBuilders.scriptQuery;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertNoFailures;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 
 @ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.SUITE)
@@ -63,12 +63,6 @@ public class AsyncSearchCancellationIT extends AsyncSearchIntegTestCase {
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
         return Collections.singleton(ScriptedBlockPlugin.class);
-    }
-
-    //We need to apply blocks via ScriptedBlockPlugin, external clusters are immutable
-    @Override
-    protected boolean ignoreExternalCluster() {
-        return true;
     }
 
     @Override
@@ -145,9 +139,9 @@ public class AsyncSearchCancellationIT extends AsyncSearchIntegTestCase {
             AsyncSearchProgressListener listener = new AsyncSearchProgressListener(threadPool.relativeTimeInMillis(), responseFunction,
                     failureFunction, threadPool.generic(), threadPool::relativeTimeInMillis,
                     () -> {
-                assertTrue(reduceContextInvocation.compareAndSet(false, true));
-                return reduceContextBuilder;
-            }) {
+                        assertTrue(reduceContextInvocation.compareAndSet(false, true));
+                        return reduceContextBuilder;
+                    }) {
                 @Override
                 public void onResponse(SearchResponse searchResponse) {
                     assertTrue(responseRef.compareAndSet(null, searchResponse));

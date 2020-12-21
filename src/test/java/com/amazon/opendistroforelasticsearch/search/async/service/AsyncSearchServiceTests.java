@@ -169,21 +169,68 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
 
     }
 
-    private void assertActiveContextRemoval(AsyncSearchService asyncSearchService, AsyncSearchActiveContext asyncSearchActiveContext,
-                                            CountDownLatch latch) {
+    public void testUpdateExpirationOnRunningSearch() throws InterruptedException {
+        AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
+        TimeValue keepAlive = timeValueDays(9);
+        boolean keepOnCompletion = false;
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
+        submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
+        submitAsyncSearchRequest.keepAlive(keepAlive);
+        AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis(),
+                getInstanceFromNode(SearchService.class));
+        assertTrue(context instanceof AsyncSearchActiveContext);
+        AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) context;
+        assertNull(asyncSearchActiveContext.getTask());
+        assertNull(asyncSearchActiveContext.getAsyncSearchId());
+        assertEquals(asyncSearchActiveContext.getAsyncSearchState(), INIT);
+        //bootstrap search
+        AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
+                emptyMap(), (AsyncSearchActiveContext) context, null, (c) -> {
+        });
 
+        asyncSearchService.bootstrapSearch(task, context.getContextId());
+        assertEquals(asyncSearchActiveContext.getTask(), task);
+        assertEquals(asyncSearchActiveContext.getStartTimeMillis(), task.getStartTime());
+        long originalExpirationTimeMillis = asyncSearchActiveContext.getExpirationTimeMillis();
+        assertEquals(originalExpirationTimeMillis, task.getStartTime() + keepAlive.millis());
+        assertEquals(asyncSearchActiveContext.getAsyncSearchState(), RUNNING);
+        CountDownLatch findContextLatch = new CountDownLatch(1);
         asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), wrap(
                 r -> {
-                    assertTrue(r instanceof AsyncSearchActiveContext);
-                    assertActiveContextRemoval(asyncSearchService, asyncSearchActiveContext, latch);
+                    try {
+                        assertTrue(r instanceof AsyncSearchActiveContext);
+                        assertEquals(r, context);
+                    } finally {
+                        findContextLatch.countDown();
+                    }
                 }, e -> {
                     try {
-                        assertTrue(e instanceof ResourceNotFoundException);
+                        logger.error(e);
+                        fail("Find context shouldn't have failed");
                     } finally {
-                        latch.countDown();
+                        findContextLatch.countDown();
                     }
                 }
         ));
+        findContextLatch.await();
+        CountDownLatch updateLatch = new CountDownLatch(1);
+        TimeValue newKeepAlive = timeValueDays(10);
+        asyncSearchService.updateKeepAliveAndGetContext(asyncSearchActiveContext.getAsyncSearchId(), newKeepAlive,
+                asyncSearchActiveContext.getContextId(), wrap(r -> {
+                    try {
+                        assertTrue(r instanceof AsyncSearchActiveContext);
+                        assertThat(r.getExpirationTimeMillis(), greaterThan(originalExpirationTimeMillis));
+                    } finally {
+                        updateLatch.countDown();
+                    }
+                }, e -> {
+                    try {
+                        fail();
+                    } finally {
+                        updateLatch.countDown();
+                    }
+                }));
+        updateLatch.await();
 
     }
 

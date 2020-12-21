@@ -71,6 +71,9 @@ public class TransportAsyncSearchStatsAction extends TransportNodesAction<AsyncS
 
     }
 
+    /**
+     * Request to fetch async search stats on a single node
+     */
     public static class AsyncSearchStatsNodeRequest extends BaseNodeRequest {
 
         AsyncSearchStatsRequest request;

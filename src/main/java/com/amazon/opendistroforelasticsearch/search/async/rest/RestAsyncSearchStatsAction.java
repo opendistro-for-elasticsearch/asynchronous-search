@@ -50,7 +50,7 @@ public class RestAsyncSearchStatsAction extends BaseRestHandler {
     public List<Route> routes() {
         return Arrays.asList(
                 new Route(GET, AsyncSearchPlugin.BASE_URI + "/nodes/{nodeId}/stats/"),
-                new Route(GET, AsyncSearchPlugin.BASE_URI + "/stats")
+                new Route(GET, AsyncSearchPlugin.BASE_URI + "_stats")
         );
     }
 

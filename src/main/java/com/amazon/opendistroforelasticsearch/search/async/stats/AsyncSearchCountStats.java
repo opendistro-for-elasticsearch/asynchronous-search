@@ -23,22 +23,25 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import java.io.IOException;
 
-public class AsyncSearchStatusStats implements Writeable, ToXContentFragment {
+/**
+ * Accumulates Async Search State-wise Counters stats on a single node
+ */
+public class AsyncSearchCountStats implements Writeable, ToXContentFragment {
 
     private final long runningStage;
     private final long persistedStage;
     private final long completedStage;
     private final long failedStage;
 
-    public AsyncSearchStatusStats(long runningStage, long persistedStage,
-                                  long completedStage, long failedStage) {
+    public AsyncSearchCountStats(long runningStage, long persistedStage,
+                                 long completedStage, long failedStage) {
         this.runningStage = runningStage;
         this.persistedStage = persistedStage;
         this.completedStage = completedStage;
         this.failedStage = failedStage;
     }
 
-    public AsyncSearchStatusStats(StreamInput in) throws IOException {
+    public AsyncSearchCountStats(StreamInput in) throws IOException {
         this.runningStage = in.readVLong();
         this.persistedStage = in.readVLong();
         this.completedStage = in.readVLong();
@@ -65,10 +68,27 @@ public class AsyncSearchStatusStats implements Writeable, ToXContentFragment {
     }
 
     static final class Fields {
-        static final String ASYNC_SEARCH_STATUS = "async_search_status";
-        static final String RUNNING = "running";
-        static final String PERSISTED = "persisted";
-        static final String FAILED = "failed";
-        static final String COMPLETED = "completed";
+
+        static final String ASYNC_SEARCH_STATUS = "async_search_stats";
+        static final String RUNNING = "async_search_running_current";
+        static final String PERSISTED = "persisted_total";
+        static final String FAILED = "async_search_failed";
+        static final String COMPLETED = "async_search_completed";
+    }
+
+    public long getRunningStage() {
+        return runningStage;
+    }
+
+    public long getPersistedStage() {
+        return persistedStage;
+    }
+
+    public long getCompletedStage() {
+        return completedStage;
+    }
+
+    public long getFailedStage() {
+        return failedStage;
     }
 }

@@ -28,26 +28,30 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
- * Class represents all stats the plugin keeps track of
+ * Class represents all stats the plugin keeps track of on a single node
  */
 public class AsyncSearchStats extends BaseNodeResponse implements ToXContentFragment {
 
-    private AsyncSearchStatusStats asyncSearchStatusStats;
+    private AsyncSearchCountStats asyncSearchCountStats;
+
+    public AsyncSearchCountStats getAsyncSearchCountStats() {
+        return asyncSearchCountStats;
+    }
 
     public AsyncSearchStats(StreamInput in) throws IOException {
         super(in);
-        asyncSearchStatusStats = in.readOptionalWriteable(AsyncSearchStatusStats::new);
+        asyncSearchCountStats = in.readOptionalWriteable(AsyncSearchCountStats::new);
     }
 
-    public AsyncSearchStats(DiscoveryNode node, @Nullable AsyncSearchStatusStats asyncSearchStatusStats) {
+    public AsyncSearchStats(DiscoveryNode node, @Nullable AsyncSearchCountStats asyncSearchCountStats) {
         super(node);
-        this.asyncSearchStatusStats = asyncSearchStatusStats;
+        this.asyncSearchCountStats = asyncSearchCountStats;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeOptionalWriteable(asyncSearchStatusStats);
+        out.writeOptionalWriteable(asyncSearchCountStats);
     }
 
     @Override
@@ -70,8 +74,8 @@ public class AsyncSearchStats extends BaseNodeResponse implements ToXContentFrag
             }
             builder.endObject();
         }
-        if (asyncSearchStatusStats != null) {
-            asyncSearchStatusStats.toXContent(builder, params);
+        if (asyncSearchCountStats != null) {
+            asyncSearchCountStats.toXContent(builder, params);
         }
         return builder;
     }

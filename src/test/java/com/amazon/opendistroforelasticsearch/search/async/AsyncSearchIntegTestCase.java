@@ -1,8 +1,11 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
+import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
+import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import org.apache.logging.log4j.LogManager;
 import org.elasticsearch.ResourceNotFoundException;
@@ -10,6 +13,7 @@ import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.search.SearchPhaseExecutionException;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.reindex.ReindexPlugin;
 import org.elasticsearch.plugins.Plugin;
@@ -24,6 +28,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -88,7 +93,7 @@ public abstract class AsyncSearchIntegTestCase extends ESIntegTestCase {
         } catch (SearchPhaseExecutionException ex) {
             logger.info("All shards failed with", ex);
             return null;
-        }  catch (Exception exception) {
+        } catch (Exception exception) {
             fail("Unexpected exception " + e.getMessage());
             return null;
         }
@@ -103,7 +108,7 @@ public abstract class AsyncSearchIntegTestCase extends ESIntegTestCase {
             try {
                 client().get(new GetRequest(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX).refresh(true).id(id))
                         .actionGet().isExists();
-            } catch(Exception e) {
+            } catch (Exception e) {
                 if (e instanceof IndexNotFoundException == false || e instanceof ResourceNotFoundException == false) {
                     fail("Exception while fetching index cleanup" + e);
                 } else {
@@ -152,5 +157,16 @@ public abstract class AsyncSearchIntegTestCase extends ESIntegTestCase {
                 return true;
             });
         }
+    }
+
+    public static AsyncSearchResponse executeSubmitAsyncSearch(Client client, SubmitAsyncSearchRequest request)
+            throws ExecutionException, InterruptedException {
+        return client.execute(SubmitAsyncSearchAction.INSTANCE, request).get();
+    }
+
+    //We need to apply blocks via ScriptedBlockPlugin, external clusters are immutable
+    @Override
+    protected boolean ignoreExternalCluster() {
+        return true;
     }
 }
