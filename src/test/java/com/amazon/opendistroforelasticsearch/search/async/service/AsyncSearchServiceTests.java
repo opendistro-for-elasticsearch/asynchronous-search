@@ -144,9 +144,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
             ));
             freeContextLatch.await();
         } else {
-//            CountDownLatch findContextLatch1 = new CountDownLatch(1);
-//            assertActiveContextRemoval(asyncSearchService, asyncSearchActiveContext, findContextLatch1);
-//            findContextLatch1.await();
+            waitUntil(() -> asyncSearchService.getAllActiveContexts().isEmpty());
             CountDownLatch freeContextLatch = new CountDownLatch(1);
             asyncSearchService.freeContext(context.getAsyncSearchId(), context.getContextId(), wrap(
                     r -> {

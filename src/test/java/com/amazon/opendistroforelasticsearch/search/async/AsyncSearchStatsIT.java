@@ -246,15 +246,15 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
         }
     }
 
-    private boolean verifyThrottlingFromStats(AtomicBoolean throttlingOccured) {
-        if (throttlingOccured.get()) {
+    private boolean verifyThrottlingFromStats(AtomicBoolean throttlingOccurred) {
+        if (throttlingOccurred.get()) {
             return true;
         }
         try {
             AsyncSearchStatsResponse statsResponse = client().execute(AsyncSearchStatsAction.INSTANCE, new AsyncSearchStatsRequest()).get();
             for (AsyncSearchStats nodeStats : statsResponse.getNodes()) {
                 if (nodeStats.getAsyncSearchCountStats().getThrottledCount() > 0L) {
-                    throttlingOccured.compareAndSet(false, true);
+                    throttlingOccurred.compareAndSet(false, true);
                     return true;
                 }
             }
