@@ -285,7 +285,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         deleteLatch.await();
     }
 
-    private SearchResponse getMockSearchResponse() {
+    protected SearchResponse getMockSearchResponse() {
         int totalShards = randomInt(100);
         int successfulShards = totalShards - randomInt(100);
         return new SearchResponse(new InternalSearchResponse(

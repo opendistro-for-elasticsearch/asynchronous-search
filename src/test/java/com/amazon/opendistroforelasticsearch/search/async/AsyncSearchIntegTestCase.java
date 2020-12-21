@@ -1,25 +1,26 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
+import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import org.apache.logging.log4j.LogManager;
 import org.elasticsearch.ResourceNotFoundException;
+import org.elasticsearch.action.NoShardAvailableActionException;
 import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.search.SearchPhaseExecutionException;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.reindex.ReindexPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.PluginsService;
 import org.elasticsearch.script.MockScriptPlugin;
 import org.elasticsearch.search.lookup.LeafFieldsLookup;
+import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.test.ESIntegTestCase;
 
 import java.util.ArrayList;
@@ -38,6 +39,8 @@ import static org.hamcrest.Matchers.greaterThan;
 
 public abstract class AsyncSearchIntegTestCase extends ESIntegTestCase {
 
+    protected static final String TEST_INDEX = "index";
+
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
         return Arrays.asList(
@@ -49,6 +52,11 @@ public abstract class AsyncSearchIntegTestCase extends ESIntegTestCase {
     @Override
     protected double getPerTestTransportClientRatio() {
         return 0;
+    }
+
+    @Override
+    protected int maximumNumberOfReplicas() {
+        return Math.min(2, cluster().numDataNodes() - 1);
     }
 
     protected List<ScriptedBlockPlugin> initBlockFactory() {
@@ -99,28 +107,40 @@ public abstract class AsyncSearchIntegTestCase extends ESIntegTestCase {
         }
     }
 
-    protected boolean isResourceCleanedUp(String id) {
-        for (AsyncSearchService asyncSearchService : internalCluster().getDataNodeInstances(AsyncSearchService.class)) {
-            Map<Long, AsyncSearchActiveContext> activeContexts = asyncSearchService.getAllActiveContexts();
-            if (activeContexts.isEmpty() == false) {
-                return false;
-            }
-            try {
-                client().get(new GetRequest(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX).refresh(true).id(id))
-                        .actionGet().isExists();
-            } catch (Exception e) {
-                if (e instanceof IndexNotFoundException == false || e instanceof ResourceNotFoundException == false) {
-                    fail("Exception while fetching index cleanup" + e);
-                } else {
-                    return true;
-                }
+    protected boolean verifyAsyncSearchDoesNotExists(String id) {
+        GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(id);
+        try {
+            AsyncSearchResponse response = client().execute(GetAsyncSearchAction.INSTANCE, getAsyncSearchRequest).actionGet();
+            return response == null;
+        } catch (Exception e) {
+            if (e instanceof ResourceNotFoundException) {
+                return true;
+            } else {
+                fail("failed to executed get for id" + e.getMessage());
             }
         }
         return true;
     }
 
-    protected boolean verifyTaskCancelled(String action) {
-        ListTasksResponse listTasksResponse = client().admin().cluster().prepareListTasks().setActions(action).get();
+    protected boolean verifyResponsePersisted(String id) {
+        try {
+            boolean isExists = client().get(new GetRequest(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX).refresh(true).id(id))
+                    .actionGet().isExists();
+            return isExists;
+        } catch (ResourceNotFoundException | NoShardAvailableActionException e) {
+            return false;
+        } catch (Exception ex) {
+            fail("Failed to verify persistence " + ex.getMessage());
+        }
+        return false;
+    }
+
+    protected boolean verifyResponseRemoved(String id) {
+        return verifyResponsePersisted(id) == false;
+    }
+
+    protected boolean verifyTaskCancelled(String action, TaskId taskId) {
+        ListTasksResponse listTasksResponse = client().admin().cluster().prepareListTasks().setActions(action).setTaskId(taskId).get();
         return listTasksResponse.getTasks().size() == 0;
     }
 
