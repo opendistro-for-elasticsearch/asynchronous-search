@@ -60,7 +60,7 @@ import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.search.SearchService;
+import org.elasticsearch.search.aggregations.InternalAggregation;
 import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -72,6 +72,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.CLOSED;
@@ -113,7 +114,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private final NamedWriteableRegistry namedWriteableRegistry;
     private final InternalAsyncSearchStats statsListener;
 
-    public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService,
+    public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService, AsyncSearchActiveStore asyncSearchActiveStore,
                               Client client, ClusterService clusterService, ThreadPool threadPool,
                               NamedWriteableRegistry namedWriteableRegistry) {
         this.statsListener = new InternalAsyncSearchStats();
@@ -128,9 +129,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
         this.currentTimeSupplier = System::currentTimeMillis;
-        asyncSearchStateMachine = initStateMachine();
-        this.asyncSearchActiveStore = new AsyncSearchActiveStore(clusterService, asyncSearchStateMachine,
-                statsListener::onContextRejected);
+        this.asyncSearchActiveStore = asyncSearchActiveStore;
+        this.asyncSearchStateMachine = initStateMachine();
         this.asyncSearchPostProcessor = new AsyncSearchPostProcessor(persistenceService, asyncSearchActiveStore, asyncSearchStateMachine,
                 this::freeActiveContext);
         this.namedWriteableRegistry = namedWriteableRegistry;
@@ -149,22 +149,22 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      *
      * @param request                 the SubmitAsyncSearchRequest
      * @param relativeStartTimeMillis the relative start time of the search in millis
-     * @param searchService           the reference for the SearchService
+     * @param reduceContextBuilder    the reference for the reduceContextBuilder
      * @return the AsyncSearchContext for the submitted request
      */
     public AsyncSearchContext createAndStoreContext(SubmitAsyncSearchRequest request, long relativeStartTimeMillis,
-                                                    SearchService searchService) {
+                                                    Supplier<InternalAggregation.ReduceContextBuilder> reduceContextBuilder) {
         validateRequest(request);
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartTimeMillis,
                 (response) -> asyncSearchPostProcessor.processSearchResponse(response, asyncSearchContextId),
                 (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId),
                 threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME), threadPool::relativeTimeInMillis,
-                () -> searchService.aggReduceContextBuilder(request.getSearchRequest()));
+                reduceContextBuilder);
         AsyncSearchActiveContext asyncSearchContext = new AsyncSearchActiveContext(asyncSearchContextId, clusterService.localNode().getId(),
                 request.getKeepAlive(), request.getKeepOnCompletion(), threadPool, currentTimeSupplier, progressActionListener,
                 statsListener);
-        asyncSearchActiveStore.putContext(asyncSearchContextId, asyncSearchContext);
+        asyncSearchActiveStore.putContext(asyncSearchContextId, asyncSearchContext, statsListener::onContextRejected);
         return asyncSearchContext;
     }
 
@@ -375,6 +375,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         }
     }
 
+
+    public AsyncSearchStateMachine getStateMachine() {
+        return asyncSearchStateMachine;
+    }
 
     private AsyncSearchStateMachine initStateMachine() {
         AsyncSearchStateMachine stateMachine = new AsyncSearchStateMachine(

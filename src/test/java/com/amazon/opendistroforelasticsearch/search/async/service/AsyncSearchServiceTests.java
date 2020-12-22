@@ -58,11 +58,12 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
         TimeValue keepAlive = timeValueDays(9);
         boolean keepOnCompletion = randomBoolean();
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
+        SearchRequest searchRequest = new SearchRequest();
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
         submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
         submitAsyncSearchRequest.keepAlive(keepAlive);
         AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest,
-                System.currentTimeMillis(), getInstanceFromNode(SearchService.class));
+                System.currentTimeMillis(), () -> getInstanceFromNode(SearchService.class).aggReduceContextBuilder(searchRequest));
         assertTrue(context instanceof AsyncSearchActiveContext);
         AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) context;
         assertNull(asyncSearchActiveContext.getTask());
@@ -171,11 +172,12 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         AsyncSearchService asyncSearchService = getInstanceFromNode(AsyncSearchService.class);
         TimeValue keepAlive = timeValueDays(9);
         boolean keepOnCompletion = false;
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
+        SearchRequest searchRequest = new SearchRequest();
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
         submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
         submitAsyncSearchRequest.keepAlive(keepAlive);
         AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis(),
-                getInstanceFromNode(SearchService.class));
+                () -> getInstanceFromNode(SearchService.class).aggReduceContextBuilder(searchRequest));
         assertTrue(context instanceof AsyncSearchActiveContext);
         AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) context;
         assertNull(asyncSearchActiveContext.getTask());
@@ -240,7 +242,7 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
         submitAsyncSearchRequest.keepAlive(keepAlive);
         submitAsyncSearchRequest.keepOnCompletion(true);
         AsyncSearchActiveContext context = (AsyncSearchActiveContext) asyncSearchService.createAndStoreContext(submitAsyncSearchRequest,
-                System.currentTimeMillis(), getInstanceFromNode(SearchService.class));
+                System.currentTimeMillis(), () -> getInstanceFromNode(SearchService.class).aggReduceContextBuilder(searchRequest));
         AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
                 emptyMap(), context, null, (c) -> {
         });

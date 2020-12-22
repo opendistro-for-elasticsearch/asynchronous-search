@@ -76,6 +76,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
     public static final String BASE_URI = "/_opendistro/_asynchronous_search";
 
     private AsyncSearchPersistenceService persistenceService;
+    private AsyncSearchActiveStore asyncSearchActiveStore;
     private AsyncSearchService asyncSearchService;
 
     @Override
@@ -108,7 +109,9 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
                                                IndexNameExpressionResolver indexNameExpressionResolver,
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
         this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool);
-        this.asyncSearchService = new AsyncSearchService(persistenceService, client, clusterService, threadPool, namedWriteableRegistry);
+        this.asyncSearchActiveStore = new AsyncSearchActiveStore(clusterService);
+        this.asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, client, clusterService,
+                threadPool, namedWriteableRegistry);
         return Arrays.asList(persistenceService, asyncSearchService);
     }
 
