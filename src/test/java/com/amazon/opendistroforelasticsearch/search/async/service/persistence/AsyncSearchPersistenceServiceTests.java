@@ -69,8 +69,8 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), randomInt(100));
         AsyncSearchId newAsyncSearchId = new AsyncSearchId(transportService.getLocalNode().getId(), 1, asyncSearchContextId);
         String id = AsyncSearchIdConverter.buildAsyncId(newAsyncSearchId);
-        User user1 = randomUser();
-        User user2 = randomUser();
+        User user1 = TestClientUtils.randomUser();
+        User user2 = TestClientUtils.randomUser();
         for(User user: Arrays.asList(user1, null)) {
             AsyncSearchResponse newAsyncSearchResponse = new AsyncSearchResponse(id,
                     asyncSearchResponse.isRunning(),
@@ -99,7 +99,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
             if(user != null)
             {
                 CountDownLatch deleteLatch1 = new CountDownLatch(1);
-                User diffUser = randomUser();
+                User diffUser = TestClientUtils.randomUser();
                 persistenceService.deleteResponse(newAsyncSearchResponse.getId(), user2,
                         ActionListener.wrap(r -> failure(deleteLatch1, "Unauthorized delete to the search result"),
                                 e -> verifySecurityException(e, deleteLatch1)));
@@ -131,8 +131,8 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
         TransportService transportService = getInstanceFromNode(TransportService.class);
         SearchResponse searchResponse = client().search(new SearchRequest(TEST_INDEX)).get();
-        User user1 = randomUser();
-        User user2 = randomUser();
+        User user1 = TestClientUtils.randomUser();
+        User user2 = TestClientUtils.randomUser();
         for(User originalUser: Arrays.asList(user1, null)) {
             AsyncSearchId asyncSearchId = generateNewAsyncSearchId(transportService);
             AsyncSearchPersistenceModel model1 = new AsyncSearchPersistenceModel(System.currentTimeMillis(),
@@ -193,8 +193,8 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
     public void testUpdateExpiration() throws InterruptedException, IOException {
         AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
         ThreadPool threadPool1 = getInstanceFromNode(ThreadPool.class);
-        User user1 = randomUser();
-        User user2 = randomUser();
+        User user1 = TestClientUtils.randomUser();
+        User user2 = TestClientUtils.randomUser();
         for(User originalUser: Arrays.asList(user1, null)) {
 
             threadPool1.getThreadContext().putTransient(
@@ -372,13 +372,6 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         } finally {
             createLatch.countDown();
         }
-    }
-
-    private User randomUser() {
-        return new User(ESRestTestCase.randomAlphaOfLength(10), Arrays.asList(
-                ESRestTestCase.randomAlphaOfLength(10),
-                ESRestTestCase.randomAlphaOfLength(10)),
-                Arrays.asList(ESRestTestCase.randomAlphaOfLength(10), "all_access"), Arrays.asList());
     }
 
     public final String getUserRolesString(User user) {

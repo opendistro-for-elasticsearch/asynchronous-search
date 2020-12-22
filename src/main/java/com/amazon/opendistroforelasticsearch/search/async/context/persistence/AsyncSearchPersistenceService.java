@@ -57,6 +57,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static com.amazon.opendistroforelasticsearch.search.async.UserAuthUtils.isUserValid;
 import static com.amazon.opendistroforelasticsearch.search.async.UserAuthUtils.parseUser;
@@ -170,8 +171,16 @@ public class AsyncSearchPersistenceService {
             listener.onResponse(false);
             return;
         }
-
-        //TODO - Move this code to a common function
+        Consumer<Exception> onFailure = e -> {
+            final Throwable cause = ExceptionsHelper.unwrapCause(e);
+            if (cause instanceof DocumentMissingException) {
+                logger.warn(() -> new ParameterizedMessage("Async search response doc already deleted {}", id), e);
+                listener.onResponse(false);
+            } else {
+                logger.warn(() -> new ParameterizedMessage("Failed to delete async search for id {}", id), e);
+                listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
+            }
+        };
         if(user == null) {
             client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX, id), ActionListener.wrap(deleteResponse -> {
                 if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED) {
@@ -181,16 +190,7 @@ public class AsyncSearchPersistenceService {
                     logger.debug("Delete async search {} unsuccessful. Returned result {}", id, deleteResponse.getResult());
                     listener.onResponse(false);
                 }
-            }, e -> {
-                final Throwable cause = ExceptionsHelper.unwrapCause(e);
-                if (cause instanceof DocumentMissingException) {
-                    logger.warn(() -> new ParameterizedMessage("Async search response doc already deleted {}", id), e);
-                    listener.onResponse(false);
-                } else {
-                    logger.warn(() -> new ParameterizedMessage("Failed to delete async search for id {}", id), e);
-                    listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
-                }
-            }));
+            }, onFailure));
         }
         else {
             UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
@@ -217,16 +217,7 @@ public class AsyncSearchPersistenceService {
                         listener.onResponse(true);
                         break;
                 }
-            }, e -> {
-                final Throwable cause = ExceptionsHelper.unwrapCause(e);
-                if (cause instanceof DocumentMissingException) {
-                    logger.warn(() -> new ParameterizedMessage("Async search response doc already deleted {}", id), e);
-                    listener.onResponse(false);
-                } else {
-                    logger.warn(() -> new ParameterizedMessage("Failed to delete async search for id {}", id), e);
-                    listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
-                }
-            }));
+            }, onFailure));
         }
     }
 

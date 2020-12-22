@@ -30,6 +30,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchTask;
+import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -64,13 +65,14 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     private final SetOnce<SearchResponse> searchResponse;
     private final AtomicBoolean closed;
     private final AsyncSearchContextPermits asyncSearchContextPermits;
+    @Nullable
     private final User user;
 
     public AsyncSearchActiveContext(AsyncSearchContextId asyncSearchContextId, String nodeId,
                                     TimeValue keepAlive, boolean keepOnCompletion,
                                     ThreadPool threadPool, LongSupplier currentTimeSupplier,
                                     AsyncSearchProgressListener searchProgressActionListener,
-                                    AsyncSearchContextListener asyncSearchContextListener, User user) {
+                                    AsyncSearchContextListener asyncSearchContextListener, @Nullable User user) {
         super(asyncSearchContextId, currentTimeSupplier);
         this.keepOnCompletion = keepOnCompletion;
         this.error = new SetOnce<>();

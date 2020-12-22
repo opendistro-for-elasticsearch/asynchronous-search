@@ -159,8 +159,9 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
             ThreadContext threadContext = threadPool.getThreadContext();
             String userStr =  threadContext.getTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES);
             User user = User.parse(userStr);
-            threadContext.stashContext();
-            handleRequest(asyncSearchId, request, listener, user);
+            try (ThreadContext.StoredContext ctx = threadContext.stashContext()) {
+                handleRequest(asyncSearchId, request, listener, user);
+            }
         }
     }
 }

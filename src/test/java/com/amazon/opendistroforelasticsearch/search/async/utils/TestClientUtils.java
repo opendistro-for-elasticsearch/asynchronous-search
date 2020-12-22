@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.utils;
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
@@ -30,9 +31,12 @@ import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.test.rest.ESRestTestCase;
 import org.junit.Assert;
 
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
@@ -124,5 +128,16 @@ public class TestClientUtils {
                 }
             }
         });
+    }
+
+    public static User randomUser() {
+        return new User(ESRestTestCase.randomAlphaOfLength(10), Arrays.asList(
+                ESRestTestCase.randomAlphaOfLength(10),
+                ESRestTestCase.randomAlphaOfLength(10)),
+                Arrays.asList(ESRestTestCase.randomAlphaOfLength(10), "all_access"), Arrays.asList());
+    }
+
+    public static User randomUserOrNull() {
+        return new Random().nextBoolean()? randomUser() : null;
     }
 }

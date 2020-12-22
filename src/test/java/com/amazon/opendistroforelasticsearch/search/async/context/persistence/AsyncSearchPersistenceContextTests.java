@@ -15,10 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.context.persistence;
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
@@ -53,9 +55,10 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
         long expirationTimeMillis = randomNonNegativeLong();
         long startTimeMillis = randomNonNegativeLong();
         SearchResponse searchResponse = getMockSearchResponse();
+        User user = TestClientUtils.randomUserOrNull();
         AsyncSearchPersistenceContext asyncSearchPersistenceContext =
                 new AsyncSearchPersistenceContext(id, asyncSearchContextId, new AsyncSearchPersistenceModel(startTimeMillis,
-                        expirationTimeMillis, searchResponse, null, null), System::currentTimeMillis,
+                        expirationTimeMillis, searchResponse, null, user), System::currentTimeMillis,
                         new NamedWriteableRegistry(Collections.emptyList()));
         assertEquals(
                 asyncSearchPersistenceContext.getAsyncSearchResponse(),
@@ -76,6 +79,7 @@ public class AsyncSearchPersistenceContextTests extends ESTestCase {
         long expirationTimeMillis = randomNonNegativeLong();
         long startTimeMillis = randomNonNegativeLong();
         RuntimeException exception = new RuntimeException("test");
+        User user = TestClientUtils.randomUserOrNull();
         AsyncSearchPersistenceContext asyncSearchPersistenceContext =
                 new AsyncSearchPersistenceContext(id, asyncSearchContextId, new AsyncSearchPersistenceModel(startTimeMillis,
                         expirationTimeMillis, null, exception, null),
