@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
 
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
@@ -218,7 +219,10 @@ public class GetAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                         getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueMillis(randomLongBetween(lowerKeepAliveMillis,
                                 higherKeepAliveMillis)));
                     }
-                    getAsyncSearchRequest.setWaitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 5000)));
+                    //if waitForCompletionTimeout is null we return response immediately
+                    TimeValue waitForCompletionTimeout = randomBoolean() ? null :
+                            TimeValue.timeValueMillis(randomLongBetween(1, 5000));
+                    getAsyncSearchRequest.setWaitForCompletionTimeout(waitForCompletionTimeout);
                     executeGetAsyncSearch(client(), getAsyncSearchRequest, new ActionListener<AsyncSearchResponse>() {
                         @Override
                         public void onResponse(AsyncSearchResponse acknowledgedResponse) {
