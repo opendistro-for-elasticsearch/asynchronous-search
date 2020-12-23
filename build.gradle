@@ -56,6 +56,7 @@ dependencies {
     }
     testCompile group: "org.codelibs.elasticsearch.module", name: "lang-painless", version: "${es_version}"
     testCompile "org.elasticsearch.plugin:reindex-client:${es_version}"
+    testCompile "org.elasticsearch.test:framework:${es_version}"
     compileOnly "org.elasticsearch.plugin:transport-netty4-client:${es_version}"
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compile "com.amazon.opendistroforelasticsearch:common-utils:${opendistroVersion}"

@@ -19,6 +19,8 @@ import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
@@ -30,19 +32,19 @@ import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.common.Randomness;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.test.rest.ESRestTestCase;
 import org.junit.Assert;
 
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
 public class TestClientUtils {
-    static final String INDEX = ".asynchronous_search_response";
+    static final String INDEX = AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX;
     static final BackoffPolicy STORE_BACKOFF_POLICY =
             BackoffPolicy.exponentialBackoff(timeValueMillis(100), 20);
 
@@ -89,7 +91,7 @@ public class TestClientUtils {
         AsyncSearchResponse getResponse;
         do {
             getResponse = blockingGetAsyncSearchResponse(client, submitResponse, getAsyncSearchRequest);
-        } while (getResponse.isRunning());
+        } while (getResponse.getState().equals(AsyncSearchState.RUNNING.name()));
         return getResponse;
     }
 
@@ -138,6 +140,6 @@ public class TestClientUtils {
     }
 
     public static User randomUserOrNull() {
-        return new Random().nextBoolean()? randomUser() : null;
+        return Randomness.get().nextBoolean()? randomUser() : null;
     }
 }

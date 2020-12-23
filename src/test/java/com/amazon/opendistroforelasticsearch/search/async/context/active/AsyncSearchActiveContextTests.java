@@ -40,13 +40,11 @@ import org.elasticsearch.search.internal.InternalSearchResponse;
 import org.elasticsearch.search.profile.SearchProfileShardResults;
 import org.elasticsearch.search.suggest.Suggest;
 import org.elasticsearch.tasks.TaskId;
-import org.elasticsearch.test.rest.ESRestTestCase;
 import org.elasticsearch.threadpool.ScalingExecutorBuilder;
 import org.elasticsearch.threadpool.TestThreadPool;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -247,11 +245,6 @@ public class AsyncSearchActiveContextTests extends AsyncSearchTestCase {
             assertFalse(context.isAlive());
             expectThrows(AssertionError.class, () -> context.setExpirationTimeMillis(randomNonNegativeLong()));
             expectThrows(AssertionError.class, () -> context.setTask(task));
-            if (keepOnCompletion) {
-                assertTrue(keepOnCompletion);
-            } else {
-                assertFalse(keepOnCompletion);
-            }
         } finally {
             ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
         }
@@ -260,7 +253,7 @@ public class AsyncSearchActiveContextTests extends AsyncSearchTestCase {
     protected SearchResponse getMockSearchResponse() {
         return new SearchResponse(new InternalSearchResponse(
                 new SearchHits(new SearchHit[0], new TotalHits(0L, TotalHits.Relation.EQUAL_TO), 0.0f),
-                new InternalAggregations(Collections.emptyList()),
+                InternalAggregations.from(Collections.emptyList()),
                 new Suggest(Collections.emptyList()),
                 new SearchProfileShardResults(Collections.emptyMap()), false, false, 1),
                 "", 1, 1, 0, 0,
