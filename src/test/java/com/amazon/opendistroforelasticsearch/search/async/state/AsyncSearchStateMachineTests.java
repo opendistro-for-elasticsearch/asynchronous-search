@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineException;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchTransition;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchClosedEvent;
@@ -98,23 +97,23 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
             doConcurrentStateMachineTrigger(stateMachine, new SearchStartedEvent(context, new AsyncSearchTask(randomNonNegativeLong(),
                             "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null,
                             (a) -> {})),
-                    RUNNING, AsyncSearchStateMachineException.class);
+                    RUNNING, IllegalStateException.class);
             assertNotNull(context.getTask());
             if (randomBoolean()) {//success or failure
                 doConcurrentStateMachineTrigger(stateMachine, new SearchSuccessfulEvent(context, getMockSearchResponse()), SUCCEEDED,
-                        AsyncSearchStateMachineException.class);
+                        IllegalStateException.class);
             } else {
                 doConcurrentStateMachineTrigger(stateMachine, new SearchFailureEvent(context, new RuntimeException("test")), FAILED,
-                        AsyncSearchStateMachineException.class);
+                        IllegalStateException.class);
             }
             doConcurrentStateMachineTrigger(stateMachine, new BeginPersistEvent(context), PERSISTING,
-                    AsyncSearchStateMachineException.class);
+                    IllegalStateException.class);
             if (randomBoolean()) {
                 doConcurrentStateMachineTrigger(stateMachine, new SearchResponsePersistedEvent(context), PERSISTED,
-                        AsyncSearchStateMachineException.class);
+                        IllegalStateException.class);
             } else {
                 doConcurrentStateMachineTrigger(stateMachine, new SearchResponsePersistFailedEvent(context), PERSIST_FAILED,
-                        AsyncSearchStateMachineException.class);
+                        IllegalStateException.class);
             }
             doConcurrentStateMachineTrigger(stateMachine, new SearchClosedEvent(context), CLOSED,
                     AsyncSearchStateMachineClosedException.class);
