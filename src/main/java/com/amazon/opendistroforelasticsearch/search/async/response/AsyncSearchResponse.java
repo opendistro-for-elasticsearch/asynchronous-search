@@ -199,7 +199,7 @@ public class AsyncSearchResponse extends ActionResponse implements StatusToXCont
         }
         AsyncSearchResponse other = (AsyncSearchResponse) o;
         try {
-            return id.equals(other.id) &&
+            return ((id == null && other.id == null) || (id != null && id.equals(other.id))) &&
                     state.equals(other.state) &&
                     startTimeMillis == other.startTimeMillis &&
                     expirationTimeMillis == other.expirationTimeMillis
