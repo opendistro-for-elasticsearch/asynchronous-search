@@ -198,7 +198,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         for(User originalUser: Arrays.asList(user1, null)) {
 
             threadPool1.getThreadContext().putTransient(
-                    ConfigConstants.OPENDISTRO_SECURITY_USER_AND_ROLES, getUserRolesString(originalUser));
+                    ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, getUserRolesString(originalUser));
             AsyncSearchResponse asyncSearchResponse = getAsyncSearchResponse();
             long newExpirationTime = System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis();
             final AsyncSearchPersistenceModel newPersistenceModel = new AsyncSearchPersistenceModel(
