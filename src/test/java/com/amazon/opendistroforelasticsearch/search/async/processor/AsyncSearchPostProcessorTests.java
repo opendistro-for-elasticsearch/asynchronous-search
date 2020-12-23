@@ -6,6 +6,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSe
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchClosedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
@@ -85,7 +86,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
         clusterSettings = new ClusterSettings(settings, settingsSet);
     }
 
-    public void testProcessSearchFailureOnDeletedContext() {
+    public void testProcessSearchFailureOnDeletedContext() throws AsyncSearchStateMachineClosedException {
         DiscoveryNode discoveryNode = new DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), Collections.emptyMap(),
                 DiscoveryNodeRole.BUILT_IN_ROLES, Version.CURRENT);
         AtomicBoolean activeContextCleanUpConsumerInvocation = new AtomicBoolean();
@@ -129,7 +130,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
         }
     }
 
-    public void testProcessSearchResponseBeginPersistence() {
+    public void testProcessSearchResponseBeginPersistence() throws AsyncSearchStateMachineClosedException {
         DiscoveryNode discoveryNode = new DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), Collections.emptyMap(),
                 DiscoveryNodeRole.BUILT_IN_ROLES, Version.CURRENT);
         AtomicBoolean activeContextCleanUpConsumerInvocation = new AtomicBoolean();
@@ -167,7 +168,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
         }
     }
 
-    public void testProcessSearchResponsePersisted() {
+    public void testProcessSearchResponsePersisted() throws AsyncSearchStateMachineClosedException {
         DiscoveryNode discoveryNode = new DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), Collections.emptyMap(),
                 DiscoveryNodeRole.BUILT_IN_ROLES, Version.CURRENT);
         AtomicBoolean activeContextCleanUpConsumerInvocation = new AtomicBoolean();
@@ -209,7 +210,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
         }
     }
 
-    public void testProcessSearchResponseForExpiredContext() {
+    public void testProcessSearchResponseForExpiredContext() throws AsyncSearchStateMachineClosedException {
         DiscoveryNode discoveryNode = new DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), Collections.emptyMap(),
                 DiscoveryNodeRole.BUILT_IN_ROLES, Version.CURRENT);
         AtomicBoolean activeContextCleanUpConsumerInvocation = new AtomicBoolean();
@@ -250,7 +251,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
         }
     }
 
-    public void testProcessSearchResponseOnClosedContext() {
+    public void testProcessSearchResponseOnClosedContext() throws AsyncSearchStateMachineClosedException {
         DiscoveryNode discoveryNode = new DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), Collections.emptyMap(),
                 DiscoveryNodeRole.BUILT_IN_ROLES, Version.CURRENT);
         AtomicBoolean activeContextCleanUpConsumerInvocation = new AtomicBoolean();
