@@ -41,6 +41,7 @@ import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.threadpool.TestThreadPool;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -200,41 +201,41 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         User user1 = TestClientUtils.randomUser();
         User user2 = TestClientUtils.randomUser();
         for(User originalUser: Arrays.asList(user1, null)) {
+            try (ThreadContext.StoredContext ctx = threadPool1.getThreadContext().stashContext()) {
+                threadPool1.getThreadContext().putTransient(
+                        ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, getUserRolesString(originalUser));
+                AsyncSearchResponse asyncSearchResponse = submitAndGetPersistedAsyncSearchResponse();
+                long newExpirationTime = System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis();
+                final AsyncSearchPersistenceModel newPersistenceModel = new AsyncSearchPersistenceModel(
+                        asyncSearchResponse.getStartTimeMillis(),
+                        newExpirationTime, asyncSearchResponse.getSearchResponse(), null, originalUser);
 
-            threadPool1.getThreadContext().putTransient(
-                    ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, getUserRolesString(originalUser));
-            AsyncSearchResponse asyncSearchResponse = submitAndGetPersistedAsyncSearchResponse();
-            long newExpirationTime = System.currentTimeMillis() + new TimeValue(10, TimeUnit.DAYS).getMillis();
-            final AsyncSearchPersistenceModel newPersistenceModel = new AsyncSearchPersistenceModel(
-                    asyncSearchResponse.getStartTimeMillis(),
-                    newExpirationTime, asyncSearchResponse.getSearchResponse(), null, originalUser);
-
-            for(User currentUser: Arrays.asList(user2, user1, null)) {
-                CountDownLatch updateLatch = new CountDownLatch(1);
-                if (originalUser != null && currentUser != null && currentUser.equals(originalUser) == false) {
-                    persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
-                            newExpirationTime, currentUser,
-                            ActionListener.wrap(r -> failure(updateLatch, "Unauthorized update to the search result"),
-                                    e -> verifySecurityException(e, updateLatch)));
-                } else {
-                    persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
-                            newExpirationTime, currentUser,
-                            ActionListener.wrap(persistenceModel -> {
-
-                                        verifyPersistenceModel(
-                                                newPersistenceModel,
-                                                persistenceModel,
-                                                updateLatch);
-                                    },
-                                    e -> failure(updateLatch, e)));
+                for (User currentUser : Arrays.asList(user2, user1, null)) {
+                    CountDownLatch updateLatch = new CountDownLatch(1);
+                    if (originalUser != null && currentUser != null && currentUser.equals(originalUser) == false) {
+                        persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
+                                newExpirationTime, currentUser,
+                                ActionListener.wrap(r -> failure(updateLatch, "Unauthorized update to the search result"),
+                                        e -> verifySecurityException(e, updateLatch)));
+                    } else {
+                        persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
+                                newExpirationTime, currentUser,
+                                ActionListener.wrap(persistenceModel -> {
+                                            verifyPersistenceModel(
+                                                    newPersistenceModel,
+                                                    persistenceModel,
+                                                    updateLatch);
+                                        },
+                                        e -> failure(updateLatch, e)));
+                    }
+                    updateLatch.await();
                 }
-                updateLatch.await();
-            }
                 CountDownLatch getLatch = new CountDownLatch(1);
                 persistenceService.getResponse(asyncSearchResponse.getId(), originalUser, ActionListener.wrap(r -> {
                     verifyPersistenceModel(newPersistenceModel, r, getLatch);
                 }, e -> failure(getLatch, e)));
                 getLatch.await();
+            }
         }
     }
 
