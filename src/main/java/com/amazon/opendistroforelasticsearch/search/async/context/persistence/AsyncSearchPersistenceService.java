@@ -237,6 +237,7 @@ public class AsyncSearchPersistenceService {
             return;
         }
         UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
+        updateRequest.retryOnConflict(5);
         if(user == null) {
             Map<String, Object> source = new HashMap<>();
             source.put(EXPIRATION_TIME_MILLIS, expirationTimeMillis);
