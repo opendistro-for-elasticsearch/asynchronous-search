@@ -422,7 +422,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
                 (contextId, listener) -> listener.onRunningContextClosed(contextId), SearchClosedEvent.class));
 
-        for (AsyncSearchState state : EnumSet.of(PERSISTING, PERSISTED, PERSIST_FAILED, SUCCEEDED, FAILED, INIT)) {
+        for (AsyncSearchState state : EnumSet.of(PERSISTED, PERSIST_FAILED, SUCCEEDED, FAILED, INIT)) {
             stateMachine.registerTransition(new AsyncSearchTransition<>(state, CLOSED,
                     (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
                     (contextId, listener) -> listener.onContextClosed(contextId), SearchClosedEvent.class));
