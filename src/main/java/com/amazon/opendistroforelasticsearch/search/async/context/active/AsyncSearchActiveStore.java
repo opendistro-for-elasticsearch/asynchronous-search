@@ -35,7 +35,7 @@ public class AsyncSearchActiveStore {
     private static Logger logger = LogManager.getLogger(AsyncSearchActiveStore.class);
     private volatile int maxRunningContext;
     public static final Setting<Integer> MAX_RUNNING_CONTEXT = Setting.intSetting(
-            "async_search.max_running_context", 100, 10, Setting.Property.Dynamic, Setting.Property.NodeScope);
+            "async_search.max_running_context", 100, 0, Setting.Property.Dynamic, Setting.Property.NodeScope);
 
     private final ConcurrentMapLong<AsyncSearchActiveContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
 

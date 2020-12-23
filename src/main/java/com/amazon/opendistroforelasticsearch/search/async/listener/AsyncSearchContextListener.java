@@ -71,4 +71,11 @@ public interface AsyncSearchContextListener {
     default void onContextRejected(AsyncSearchContextId contextId) {
 
     }
+
+    /**
+     * @param contextId Executed when a running async search context is closed and has bypassed succeeded/failed state
+     */
+    default void onRunningContextClosed(AsyncSearchContextId contextId) {
+
+    }
 }

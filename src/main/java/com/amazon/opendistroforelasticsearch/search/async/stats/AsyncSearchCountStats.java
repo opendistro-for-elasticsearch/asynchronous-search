@@ -30,14 +30,16 @@ public class AsyncSearchCountStats implements Writeable, ToXContentFragment {
 
     private final long runningCount;
     private final long persistedCount;
+    private final long persistFailedCount;
     private final long completedCount;
     private final long failedCount;
     private final long throttledCount;
 
-    public AsyncSearchCountStats(long runningCount, long persistedCount,
-                                 long completedCount, long failedCount, long throttledCount) {
+    public AsyncSearchCountStats(long runningCount, long persistedCount, long completedCount, long failedCount, long throttledCount,
+                                 long persistFailedCount) {
         this.runningCount = runningCount;
         this.persistedCount = persistedCount;
+        this.persistFailedCount = persistFailedCount;
         this.completedCount = completedCount;
         this.failedCount = failedCount;
         this.throttledCount = throttledCount;
@@ -49,6 +51,7 @@ public class AsyncSearchCountStats implements Writeable, ToXContentFragment {
         this.completedCount = in.readVLong();
         this.failedCount = in.readVLong();
         this.throttledCount = in.readVLong();
+        this.persistFailedCount = in.readVLong();
     }
 
     @Override
@@ -58,27 +61,30 @@ public class AsyncSearchCountStats implements Writeable, ToXContentFragment {
         out.writeVLong(this.completedCount);
         out.writeVLong(this.failedCount);
         out.writeVLong(this.throttledCount);
+        out.writeVLong(this.persistFailedCount);
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.startObject(Fields.ASYNC_SEARCH_STATUS);
+        builder.startObject(Fields.ASYNC_SEARCH_STATS);
         builder.field(Fields.RUNNING, runningCount);
         builder.field(Fields.PERSISTED, persistedCount);
         builder.field(Fields.FAILED, failedCount);
         builder.field(Fields.COMPLETED, completedCount);
         builder.field(Fields.REJECTED, throttledCount);
+        builder.field(Fields.PERSIST_FAILED, persistFailedCount);
         builder.endObject();
         return builder;
     }
 
     static final class Fields {
-        private static final String ASYNC_SEARCH_STATUS = "async_search_stats";
-        private static final String RUNNING = "async_search_running_current";
-        private static final String PERSISTED = "async_search_persisted";
-        private static final String FAILED = "async_search_failed";
-        private static final String COMPLETED = "async_search_completed";
-        private static final String REJECTED = "async_search_rejected";
+        private static final String ASYNC_SEARCH_STATS = "asynchronous_search_stats";
+        private static final String RUNNING = "running_current";
+        private static final String PERSISTED = "persisted";
+        private static final String PERSIST_FAILED = "persist_failed";
+        private static final String FAILED = "failed";
+        private static final String COMPLETED = "completed";
+        private static final String REJECTED = "rejected";
     }
 
     public long getRunningCount() {

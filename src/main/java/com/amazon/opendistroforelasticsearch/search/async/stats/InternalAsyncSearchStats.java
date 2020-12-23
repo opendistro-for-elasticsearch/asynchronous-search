@@ -36,6 +36,11 @@ public class InternalAsyncSearchStats implements AsyncSearchContextListener {
     }
 
     @Override
+    public void onContextPersistFailed(AsyncSearchContextId contextId) {
+        countStatsHolder.persistFailedAsyncSearchCount.inc();
+    }
+
+    @Override
     public void onContextRunning(AsyncSearchContextId context) {
         countStatsHolder.runningAsyncSearchCount.inc();
     }
@@ -43,6 +48,11 @@ public class InternalAsyncSearchStats implements AsyncSearchContextListener {
     @Override
     public void onContextRejected(AsyncSearchContextId contextId) {
         countStatsHolder.rejectedAsyncSearchCount.inc();
+    }
+
+    @Override
+    public void onRunningContextClosed(AsyncSearchContextId contextId) {
+        countStatsHolder.runningAsyncSearchCount.dec();
     }
 
     @Override
@@ -58,13 +68,15 @@ public class InternalAsyncSearchStats implements AsyncSearchContextListener {
     static final class CountStatsHolder {
         final CounterMetric runningAsyncSearchCount = new CounterMetric();
         final CounterMetric persistedAsyncSearchCount = new CounterMetric();
+        final CounterMetric persistFailedAsyncSearchCount = new CounterMetric();
         final CounterMetric failedAsyncSearchCount = new CounterMetric();
         final CounterMetric completedAsyncSearchCount = new CounterMetric();
         final CounterMetric rejectedAsyncSearchCount = new CounterMetric();
 
         public AsyncSearchCountStats countStats() {
             return new AsyncSearchCountStats(runningAsyncSearchCount.count(), persistedAsyncSearchCount.count(),
-                    completedAsyncSearchCount.count(), failedAsyncSearchCount.count(), rejectedAsyncSearchCount.count());
+                    completedAsyncSearchCount.count(), failedAsyncSearchCount.count(), rejectedAsyncSearchCount.count(),
+                    persistFailedAsyncSearchCount.count());
         }
     }
 }
