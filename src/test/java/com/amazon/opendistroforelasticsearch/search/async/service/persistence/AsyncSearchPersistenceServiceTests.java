@@ -253,7 +253,11 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
 
             @Override
             public void onFailure(Exception e) {
-                fail("Received exception while deleting expired response");
+                try {
+                    fail("Received exception while deleting expired response");
+                } finally {
+                    deleteLatch.countDown();
+                }
 
             }
         }, System.currentTimeMillis());
