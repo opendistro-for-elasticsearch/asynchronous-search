@@ -13,6 +13,7 @@ import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
+import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
 import org.elasticsearch.test.ClusterServiceUtils;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.threadpool.ExecutorBuilder;
@@ -38,7 +39,7 @@ import java.util.stream.Stream;
 
 import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchTestCase.mockAsyncSearchProgressListener;
 
-public class ActiveStoreTests extends ESTestCase {
+public class AsyncSearchActiveStoreTests extends ESTestCase {
     private ClusterSettings clusterSettings;
     private ExecutorBuilder<?> executorBuilder;
     private int maxRunningContexts = 100;
@@ -102,7 +103,7 @@ public class ActiveStoreTests extends ESTestCase {
                         activeStore.freeContext(context.getContextId());
                         assertFalse(activeStore.getContext(context.getContextId()).isPresent());
                         barrier.await();
-                    } catch (AsyncSearchRejectedException e) {
+                    } catch (EsRejectedExecutionException e) {
                         numRejected.getAndIncrement();
                         try {
                             barrier.await();

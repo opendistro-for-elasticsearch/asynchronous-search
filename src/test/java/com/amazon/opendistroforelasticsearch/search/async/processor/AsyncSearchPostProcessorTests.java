@@ -60,6 +60,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.util.Collections.emptyList;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
 
 public class AsyncSearchPostProcessorTests extends ESTestCase {
@@ -101,7 +102,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
             AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(fakeClient, mockClusterService,
                     testThreadPool);
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, fakeClient,
-                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(Collections.emptyList()));
+                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
             AsyncSearchStateMachine asyncSearchStateMachine = asyncSearchService.getStateMachine();
             AsyncSearchPostProcessor postProcessor = new AsyncSearchPostProcessor(persistenceService,
                     asyncSearchActiveStore, asyncSearchStateMachine,
@@ -144,7 +145,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
             AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(fakeClient, mockClusterService,
                     testThreadPool);
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, fakeClient,
-                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(Collections.emptyList()));
+                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
             AsyncSearchStateMachine asyncSearchStateMachine = asyncSearchService.getStateMachine();
             AsyncSearchPostProcessor postProcessor = new AsyncSearchPostProcessor(persistenceService,
                     asyncSearchActiveStore, asyncSearchStateMachine,
@@ -182,7 +183,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
             AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(fakeClient, mockClusterService,
                     testThreadPool);
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, fakeClient,
-                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(Collections.emptyList()));
+                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
             AsyncSearchStateMachine asyncSearchStateMachine = asyncSearchService.getStateMachine();
             AsyncSearchPostProcessor postProcessor = new AsyncSearchPostProcessor(persistenceService,
                     asyncSearchActiveStore, asyncSearchStateMachine,
@@ -224,7 +225,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
             AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(fakeClient, mockClusterService,
                     testThreadPool);
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, fakeClient,
-                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(Collections.emptyList()));
+                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
             AsyncSearchStateMachine asyncSearchStateMachine = asyncSearchService.getStateMachine();
             AsyncSearchPostProcessor postProcessor = new AsyncSearchPostProcessor(persistenceService,
                     asyncSearchActiveStore, asyncSearchStateMachine,
@@ -265,7 +266,8 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
             AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(fakeClient, mockClusterService,
                     testThreadPool);
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, fakeClient,
-                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(Collections.emptyList()));
+                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(),
+                    new NamedWriteableRegistry(emptyList()));
             AsyncSearchStateMachine asyncSearchStateMachine = asyncSearchService.getStateMachine();
             AsyncSearchPostProcessor postProcessor = new AsyncSearchPostProcessor(persistenceService,
                     asyncSearchActiveStore, asyncSearchStateMachine,

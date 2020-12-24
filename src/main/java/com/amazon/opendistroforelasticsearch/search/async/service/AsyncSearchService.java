@@ -122,8 +122,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private final AsyncSearchContextListener statsListener;
 
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService, AsyncSearchActiveStore asyncSearchActiveStore,
-                              Client client, ClusterService clusterService, ThreadPool threadPool, AsyncSearchContextListener contextListener,
-                              NamedWriteableRegistry namedWriteableRegistry) {
+                              Client client, ClusterService clusterService, ThreadPool threadPool,
+                              AsyncSearchContextListener contextListener, NamedWriteableRegistry namedWriteableRegistry) {
         this.statsListener = contextListener;
         this.client = client;
         Settings settings = clusterService.getSettings();
