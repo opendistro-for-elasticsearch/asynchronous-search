@@ -168,7 +168,8 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
                         IllegalStateException.class);
                 waitUntil(() -> context.getAsyncSearchState().equals(PERSIST_FAILED) || context.getAsyncSearchState().equals(PERSISTED), 1
                         , TimeUnit.MINUTES);
-                assertTrue(context.getAsyncSearchState().toString() + " numFailure : " + numFailure.get() + " numSuccess : " + numCompleted.get(),
+                assertTrue(context.getAsyncSearchState().toString() + " numFailure : " + numFailure.get() + " numSuccess : "
+                                + numCompleted.get(),
                         context.getAsyncSearchState().equals(PERSIST_FAILED) || context.getAsyncSearchState().equals(PERSISTED));
                 doConcurrentStateMachineTrigger(stateMachine, new SearchDeletedEvent(context), DELETED,
                         AsyncSearchStateMachineClosedException.class);
