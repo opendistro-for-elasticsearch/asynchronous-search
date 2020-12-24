@@ -27,8 +27,6 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistFailedEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
@@ -37,13 +35,12 @@ import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlug
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.lucene.search.TotalHits;
-import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.ActionType;
-import org.elasticsearch.action.index.IndexAction;
+import org.elasticsearch.action.admin.indices.create.CreateIndexAction;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
@@ -147,15 +144,14 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
             AsyncSearchStateMachine stateMachine = asyncSearchService.getStateMachine();
             AtomicInteger numCompleted = new AtomicInteger();
             AtomicInteger numFailure = new AtomicInteger();
-            AtomicInteger numPersisted = new AtomicInteger();
-            AtomicInteger numPersistFailed = new AtomicInteger();
 
             doConcurrentStateMachineTrigger(stateMachine, new SearchStartedEvent(context, new AsyncSearchTask(randomNonNegativeLong(),
                             "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null,
-                            (a) -> {})),
+                            (a) -> {
+                            })),
                     RUNNING, IllegalStateException.class);
             assertNotNull(context.getTask());
-            if (!randomBoolean()) { //delete running context
+            if (randomBoolean()) { //delete running context
                 doConcurrentStateMachineTrigger(stateMachine, new SearchDeletedEvent(context), DELETED,
                         AsyncSearchStateMachineClosedException.class);
             } else {
@@ -170,22 +166,16 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
                 }
                 doConcurrentStateMachineTrigger(stateMachine, new BeginPersistEvent(context), PERSISTING,
                         IllegalStateException.class);
-                if (randomBoolean()) {
-                    doConcurrentStateMachineTrigger(stateMachine, new SearchResponsePersistedEvent(context), PERSISTED,
-                            IllegalStateException.class);
-                    numPersisted.getAndIncrement();
-                } else {
-                    doConcurrentStateMachineTrigger(stateMachine, new SearchResponsePersistFailedEvent(context), PERSIST_FAILED,
-                            IllegalStateException.class);
-                    numPersistFailed.getAndIncrement();
-                }
+                waitUntil(() -> context.getAsyncSearchState().equals(PERSIST_FAILED) || context.getAsyncSearchState().equals(PERSISTED), 1
+                        , TimeUnit.MINUTES);
+                assertTrue(context.getAsyncSearchState().toString() + " numFailure : " + numFailure.get() + " numSuccess : " + numCompleted.get(),
+                        context.getAsyncSearchState().equals(PERSIST_FAILED) || context.getAsyncSearchState().equals(PERSISTED));
                 doConcurrentStateMachineTrigger(stateMachine, new SearchDeletedEvent(context), DELETED,
                         AsyncSearchStateMachineClosedException.class);
+                assertEquals(1, customContextListener.getPersistedCount() + customContextListener.getPersistFailedCount());
             }
             assertEquals(numCompleted.get(), customContextListener.getCompletedCount());
             assertEquals(numFailure.get(), customContextListener.getFailedCount());
-            assertEquals(numPersisted.get(), customContextListener.getPersistedCount());
-            assertEquals(numPersistFailed.get(), customContextListener.getPersistFailedCount());
             assertEquals(0, customContextListener.getRunningCount());
             assertEquals(1, customContextListener.getDeletedCount());
         } finally {
@@ -249,14 +239,14 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
         protected <Request extends ActionRequest, Response extends ActionResponse> void doExecute(ActionType<Response> action,
                                                                                                   Request request,
                                                                                                   ActionListener<Response> listener) {
-            if (action instanceof IndexAction) {
+            if (action instanceof CreateIndexAction) {
                 listener.onResponse(null);
                 return;
             }
             if (randomBoolean()) {
                 listener.onResponse(null);
             } else {
-                listener.onFailure(new ElasticsearchException("test"));
+                listener.onFailure(new RuntimeException("test"));
             }
         }
     }
