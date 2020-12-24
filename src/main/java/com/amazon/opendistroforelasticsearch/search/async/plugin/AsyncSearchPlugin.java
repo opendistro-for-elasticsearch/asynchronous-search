@@ -21,12 +21,14 @@ import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchA
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.management.AsyncSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestGetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.rest.RestSubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
+import com.amazon.opendistroforelasticsearch.search.async.stats.InternalAsyncSearchStats;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportAsyncSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportDeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.transport.TransportGetAsyncSearchAction;
@@ -111,7 +113,7 @@ public class AsyncSearchPlugin extends Plugin implements ActionPlugin, SystemInd
         this.persistenceService = new AsyncSearchPersistenceService(client, clusterService, threadPool);
         this.asyncSearchActiveStore = new AsyncSearchActiveStore(clusterService);
         this.asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, client, clusterService,
-                threadPool, namedWriteableRegistry);
+                threadPool, new InternalAsyncSearchStats(), namedWriteableRegistry);
         return Arrays.asList(persistenceService, asyncSearchService);
     }
 

@@ -105,7 +105,7 @@ public class AsyncSearchPostProcessor {
                                         logger.warn("Successfully persisted response for async search id [{}]",
                                                 asyncSearchContext.getAsyncSearchId());
                                         try {
-                                        asyncSearchStateMachine.trigger(new SearchResponsePersistedEvent(asyncSearchContext));
+                                            asyncSearchStateMachine.trigger(new SearchResponsePersistedEvent(asyncSearchContext));
                                         } catch (AsyncSearchStateMachineClosedException ex) {
                                             // this should never happen since we had checked after acquiring the all permits so a
                                             // concurrent delete is not expected here
