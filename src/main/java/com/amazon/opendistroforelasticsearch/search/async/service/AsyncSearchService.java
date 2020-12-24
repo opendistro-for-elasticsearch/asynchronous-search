@@ -43,6 +43,7 @@ import com.amazon.opendistroforelasticsearch.search.async.stats.InternalAsyncSea
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.ElasticsearchSecurityException;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.ExceptionsHelper;
@@ -81,6 +82,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
 import static com.amazon.opendistroforelasticsearch.search.async.UserAuthUtils.isUserValid;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
@@ -328,6 +330,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         logger.warn(() -> new ParameterizedMessage("Failed to acquire permits for " +
                                 "async search id [{}] for updating context within timeout 5s",
                                 asyncSearchContext.getAsyncSearchId()), exception);
+                        groupedDeletionListener.onFailure(new ElasticsearchTimeoutException(asyncSearchContext.getAsyncSearchId()));
                     } else {
                         // best effort clean up with acknowledged as false
                         logger.debug(() -> new ParameterizedMessage("Failed to acquire permits for async search id " +
@@ -344,7 +347,6 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     /**
      * Moves the context to DELETED state. Must be invoked when the context needs to be completely removed from the
      * system and move the state machine to a terminal state
-     *
      * @param asyncSearchContext the active async search context
      * @return boolean indicating if the state machine moved the state to DELETED
      */
@@ -457,14 +459,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> {
-                }, BeginPersistEvent.class));
+                (contextId, listener) -> {}, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> {
-                }, BeginPersistEvent.class));
+                (contextId, listener) -> {}, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSISTED,
                 (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
