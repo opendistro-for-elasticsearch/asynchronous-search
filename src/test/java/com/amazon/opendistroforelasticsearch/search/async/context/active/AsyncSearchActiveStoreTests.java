@@ -91,7 +91,7 @@ public class AsyncSearchActiveStoreTests extends ESTestCase {
                         };
                         AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node.getId(),
                                 keepAlive, keepOnCompletion, finalTestThreadPool1,
-                                finalTestThreadPool1::absoluteTimeInMillis, asyncSearchProgressListener, asyncSearchContextListener);
+                                finalTestThreadPool1::absoluteTimeInMillis, asyncSearchProgressListener, asyncSearchContextListener, null);
 
                         activeStore.putContext(asyncSearchContextId, context, asyncSearchContextListener::onContextRejected);
                         numSuccesses.getAndIncrement();
