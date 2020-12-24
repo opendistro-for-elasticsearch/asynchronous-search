@@ -26,12 +26,13 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchTransition;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchClosedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistFailedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
@@ -41,7 +42,7 @@ import com.amazon.opendistroforelasticsearch.search.async.stats.InternalAsyncSea
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.apache.lucene.store.AlreadyClosedException;
+import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
@@ -66,16 +67,18 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.CLOSED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
@@ -112,12 +115,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private final LongSupplier currentTimeSupplier;
     private final AsyncSearchStateMachine asyncSearchStateMachine;
     private final NamedWriteableRegistry namedWriteableRegistry;
-    private final InternalAsyncSearchStats statsListener;
+    private final AsyncSearchContextListener statsListener;
 
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService, AsyncSearchActiveStore asyncSearchActiveStore,
-                              Client client, ClusterService clusterService, ThreadPool threadPool,
+                              Client client, ClusterService clusterService, ThreadPool threadPool, AsyncSearchContextListener contextListener,
                               NamedWriteableRegistry namedWriteableRegistry) {
-        this.statsListener = new InternalAsyncSearchStats();
+        this.statsListener = contextListener;
         this.client = client;
         Settings settings = clusterService.getSettings();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
@@ -179,7 +182,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext context = asyncSearchContextOptional.get();
-            asyncSearchStateMachine.trigger(new SearchStartedEvent(context, searchTask));
+            try {
+                asyncSearchStateMachine.trigger(new SearchStartedEvent(context, searchTask));
+            } catch (AsyncSearchStateMachineClosedException e) {
+               throw new IllegalStateException(String.format(Locale.ROOT, "Unexpected! State machine already closed for " +
+                       "context [%s] while triggering event [%s]", context.getAsyncSearchId(), SearchStartedEvent.class.getName()));
+            }
         }
     }
 
@@ -194,11 +202,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      */
     public void findContext(String id, AsyncSearchContextId asyncSearchContextId, ActionListener<AsyncSearchContext> listener) {
         Optional<AsyncSearchActiveContext> asyncSearchActiveContext = asyncSearchActiveStore.getContext(asyncSearchContextId);
-        if (asyncSearchActiveContext.isPresent()) {
-            logger.debug("Active context is present for async search ID [{}]", id);
+        // If context is CLOSED we can't acquire permits and hence can't update active context
+        // so most likely a CLOSED context is stale
+        if (asyncSearchActiveContext.isPresent() && asyncSearchActiveContext.get().isAlive()) {
+            logger.debug("Active context is present and alive for async search ID [{}]", id);
             listener.onResponse(asyncSearchActiveContext.get());
         } else {
-            logger.debug("Active context is not present for async search ID [{}]", id);
             persistenceService.getResponse(id, ActionListener.wrap(
                     (persistenceModel) ->
                             listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId, persistenceModel,
@@ -219,7 +228,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         Map<Long, AsyncSearchActiveContext> allContexts = asyncSearchActiveStore.getAllContexts();
         return Collections.unmodifiableSet(allContexts.values().stream()
                 .filter(Objects::nonNull)
-                .filter((c) -> EnumSet.of(CLOSED, PERSIST_FAILED).contains(c.getAsyncSearchState()) || c.isExpired())
+                .filter((c) -> EnumSet.of(DELETED, PERSIST_FAILED).contains(c.getAsyncSearchState()) || c.isExpired())
                 .collect(Collectors.toSet()));
     }
 
@@ -289,22 +298,34 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), groupedDeletionListener);
                     releasable.close();
                 }, exception -> {
-                    if (ExceptionsHelper.unwrapCause(exception) instanceof AlreadyClosedException == false) {
+                    Throwable cause = ExceptionsHelper.unwrapCause(exception);
+                    if (cause instanceof TimeoutException) {
                         // this should ideally not happen. This would mean we couldn't acquire permits within the timeout
-                        logger.warn(() -> new ParameterizedMessage("Failed to acquire permits for async search id [{}] for freeing context",
+                        logger.warn(() -> new ParameterizedMessage("Failed to acquire permits for " +
+                                "async search id [{}] for updating context within timeout 5s",
                                 asyncSearchContext.getAsyncSearchId()), exception);
-                    }
-                    cancelTask(asyncSearchContext, "User triggered context deletion");
-                    groupedDeletionListener.onResponse(false);
-                    logger.debug("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
-                    persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), groupedDeletionListener);
-                }
+                        groupedDeletionListener.onFailure(new ElasticsearchTimeoutException(asyncSearchContext.getAsyncSearchId()));
+                    } else {
+                        // best effort clean up with acknowledged as false
+                        logger.debug(() -> new ParameterizedMessage("Failed to acquire permits for async search id " +
+                                "[{}] for freeing context", asyncSearchContext.getAsyncSearchId()), exception);
+                        cancelTask(asyncSearchContext, "User triggered context deletion");
+                        groupedDeletionListener.onResponse(false);
+                        logger.debug("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
+                        persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), groupedDeletionListener);
+                    }}
         ), TimeValue.timeValueSeconds(5), "free context");
     }
 
+    /**
+     * Moves the context to DELETED state. Must be invoked when the context needs to be completely removed from the
+     * system and move the state machine to a terminal state
+     * @param asyncSearchContext the active async search context
+     * @return boolean indicating if the state machine moved the state to DELETED
+     */
     public boolean freeActiveContext(AsyncSearchActiveContext asyncSearchContext) {
         try {
-            asyncSearchStateMachine.trigger(new SearchClosedEvent(asyncSearchContext));
+            asyncSearchStateMachine.trigger(new SearchDeletedEvent(asyncSearchContext));
             return true;
         } catch (AsyncSearchStateMachineClosedException ex) {
             logger.debug(() -> new ParameterizedMessage("Exception while freeing up active context"), ex);
@@ -350,20 +371,24 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         releasable.close();
                     },
                     exception -> {
-                        if (ExceptionsHelper.unwrapCause(exception) instanceof AlreadyClosedException == false) {
+                        Throwable cause = ExceptionsHelper.unwrapCause(exception);
+                         if (cause instanceof TimeoutException) {
                             // this should ideally not happen. This would mean we couldn't acquire permits within the timeout
-                            logger.warn(() -> new ParameterizedMessage("Unexpected exception. Failed to acquire permits for " +
-                                    "async search id [{}] for updating context", asyncSearchActiveContext.getAsyncSearchId()), exception);
-                            listener.onFailure(exception);
-                            return;
-                        }
-                        logger.debug("Updating persistence store after failing to acquire permits for async search id [{}] for updating " +
-                                "context with expiration time [{}]", asyncSearchActiveContext.getAsyncSearchId(), requestedExpirationTime);
-                        persistenceService.updateExpirationTime(id, requestedExpirationTime,
-                                ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
-                                                id, asyncSearchContextId, actionResponse, currentTimeSupplier, namedWriteableRegistry)),
-                                        listener::onFailure));
-                        //TODO introduce request timeouts to make the permit wait transparent to the client
+                            logger.warn(() -> new ParameterizedMessage("Failed to acquire permits for " +
+                                    "async search id [{}] for updating context within timeout 5s",
+                                    asyncSearchActiveContext.getAsyncSearchId()), exception);
+                            listener.onFailure(new ElasticsearchTimeoutException(id));
+                         } else {
+                             // best effort we try an update the doc if one exists
+                             logger.debug("Updating persistence store after failing to acquire permits for async search id [{}] for " +
+                                     "updating context with expiration time [{}]", asyncSearchActiveContext.getAsyncSearchId(),
+                                     requestedExpirationTime);
+                             persistenceService.updateExpirationTime(id, requestedExpirationTime,
+                                     ActionListener.wrap((actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(
+                                                     id, asyncSearchContextId, actionResponse, currentTimeSupplier,
+                                                     namedWriteableRegistry)), listener::onFailure));
+                             //TODO introduce request timeouts to make the permit wait transparent to the client
+                         }
                     }), TimeValue.timeValueSeconds(5), "update keep alive");
         } else {
             // try update the doc on the index assuming there exists one.
@@ -384,7 +409,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         AsyncSearchStateMachine stateMachine = new AsyncSearchStateMachine(
                 EnumSet.allOf(AsyncSearchState.class), INIT);
 
-        stateMachine.markTerminalStates(EnumSet.of(CLOSED));
+        stateMachine.markTerminalStates(EnumSet.of(DELETED));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(INIT, RUNNING,
                 (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).setTask(e.getSearchTask()),
@@ -401,14 +426,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> {
-                }, BeginPersistEvent.class));
+                (contextId, listener) -> {}, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> {
-                }, BeginPersistEvent.class));
+                (contextId, listener) -> {}, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSISTED,
                 (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
@@ -418,14 +441,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
                 (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
 
-        stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, CLOSED,
+        stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, DELETED,
                 (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
-                (contextId, listener) -> listener.onRunningContextClosed(contextId), SearchClosedEvent.class));
+                (contextId, listener) -> listener.onRunningContextDeleted(contextId), SearchDeletedEvent.class));
 
         for (AsyncSearchState state : EnumSet.of(PERSISTING, PERSISTED, PERSIST_FAILED, SUCCEEDED, FAILED, INIT)) {
-            stateMachine.registerTransition(new AsyncSearchTransition<>(state, CLOSED,
+            stateMachine.registerTransition(new AsyncSearchTransition<>(state, DELETED,
                     (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
-                    (contextId, listener) -> listener.onContextClosed(contextId), SearchClosedEvent.class));
+                    (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletedEvent.class));
         }
         return stateMachine;
     }
@@ -456,7 +479,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      * @return Async Search stats accumulated on the current node
      */
     public AsyncSearchStats stats() {
-        return statsListener.stats(clusterService.localNode());
+        return ((InternalAsyncSearchStats) statsListener).stats(clusterService.localNode());
     }
 
 

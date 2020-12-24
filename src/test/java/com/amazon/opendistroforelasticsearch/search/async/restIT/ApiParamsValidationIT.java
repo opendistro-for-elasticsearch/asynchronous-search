@@ -37,7 +37,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
     public void testSubmitDefaultKeepAlive() throws IOException {
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest("test"));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
-        List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
+        List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.DELETED);
         assertTrue(legalStates.contains(submitResponse.getState()));
         assertTrue((submitResponse.getExpirationTimeMillis() > System.currentTimeMillis() + TimeValue.timeValueDays(4).getMillis()) &&
                 (submitResponse.getExpirationTimeMillis() < System.currentTimeMillis() + +TimeValue.timeValueDays(5).getMillis()));
@@ -47,7 +47,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
     public void testSubmitDefaultWaitForCompletion() throws IOException {
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest("test"));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
-        List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
+        List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.DELETED);
         assertTrue(legalStates.contains(submitResponse.getState()));
         assertHitCount(submitResponse.getSearchResponse(), 5);
     }
@@ -59,7 +59,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
         submitAsyncSearchRequest.keepOnCompletion(false);
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
-        List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
+        List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.DELETED);
         assertTrue(legalStates.contains(submitResponse.getState()));
         assertHitCount(submitResponse.getSearchResponse(), 6);
     }
@@ -67,7 +67,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
     public void testSubmitSearchOnInvalidIndex() throws IOException {
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest("afknwefwoef"));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
-        List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.FAILED, AsyncSearchState.CLOSED);
+        List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.FAILED, AsyncSearchState.DELETED);
         assertNull(submitResponse.getSearchResponse());
         assertNotNull(submitResponse.getError());
         assertThat(submitResponse.getError().getDetailedMessage(), containsString("index_not_found"));
