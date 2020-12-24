@@ -145,7 +145,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
             AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(fakeClient, mockClusterService,
                     testThreadPool);
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, fakeClient,
-                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(Collections.emptyList()));
+                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
             AsyncSearchStateMachine asyncSearchStateMachine = asyncSearchService.getStateMachine();
             AsyncSearchPostProcessor postProcessor = new AsyncSearchPostProcessor(persistenceService,
                     asyncSearchActiveStore, asyncSearchStateMachine,
@@ -183,7 +183,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
             AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(fakeClient, mockClusterService,
                     testThreadPool);
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, fakeClient,
-                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(Collections.emptyList()));
+                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
             AsyncSearchStateMachine asyncSearchStateMachine = asyncSearchService.getStateMachine();
             AsyncSearchPostProcessor postProcessor = new AsyncSearchPostProcessor(persistenceService,
                     asyncSearchActiveStore, asyncSearchStateMachine,
@@ -225,7 +225,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
             AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(fakeClient, mockClusterService,
                     testThreadPool);
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, fakeClient,
-                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(Collections.emptyList()));
+                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
             AsyncSearchStateMachine asyncSearchStateMachine = asyncSearchService.getStateMachine();
             AsyncSearchPostProcessor postProcessor = new AsyncSearchPostProcessor(persistenceService,
                     asyncSearchActiveStore, asyncSearchStateMachine,
@@ -266,7 +266,7 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
             AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(fakeClient, mockClusterService,
                     testThreadPool);
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, fakeClient,
-                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(Collections.emptyList()));
+                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
             AsyncSearchStateMachine asyncSearchStateMachine = asyncSearchService.getStateMachine();
             AsyncSearchPostProcessor postProcessor = new AsyncSearchPostProcessor(persistenceService,
                     asyncSearchActiveStore, asyncSearchStateMachine,
@@ -299,8 +299,8 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
         int successfulShards = totalShards - randomInt(100);
         return new SearchResponse(new InternalSearchResponse(
                 new SearchHits(new SearchHit[0], new TotalHits(0L, TotalHits.Relation.EQUAL_TO), 0.0f),
-                InternalAggregations.from(Collections.emptyList()),
-                new Suggest(Collections.emptyList()),
+                InternalAggregations.from(emptyList()),
+                new Suggest(emptyList()),
                 new SearchProfileShardResults(Collections.emptyMap()), false, false, randomInt(5)),
                 "", totalShards, successfulShards, 0, randomNonNegativeLong(),
                 ShardSearchFailure.EMPTY_ARRAY, SearchResponse.Clusters.EMPTY);
