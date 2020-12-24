@@ -24,7 +24,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchTransition;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.BeginPersistEvent;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchClosedEvent;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistFailedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
@@ -58,7 +58,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.CLOSED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
@@ -115,7 +115,7 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
                 doConcurrentStateMachineTrigger(stateMachine, new SearchResponsePersistFailedEvent(context), PERSIST_FAILED,
                         IllegalStateException.class);
             }
-            doConcurrentStateMachineTrigger(stateMachine, new SearchClosedEvent(context), CLOSED,
+            doConcurrentStateMachineTrigger(stateMachine, new SearchDeletedEvent(context), DELETED,
                     AsyncSearchStateMachineClosedException.class);
             assertEquals(1, numPersisted.get() + numPersistFailed.get());
             assertEquals(1, numPersisting.get());
@@ -142,7 +142,7 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
         AsyncSearchStateMachine stateMachine = new AsyncSearchStateMachine(
                 EnumSet.allOf(AsyncSearchState.class), INIT);
 
-        stateMachine.markTerminalStates(EnumSet.of(CLOSED));
+        stateMachine.markTerminalStates(EnumSet.of(DELETED));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(INIT, RUNNING,
                 (s, e) -> ((AsyncSearchActiveContext) e.asyncSearchContext()).setTask(e.getSearchTask()),
@@ -173,9 +173,9 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
                 (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
 
         for (AsyncSearchState state : EnumSet.of(PERSISTING, PERSISTED, PERSIST_FAILED, SUCCEEDED, FAILED, INIT, RUNNING)) {
-            stateMachine.registerTransition(new AsyncSearchTransition<>(state, CLOSED,
+            stateMachine.registerTransition(new AsyncSearchTransition<>(state, DELETED,
                     (s, e) -> numDeleted.getAndIncrement(),
-                    (contextId, listener) -> listener.onContextClosed(contextId), SearchClosedEvent.class));
+                    (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletedEvent.class));
         }
         return stateMachine;
     }
