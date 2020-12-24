@@ -152,10 +152,25 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
                         }
                     }
             );
+            ActionListener<AsyncSearchContext> expectedSecurityExceptionPersisted = wrap(
+                    r -> {
+                        try {
+                            fail("Expecting security exception");
+                        } finally {
+                            findContextLatch1.countDown();
+                        }
+                    }, e -> {
+                        try {
+                            assertTrue(e instanceof ElasticsearchSecurityException);
+                        } finally {
+                            findContextLatch1.countDown();
+                        }
+                    }
+            );
             asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(),
                     asyncSearchActiveContext.getContextId(), user1, expectedSuccessfulPersisted);
             asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(),
-                    asyncSearchActiveContext.getContextId(), user2, expectedSecurityException);
+                    asyncSearchActiveContext.getContextId(), user2, expectedSecurityExceptionPersisted);
             asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(),
                     asyncSearchActiveContext.getContextId(), null, expectedSuccessfulPersisted);
 
@@ -166,13 +181,13 @@ public class AsyncSearchServiceTests extends AsyncSearchSingleNodeTestCase {
                         try {
                             fail("Expecting security exception");
                         } finally {
-                            findContextLatch.countDown();
+                            freeContextLatch.countDown();
                         }
                     }, e -> {
                         try {
                             assertTrue(e instanceof ElasticsearchSecurityException);
                         } finally {
-                            findContextLatch.countDown();
+                            freeContextLatch.countDown();
                         }
                     }
             ));
