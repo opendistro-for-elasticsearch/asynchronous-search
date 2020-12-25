@@ -57,8 +57,6 @@ public class AsyncSearchPostProcessor {
             if (asyncSearchContextOptional.isPresent()) {
                 AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
                 asyncSearchStateMachine.trigger(new SearchFailureEvent(asyncSearchContext, exception));
-                logger.error("Async Search " + asyncSearchContext.getAsyncSearchId() + " execution completed with failure",
-                        exception);
                 handlePersist(asyncSearchContext);
                 return asyncSearchContext.getAsyncSearchResponse();
             }
@@ -123,8 +121,8 @@ public class AsyncSearchPostProcessor {
                                         } catch (AsyncSearchStateMachineClosedException ex) {
                                             //this should never happen since we had checked after acquiring the all permits so a
                                             // concurrent delete is not expected here
-                                            throw new IllegalStateException(String.format(Locale.ROOT, "Unexpected, state machine for " +
-                                                            "context id [%s] closed while triggering event [$s]",
+                                            throw new IllegalStateException(String.format(Locale.ROOT,"Unexpected, state machine for " +
+                                                     "context id [%s] closed while triggering event",
                                                     asyncSearchContext.getAsyncSearchId(),
                                                     SearchResponsePersistFailedEvent.class.getName()));
                                         }
