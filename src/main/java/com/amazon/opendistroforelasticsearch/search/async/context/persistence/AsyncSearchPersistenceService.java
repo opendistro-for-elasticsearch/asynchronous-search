@@ -247,7 +247,7 @@ public class AsyncSearchPersistenceService {
             //TODO- Remove hardcoded strings
             String scriptCode = "if (ctx._source.user == null || ctx._source.user.backend_roles == null || " +
                     "(params.backend_roles != null && params.backend_roles.containsAll(ctx._source.user.backend_roles))) " +
-                    "{ ctx._source.expiration_time_millis =  params.expiration_time_millis } else { ctx.op = 'none' }";
+                    "{ ctx._source.expiration_time_millis = params.expiration_time_millis } else { ctx.op = 'none' }";
             Map<String, Object> params = new HashMap<>();
             params.put("backend_roles", user.getBackendRoles());
             params.put("expiration_time_millis", expirationTimeMillis);
@@ -278,6 +278,8 @@ public class AsyncSearchPersistenceService {
                     break;
                 case NOT_FOUND:
                 case DELETED:
+                    logger.debug("Update Result [{}] for id [{}], expiration time requested, [{}]",
+                            updateResponse.getResult(), id, expirationTimeMillis);
                     listener.onFailure(new ResourceNotFoundException(id));
                     break;
             }
@@ -286,7 +288,7 @@ public class AsyncSearchPersistenceService {
             if (cause instanceof DocumentMissingException) {
                 listener.onFailure(new ResourceNotFoundException(id));
             } else {
-                logger.debug(() -> new ParameterizedMessage("Exception occurred updating expiration time for id {}",
+                logger.error(() -> new ParameterizedMessage("Exception occurred updating expiration time for id {}",
                         id), exception);
                 listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
             }
