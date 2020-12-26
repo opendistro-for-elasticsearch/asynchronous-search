@@ -35,6 +35,7 @@ import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlug
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.lucene.search.TotalHits;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
@@ -134,10 +135,9 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
             AsyncSearchProgressListener asyncSearchProgressListener = mockAsyncSearchProgressListener(threadPool);
             AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(),
                     randomNonNegativeLong());
-            boolean keepOnCompletion = randomBoolean();
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, discoveryNode.getId(),
-                    keepAlive, keepOnCompletion, threadPool,
+                    keepAlive, true, threadPool,
                     threadPool::absoluteTimeInMillis, asyncSearchProgressListener, customContextListener, null);
             assertNull(context.getTask());
             assertEquals(context.getAsyncSearchState(), INIT);
@@ -247,7 +247,7 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
             if (randomBoolean()) {
                 listener.onResponse(null);
             } else {
-                listener.onFailure(new RuntimeException("test"));
+                listener.onFailure(new ElasticsearchException(new RuntimeException("test")));
             }
         }
     }
