@@ -92,8 +92,8 @@ public class AsyncSearchSettingsIT extends AsyncSearchRestTestCase {
                 threadsList.add(new Thread(() -> {
                     try {
                         SubmitAsyncSearchRequest validRequest = new SubmitAsyncSearchRequest(new SearchRequest());
+                        validRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(1));
                         AsyncSearchResponse asyncSearchResponse = executeSubmitAsyncSearch(validRequest);
-                        assertNotNull(asyncSearchResponse.getSearchResponse());
                     } catch (Exception e) {
                         assertTrue(e instanceof ResponseException);
                         assertThat(e.getMessage(), containsString("Trying to create too many running contexts"));
