@@ -23,7 +23,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -111,7 +111,7 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
             AtomicLong expectedNumSuccesses = new AtomicLong();
             AtomicLong expectedNumFailures = new AtomicLong();
             AtomicLong expectedNumPersisted = new AtomicLong();
-            CyclicBarrier cyclicBarrier = new CyclicBarrier(numThreads + 1);
+            CountDownLatch latch = new CountDownLatch(numThreads);
             for (int i = 0; i < numThreads; i++) {
                 threads.add(() -> {
                     try {
@@ -141,17 +141,13 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
                     } catch (Exception e) {
                         fail(e.getMessage());
                     } finally {
-                        try {
-                            cyclicBarrier.await();
-                        } catch (InterruptedException | BrokenBarrierException ignored) {
-
-                        }
+                        latch.countDown();
                     }
                 });
             }
             TestThreadPool finalThreadPool = threadPool;
             threads.forEach(t -> finalThreadPool.generic().execute(t));
-            cyclicBarrier.await();
+            latch.await();
             AsyncSearchStatsResponse statsResponse = client().execute(AsyncSearchStatsAction.INSTANCE, new AsyncSearchStatsRequest()).get();
             AtomicLong actualNumSuccesses = new AtomicLong();
             AtomicLong actualNumFailures = new AtomicLong();
@@ -174,7 +170,7 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
             assertEquals(expectedNumFailures.get(), actualNumFailures.get());
             assertEquals(expectedNumSuccesses.get(), actualNumSuccesses.get());
         } finally {
-            ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
+            ThreadPool.terminate(threadPool, 10, TimeUnit.SECONDS);
         }
     }
 
