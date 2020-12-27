@@ -16,9 +16,7 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.ShardSearchFailure;
 
-import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertFailures;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertNoFailures;
 
 import static org.junit.Assert.assertEquals;
