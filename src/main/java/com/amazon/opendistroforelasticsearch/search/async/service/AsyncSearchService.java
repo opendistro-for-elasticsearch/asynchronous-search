@@ -83,7 +83,6 @@ import java.util.stream.Collectors;
 
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
 import static com.amazon.opendistroforelasticsearch.search.async.UserAuthUtils.isUserValid;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;

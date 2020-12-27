@@ -159,6 +159,11 @@ public abstract class AsyncSearchIntegTestCase extends ESIntegTestCase {
         return listTasksResponse.getTasks().size() == 0;
     }
 
+    protected boolean verifyTaskCancelled(String action) {
+        ListTasksResponse listTasksResponse = client().admin().cluster().prepareListTasks().setActions(action).get();
+        return listTasksResponse.getTasks().size() == 0;
+    }
+
     public static class ScriptedBlockPlugin extends MockScriptPlugin {
         public static final String SCRIPT_NAME = "search_block";
 

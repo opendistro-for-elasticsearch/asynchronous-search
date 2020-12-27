@@ -118,7 +118,7 @@ public class AsyncSearchPartialResponseIT extends ESIntegTestCase {
                         .collectMode(randomFrom(Aggregator.SubAggCollectionMode.values())).order(BucketOrder.count(false)))
                 .request();
         request.setBatchedReduceSize(2);
-        testCase(internalCluster().smartClient(), request);
+        testCase(client(), request);
     }
 
     private void testCase(Client client, SearchRequest request) throws Exception {
