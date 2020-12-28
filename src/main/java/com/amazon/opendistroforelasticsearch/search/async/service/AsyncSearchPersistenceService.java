@@ -138,19 +138,19 @@ public class AsyncSearchPersistenceService {
                                 source.containsKey(RESPONSE) ? (String) source.get(RESPONSE) : null,
                                 source.containsKey(ERROR) ? (String) source.get(ERROR) : null,
                                 parseUser((Map<String, Object>) source.get(USER)));
-                        if(isUserValid(user, asyncSearchPersistenceModel.getUser())) {
+                        if (isUserValid(user, asyncSearchPersistenceModel.getUser())) {
                             listener.onResponse(asyncSearchPersistenceModel);
                         } else {
                             logger.debug("Invalid user requesting GET persisted context for async search id {}", id);
                             listener.onFailure(new ElasticsearchSecurityException(
-                                    "User doesn't have necessary roles to access the async search with id "+ id, RestStatus.FORBIDDEN));
+                                    "User doesn't have necessary roles to access the async search with id " + id, RestStatus.FORBIDDEN));
                         }
                     } else {
                         listener.onFailure(new ResourceNotFoundException(id));
                     }
                 },
                 exception -> {
-                    logger.error(() -> new ParameterizedMessage("Failed to get response for async search id {}", id), exception);
+                    logger.error(() -> new ParameterizedMessage("Failed to get response for async search {}", id), exception);
                     final Throwable cause = ExceptionsHelper.unwrapCause(exception);
                     listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
                 }));
@@ -168,32 +168,31 @@ public class AsyncSearchPersistenceService {
 
     public void deleteResponse(String id, User user, ActionListener<Boolean> listener) {
         if (indexExists() == false) {
-            logger.warn("Async search index [{}] doesn't exists", ASYNC_SEARCH_RESPONSE_INDEX);
+            logger.debug("Async search index [{}] doesn't exists", ASYNC_SEARCH_RESPONSE_INDEX);
             listener.onResponse(false);
             return;
         }
         Consumer<Exception> onFailure = e -> {
             final Throwable cause = ExceptionsHelper.unwrapCause(e);
             if (cause instanceof DocumentMissingException) {
-                logger.warn(() -> new ParameterizedMessage("Async search response doc already deleted {}", id), e);
+                logger.debug(() -> new ParameterizedMessage("Async search response doc already deleted {}", id), e);
                 listener.onResponse(false);
             } else {
-                logger.warn(() -> new ParameterizedMessage("Failed to delete async search for id {}", id), e);
+                logger.debug(() -> new ParameterizedMessage("Failed to delete async search for id {}", id), e);
                 listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
             }
         };
-        if(user == null) {
+        if (user == null) {
             client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX, id), ActionListener.wrap(deleteResponse -> {
                 if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED) {
-                    logger.warn("Delete async search {} successful. Returned result {}", id, deleteResponse.getResult());
+                    logger.debug("Delete async search {} successful. Returned result {}", id, deleteResponse.getResult());
                     listener.onResponse(true);
                 } else {
                     logger.debug("Delete async search {} unsuccessful. Returned result {}", id, deleteResponse.getResult());
                     listener.onResponse(false);
                 }
             }, onFailure));
-        }
-        else {
+        } else {
             UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
             String scriptCode = "if (ctx._source.user == null || ctx._source.user.backend_roles == null || " +
                     "( params.backend_roles!=null && params.backend_roles.containsAll(ctx._source.user.backend_roles))) " +
@@ -205,11 +204,11 @@ public class AsyncSearchPersistenceService {
             client.update(updateRequest, ActionListener.wrap(deleteResponse -> {
                 switch (deleteResponse.getResult()) {
                     case UPDATED:
-                        listener.onFailure(new IllegalStateException("Document updated when requesting delete for async search id "+ id));
+                        listener.onFailure(new IllegalStateException("Document updated when requesting delete for async search id " + id));
                         break;
                     case NOOP:
                         listener.onFailure(new ElasticsearchSecurityException(
-                                "User doesn't have necessary roles to access the async search with id "+ id, RestStatus.FORBIDDEN));
+                                "User doesn't have necessary roles to access the async search with id " + id, RestStatus.FORBIDDEN));
                         break;
                     case NOT_FOUND:
                         listener.onResponse(false);
@@ -227,7 +226,7 @@ public class AsyncSearchPersistenceService {
      *
      * @param id                   async search id
      * @param expirationTimeMillis the new expiration time
-     * @param  user                current user
+     * @param user                 current user
      * @param listener             listener invoked with the response on completion of update request
      */
     @SuppressWarnings("unchecked")
@@ -239,12 +238,11 @@ public class AsyncSearchPersistenceService {
         }
         UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
         updateRequest.retryOnConflict(5);
-        if(user == null) {
+        if (user == null) {
             Map<String, Object> source = new HashMap<>();
             source.put(EXPIRATION_TIME_MILLIS, expirationTimeMillis);
             updateRequest.doc(source, XContentType.JSON);
-        }
-        else {
+        } else {
             //TODO- Remove hardcoded strings
             String scriptCode = "if (ctx._source.user == null || ctx._source.user.backend_roles == null || " +
                     "(params.backend_roles != null && params.backend_roles.containsAll(ctx._source.user.backend_roles))) " +
@@ -259,7 +257,7 @@ public class AsyncSearchPersistenceService {
         client.update(updateRequest, ActionListener.wrap(updateResponse -> {
             switch (updateResponse.getResult()) {
                 case NOOP:
-                    if(user != null) {
+                    if (user != null) {
                         listener.onFailure(new ElasticsearchSecurityException(
                                 "User doesn't have necessary roles to access the async search with id " + id, RestStatus.FORBIDDEN));
                     } else {
@@ -289,7 +287,7 @@ public class AsyncSearchPersistenceService {
             if (cause instanceof DocumentMissingException) {
                 listener.onFailure(new ResourceNotFoundException(id));
             } else {
-                logger.error(() -> new ParameterizedMessage("Exception occurred updating expiration time for id {}",
+                logger.error(() -> new ParameterizedMessage("Exception occurred updating expiration time for async search {}",
                         id), exception);
                 listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
             }
@@ -311,25 +309,27 @@ public class AsyncSearchPersistenceService {
             DeleteByQueryRequest request = new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX)
                     .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS).lte(expirationTimeInMillis));
             client.execute(DeleteByQueryAction.INSTANCE, request,
-                 ActionListener.wrap(
-                         deleteResponse -> {
-                             if ((deleteResponse.getBulkFailures() != null &&  deleteResponse.getBulkFailures().size() > 0 ) ||
-                                     (deleteResponse.getSearchFailures() != null && deleteResponse.getSearchFailures().size() > 0)) {
-                                 logger.error("Failed to delete expired responses with bulk failures[{}] / search failures [{}] as ",
-                                         deleteResponse.getBulkFailures(), deleteResponse.getSearchFailures());
-                                 listener.onResponse(new AcknowledgedResponse(false));
+                    ActionListener.wrap(
+                            deleteResponse -> {
+                                if ((deleteResponse.getBulkFailures() != null && deleteResponse.getBulkFailures().size() > 0) ||
+                                        (deleteResponse.getSearchFailures() != null && deleteResponse.getSearchFailures().size() > 0)) {
+                                    logger.error("Failed to delete expired async search responses with bulk failures[{}] / search " +
+                                                    "failures [{}] as ",
+                                            deleteResponse.getBulkFailures(), deleteResponse.getSearchFailures());
+                                    listener.onResponse(new AcknowledgedResponse(false));
 
-                             } else {
-                                 logger.debug("Successfully deleted expired responses");
-                                 listener.onResponse(new AcknowledgedResponse(true));
-                             }
-                         },
-                        (e) -> {
-                            logger.debug(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}",
-                                    expirationTimeInMillis), e);
-                            final Throwable cause = ExceptionsHelper.unwrapCause(e);
-                            listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
-                        }));
+                                } else {
+                                    logger.debug("Successfully deleted expired responses");
+                                    listener.onResponse(new AcknowledgedResponse(true));
+                                }
+                            },
+                            (e) -> {
+                                logger.debug(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}",
+                                        expirationTimeInMillis), e);
+                                final Throwable cause = ExceptionsHelper.unwrapCause(e);
+                                listener.onFailure(cause instanceof Exception ? (Exception) cause :
+                                        new NotSerializableExceptionWrapper(cause));
+                            }));
         }
     }
 
@@ -376,7 +376,7 @@ public class AsyncSearchPersistenceService {
                 final Throwable cause = ExceptionsHelper.unwrapCause(e);
                 if (((cause instanceof EsRejectedExecutionException || cause instanceof ClusterBlockException
                         || TransportActions.isShardNotAvailableException(e)) == false) || backoff.hasNext() == false) {
-                    logger.warn(() -> new ParameterizedMessage("failed to store async search response, not retrying"), e);
+                    logger.error(() -> new ParameterizedMessage("failed to store async search response, not retrying"), e);
                     listener.onFailure(e);
                 } else {
                     TimeValue wait = backoff.next();
@@ -400,20 +400,20 @@ public class AsyncSearchPersistenceService {
             XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
             builder.startObject()
                     .startObject("properties")
-                        .startObject(START_TIME_MILLIS)
-                            .field("type", "date")
-                            .field("format", "epoch_millis")
-                        .endObject()
-                        .startObject(EXPIRATION_TIME_MILLIS)
-                            .field("type", "date")
-                            .field("format", "epoch_millis")
-                        .endObject()
-                        .startObject(RESPONSE)
-                            .field("type", "binary")
-                        .endObject()
-                        .startObject(ERROR)
-                            .field("type", "binary")
-                        .endObject()
+                    .startObject(START_TIME_MILLIS)
+                    .field("type", "date")
+                    .field("format", "epoch_millis")
+                    .endObject()
+                    .startObject(EXPIRATION_TIME_MILLIS)
+                    .field("type", "date")
+                    .field("format", "epoch_millis")
+                    .endObject()
+                    .startObject(RESPONSE)
+                    .field("type", "binary")
+                    .endObject()
+                    .startObject(ERROR)
+                    .field("type", "binary")
+                    .endObject()
                     .endObject()
                     .endObject();
             return builder;

@@ -13,16 +13,12 @@ import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
-import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.test.ESIntegTestCase;
-import org.elasticsearch.test.InternalTestCluster;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -177,51 +173,51 @@ public class AsyncSearchRequestRoutingIT extends AsyncSearchIntegTestCase {
         disableBlocks(plugins);
     }
 
-    public void testCoordinatorNodeDropOnPersistedSearch() throws Exception {
-        String idx = "idx";
-        assertAcked(prepareCreate(idx)
-                .addMapping("type", "ip", "type=ip", "ips", "type=ip"));
-        waitForRelocation(ClusterHealthStatus.GREEN);
-        indexRandom(true,
-                client().prepareIndex(idx, "type", "1").setSource(
-                        "ip", "192.168.1.7",
-                        "ips", Arrays.asList("192.168.0.13", "192.168.1.2")),
-                client().prepareIndex(idx, "type", "2").setSource(
-                        "ip", "192.168.1.10",
-                        "ips", Arrays.asList("192.168.1.25", "192.168.1.28")),
-                client().prepareIndex(idx, "type", "3").setSource(
-                        "ip", "2001:db8::ff00:42:8329",
-                        "ips", Arrays.asList("2001:db8::ff00:42:8329", "2001:db8::ff00:42:8380")));
-
-        assertAcked(prepareCreate("idx_unmapped"));
-        waitForRelocation(ClusterHealthStatus.GREEN);
-        refresh();
-        List<DiscoveryNode> dataNodes = new ArrayList<>();
-        clusterService().state().nodes().getDataNodes().iterator().forEachRemaining(entry -> dataNodes.add(entry.value));
-        assertFalse(dataNodes.isEmpty());
-        DiscoveryNode coordinatorNode = dataNodes.get(0);
-        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(new SearchRequest(idx));
-        request.keepOnCompletion(true);
-        AsyncSearchResponse submitResponse = client(coordinatorNode.getName()).execute(SubmitAsyncSearchAction.INSTANCE, request).get();
-        TestClientUtils.assertResponsePersistence(client(), submitResponse.getId());
-        CountDownLatch latch = new CountDownLatch(1);
-        internalCluster().restartNode(coordinatorNode.getName(), new InternalTestCluster.RestartCallback() {
-            @Override
-            public Settings onNodeStopped(String nodeName) throws Exception {
-                try {
-                    AsyncSearchResponse getResponse = client(dataNodes.get(1).getName()).execute(GetAsyncSearchAction.INSTANCE,
-                            new GetAsyncSearchRequest(submitResponse.getId())).get();
-                    assertEquals(getResponse.getState(), AsyncSearchState.PERSISTED);
-                    assertEquals(getResponse.getId(), submitResponse.getId());
-                    return super.onNodeStopped(nodeName);
-                } finally {
-                    latch.countDown();
-                }
-            }
-        });
-        latch.await();
-
-    }
+//    public void testCoordinatorNodeDropOnPersistedSearch() throws Exception {
+//        String idx = "idx";
+//        assertAcked(prepareCreate(idx)
+//                .addMapping("type", "ip", "type=ip", "ips", "type=ip"));
+//        waitForRelocation(ClusterHealthStatus.GREEN);
+//        indexRandom(true,
+//                client().prepareIndex(idx, "type", "1").setSource(
+//                        "ip", "192.168.1.7",
+//                        "ips", Arrays.asList("192.168.0.13", "192.168.1.2")),
+//                client().prepareIndex(idx, "type", "2").setSource(
+//                        "ip", "192.168.1.10",
+//                        "ips", Arrays.asList("192.168.1.25", "192.168.1.28")),
+//                client().prepareIndex(idx, "type", "3").setSource(
+//                        "ip", "2001:db8::ff00:42:8329",
+//                        "ips", Arrays.asList("2001:db8::ff00:42:8329", "2001:db8::ff00:42:8380")));
+//
+//        assertAcked(prepareCreate("idx_unmapped"));
+//        waitForRelocation(ClusterHealthStatus.GREEN);
+//        refresh();
+//        List<DiscoveryNode> dataNodes = new ArrayList<>();
+//        clusterService().state().nodes().getDataNodes().iterator().forEachRemaining(entry -> dataNodes.add(entry.value));
+//        assertFalse(dataNodes.isEmpty());
+//        DiscoveryNode coordinatorNode = dataNodes.get(0);
+//        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(new SearchRequest(idx));
+//        request.keepOnCompletion(true);
+//        AsyncSearchResponse submitResponse = client(coordinatorNode.getName()).execute(SubmitAsyncSearchAction.INSTANCE, request).get();
+//        TestClientUtils.assertResponsePersistence(client(), submitResponse.getId());
+//        CountDownLatch latch = new CountDownLatch(1);
+//        internalCluster().restartNode(coordinatorNode.getName(), new InternalTestCluster.RestartCallback() {
+//            @Override
+//            public Settings onNodeStopped(String nodeName) throws Exception {
+//                try {
+//                    AsyncSearchResponse getResponse = client(dataNodes.get(1).getName()).execute(GetAsyncSearchAction.INSTANCE,
+//                            new GetAsyncSearchRequest(submitResponse.getId())).get();
+//                    assertEquals(getResponse.getState(), AsyncSearchState.PERSISTED);
+//                    assertEquals(getResponse.getId(), submitResponse.getId());
+//                    return super.onNodeStopped(nodeName);
+//                } finally {
+//                    latch.countDown();
+//                }
+//            }
+//        });
+//        latch.await();
+//
+//    }
 //FIXME after test completes MockSearchService.assertNoInFlightContext() FAILS because we test killing a node with a running blocked search
 
 //    public void testCoordinatorNodeDropOnRunningSearch() throws Exception {

@@ -84,6 +84,7 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
     /**
      * Triggers transition from current state on receiving an event. Also invokes {@linkplain Transition#onEvent()} and
      * {@linkplain Transition#eventListener()}.
+     *
      * @param event to fire
      * @return The final Async search state
      * @throws AsyncSearchStateMachineClosedException the state machine has reached a terminal state
@@ -112,14 +113,14 @@ public class AsyncSearchStateMachine implements StateMachine<AsyncSearchState, A
                 }
                 return asyncSearchContext.getAsyncSearchState();
             } else {
-                String message = String.format(Locale.ROOT, "Invalid transition for context [%s] from source state [%s] on event [%s]",
+                String message = String.format(Locale.ROOT, "Invalid transition for async search context [%s] from source state [%s] on " +
+                                "event [%s]",
                         asyncSearchContext.getAsyncSearchId(), currentState, event.getClass().getName());
                 logger.error(message);
                 throw new IllegalStateException(message);
             }
         }
     }
-
 
 
     @SuppressWarnings("unchecked")

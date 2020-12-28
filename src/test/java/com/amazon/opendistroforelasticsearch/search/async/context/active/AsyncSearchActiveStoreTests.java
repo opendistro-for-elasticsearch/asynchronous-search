@@ -42,7 +42,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchTest
 public class AsyncSearchActiveStoreTests extends ESTestCase {
     private ClusterSettings clusterSettings;
     private ExecutorBuilder<?> executorBuilder;
-    private int maxRunningContexts = 100;
+    private int maxRunningContexts = 50;
 
     @Before
     public void createObjects() {

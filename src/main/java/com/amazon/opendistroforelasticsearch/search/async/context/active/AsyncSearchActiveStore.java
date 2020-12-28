@@ -80,7 +80,7 @@ public class AsyncSearchActiveStore {
     public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
         AsyncSearchActiveContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
         if (asyncSearchContext != null) {
-            logger.warn("Removing async search ID [{}] from active store", asyncSearchContext.getAsyncSearchId());
+            logger.debug("Removing async search [{}] from active store", asyncSearchContext.getAsyncSearchId());
             asyncSearchContext.close();
             activeContexts.remove(asyncSearchContextId.getId());
             return true;

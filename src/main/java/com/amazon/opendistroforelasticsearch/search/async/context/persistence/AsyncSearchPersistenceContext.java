@@ -92,7 +92,8 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
                     namedWriteableRegistry)) {
                 return new SearchResponse(wrapperStreamInput);
             } catch (IOException e) {
-                logger.error("Failed to parse search response " + asyncSearchPersistenceModel.getResponse(), e);
+                logger.error("Failed to parse search response for async search "
+                        + asyncSearchId + ". Response : " + asyncSearchPersistenceModel.getResponse(), e);
                 return null;
             }
         }
@@ -109,7 +110,8 @@ public class AsyncSearchPersistenceContext extends AsyncSearchContext {
                 namedWriteableRegistry)) {
             return wrapperStreamInput.readException();
         } catch (IOException e) {
-            logger.error("Failed to parse search error " + asyncSearchPersistenceModel.getError(), e);
+            logger.error("Failed to parse search error for async search " + asyncSearchId + "error :"
+                    + asyncSearchPersistenceModel.getError(), e);
             return null;
         }
     }

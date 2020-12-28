@@ -16,9 +16,9 @@
 package com.amazon.opendistroforelasticsearch.search.async.management;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -114,14 +114,14 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
         @Override
         public void messageReceived(AsyncSearchCleanUpRequest request, TransportChannel channel, Task task) {
             asyncCleanUpOperation(request, task,
-                ActionListener.wrap(channel::sendResponse, e -> {
-                    try {
-                        channel.sendResponse(e);
-                    } catch (IOException ex) {
-                        logger.warn(() -> new ParameterizedMessage(
-                                "Failed to send cleanup error response for request [{}]", request), ex);
-                    }
-                }));
+                    ActionListener.wrap(channel::sendResponse, e -> {
+                        try {
+                            channel.sendResponse(e);
+                        } catch (IOException ex) {
+                            logger.warn(() -> new ParameterizedMessage(
+                                    "Failed to send cleanup error response for request [{}]", request), ex);
+                        }
+                    }));
         }
     }
 
@@ -187,12 +187,14 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
                 toFree.forEach(
                         context -> asyncSearchService.freeContext(context.getAsyncSearchId(), context.getContextId(),
                                 null, ActionListener.wrap(
-                                (response) -> logger.warn("Successfully freed up context [{}] running duration [{}]",
-                                        context.getAsyncSearchId(), context.getExpirationTimeMillis() - context.getStartTimeMillis()),
-                                (exception -> logger.warn(() -> new ParameterizedMessage("Failed to cleanup async search context [{}] " +
-                                        "running duration [{}] due to ", context.getAsyncSearchId(), context.getExpirationTimeMillis() -
-                                        context.getStartTimeMillis()), exception))
-                        )));
+                                        (response) -> logger.debug("Successfully freed up context [{}] running duration [{}]",
+                                                context.getAsyncSearchId(), context.getExpirationTimeMillis()
+                                                        - context.getStartTimeMillis()),
+                                        (exception -> logger.debug(() -> new ParameterizedMessage(
+                                                "Failed to cleanup async search context [{}] running duration [{}] due to ",
+                                                context.getAsyncSearchId(),
+                                                context.getExpirationTimeMillis() - context.getStartTimeMillis()), exception))
+                                )));
             } catch (Exception ex) {
                 logger.error("Failed to free up overrunning async searches due to ", ex);
             }

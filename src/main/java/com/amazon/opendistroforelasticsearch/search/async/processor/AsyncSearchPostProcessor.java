@@ -92,17 +92,17 @@ public class AsyncSearchPostProcessor {
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
                     // check again after acquiring permit if the context has been deleted mean while
                     if (asyncSearchContext.shouldPersist() == false) {
-                        logger.warn("Async search context [{}] has been closed while waiting to acquire permits for post processing",
+                        logger.debug("Async search context [{}] has been closed while waiting to acquire permits for post processing",
                                 asyncSearchContext.getAsyncSearchId());
                         releasable.close();
                         return;
                     }
-                    logger.warn("Persisting response for async search id [{}]", asyncSearchContext.getAsyncSearchId());
+                    logger.debug("Persisting response for async search id [{}]", asyncSearchContext.getAsyncSearchId());
                     asyncSearchPersistenceService.storeResponse(asyncSearchContext.getAsyncSearchId(),
                             persistenceModel, ActionListener.runAfter(ActionListener.wrap(
                                     (indexResponse) -> {
                                         //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
-                                        logger.warn("Successfully persisted response for async search id [{}]",
+                                        logger.debug("Successfully persisted response for async search id [{}]",
                                                 asyncSearchContext.getAsyncSearchId());
                                         try {
                                             asyncSearchStateMachine.trigger(new SearchResponsePersistedEvent(asyncSearchContext));
@@ -126,7 +126,7 @@ public class AsyncSearchPostProcessor {
                                                     asyncSearchContext.getAsyncSearchId(),
                                                     SearchResponsePersistFailedEvent.class.getName()));
                                         }
-                                        logger.error("Failed to persist final response for [{}] due to [{}]",
+                                        logger.error("Failed to persist final response for async search [{}] due to [{}]",
                                                 asyncSearchContext.getAsyncSearchId(), e);
                                     }
                             ), releasable::close));
