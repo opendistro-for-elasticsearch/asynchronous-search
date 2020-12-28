@@ -189,6 +189,7 @@ public class AsyncSearchRejectionIT extends AsyncSearchIntegTestCase {
                     @Override
                     public void onResponse(SearchResponse searchResponse) {
                         assertTrue(responseRef.compareAndSet(null, searchResponse));
+                        AsyncSearchAssertions.assertSearchResponses(searchResponse, this.partialResponse());
                         latch.countDown();
                     }
 

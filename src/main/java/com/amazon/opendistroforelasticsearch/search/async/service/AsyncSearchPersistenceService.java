@@ -13,9 +13,10 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async.context.persistence;
+package com.amazon.opendistroforelasticsearch.search.async.service;
 
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
+import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

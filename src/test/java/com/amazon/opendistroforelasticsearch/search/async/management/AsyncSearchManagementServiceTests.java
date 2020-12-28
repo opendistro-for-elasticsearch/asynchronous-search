@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.management;
 
-import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceService;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.carrotsearch.hppc.cursors.ObjectCursor;

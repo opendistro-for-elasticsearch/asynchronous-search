@@ -64,7 +64,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     private final SetOnce<Exception> error;
     private final SetOnce<SearchResponse> searchResponse;
     private final AtomicBoolean closed;
-    private final AsyncSearchContextPermits asyncSearchContextPermits;
+    private AsyncSearchContextPermits asyncSearchContextPermits;
     @Nullable
     private final User user;
 
@@ -85,7 +85,9 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
         this.asyncSearchContextListener = asyncSearchContextListener;
         this.completed = new AtomicBoolean(false);
         this.closed = new AtomicBoolean(false);
-        this.asyncSearchContextPermits = new AsyncSearchContextPermits(asyncSearchContextId, threadPool);
+        if (keepOnCompletion) {
+            this.asyncSearchContextPermits = new AsyncSearchContextPermits(asyncSearchContextId, threadPool);
+        }
         this.user = user;
     }
 
@@ -162,10 +164,15 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     }
 
     public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
-        asyncSearchContextPermits.asyncAcquirePermit(onPermitAcquired, timeout, reason);
+        if (asyncSearchContextPermits != null) {
+            asyncSearchContextPermits.asyncAcquirePermit(onPermitAcquired, timeout, reason);
+        } else {
+            onPermitAcquired.onResponse(() -> {});
+        }
     }
 
     public void acquireAllContextPermits(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
+        assert asyncSearchContextPermits != null : "trying to acquire permits for non retained responses";
         asyncSearchContextPermits.asyncAcquireAllPermits(onPermitAcquired, timeout, reason);
     }
 

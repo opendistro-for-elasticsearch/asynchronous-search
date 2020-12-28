@@ -139,7 +139,7 @@ public class AsyncSearchProgressListener extends SearchProgressActionListener {
     }
 
     private synchronized void onSearchFailure(int shardIndex, SearchShardTarget shardTarget, Exception e) {
-        //It's hard to build partial search failures since the OSS doesn't consider shard not available exceptions as failures
+        //It's hard to build partial search failures since the elasticsearch doesn't consider shard not available exceptions as failures
         //while internally it has exceptions from all shards of a particular shard group, it exposes only the exception on the
         //final shard of the group, the exception for which could be shard not available while a previous failure on a shard of the same
         //group could be outside this category. Since the final exception overrides the exception for the group, it causes inconsistency
