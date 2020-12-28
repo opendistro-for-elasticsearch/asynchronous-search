@@ -30,7 +30,7 @@ public class AsyncSearchSettingsIT extends AsyncSearchRestTestCase {
             ResponseException responseException = expectThrows(ResponseException.class, () -> executeSubmitAsyncSearch(invalidRequest));
             assertThat(responseException.getMessage(), containsString("Keep alive for async search (" +
                     invalidRequest.getKeepAlive().getMillis() + ") is too large"));
-            updateClusterSettings(AsyncSearchService.MAX_KEEP_ALIVE_SETTING.getKey(), TimeValue.timeValueDays(5));
+            updateClusterSettings(AsyncSearchService.MAX_KEEP_ALIVE_SETTING.getKey(), TimeValue.timeValueDays(10));
         } finally {
             deleteIndexIfExists();
         }
