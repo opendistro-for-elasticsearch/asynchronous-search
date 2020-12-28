@@ -83,13 +83,13 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
     public static final String CLEANUP_ACTION_NAME = "indices:data/read/async_search/cleanup";
 
-    public static final Setting<TimeValue> REAPER_INTERVAL_SETTING =
-            Setting.timeSetting("async_search.expired.task.cancellation_interval", TimeValue.timeValueMinutes(30),
+    public static final Setting<TimeValue> ACTIVE_CONTEXT_REAPER_INTERVAL_SETTING =
+            Setting.timeSetting("opendistro_asynchronous_search.expired.task.reaper_interval", TimeValue.timeValueMinutes(30),
                     TimeValue.timeValueSeconds(5),
                     Setting.Property.NodeScope);
-    public static final Setting<TimeValue> RESPONSE_CLEAN_UP_INTERVAL_SETTING =
-            Setting.timeSetting("async_search.expired.response.cleanup_interval", TimeValue.timeValueMinutes(1),
-                    TimeValue.timeValueSeconds(5),
+    public static final Setting<TimeValue> PERSISTED_RESPONSE_CLEAN_UP_INTERVAL_SETTING =
+            Setting.timeSetting("opendistro_asynchronous_search.expired.persisted_response.cleanup_interval",
+                    TimeValue.timeValueMinutes(10), TimeValue.timeValueSeconds(5),
                     Setting.Property.NodeScope);
 
     @Inject
@@ -102,8 +102,8 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
         this.asyncSearchService = asyncSearchService;
         this.transportService = transportService;
         this.asyncSearchPersistenceService = asyncSearchPersistenceService;
-        this.taskCancellationInterval = REAPER_INTERVAL_SETTING.get(settings);
-        this.responseCleanUpInterval = RESPONSE_CLEAN_UP_INTERVAL_SETTING.get(settings);
+        this.taskCancellationInterval = ACTIVE_CONTEXT_REAPER_INTERVAL_SETTING.get(settings);
+        this.responseCleanUpInterval = PERSISTED_RESPONSE_CLEAN_UP_INTERVAL_SETTING.get(settings);
 
         transportService.registerRequestHandler(CLEANUP_ACTION_NAME, ThreadPool.Names.SAME, false, false,
                 AsyncSearchCleanUpRequest::new, new ResponseCleanUpTransportHandler());

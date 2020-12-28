@@ -32,7 +32,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.event.Se
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextEventListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.processor.AsyncSearchPostProcessor;
@@ -100,10 +100,11 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchService.class);
 
-    public static final Setting<TimeValue> MAX_KEEP_ALIVE_SETTING = Setting.positiveTimeSetting("async_search.max_keep_alive",
-            timeValueDays(10), Setting.Property.NodeScope, Setting.Property.Dynamic);
+    public static final Setting<TimeValue> MAX_KEEP_ALIVE_SETTING =
+            Setting.positiveTimeSetting("opendistro_asynchronous_search.max_keep_alive", timeValueDays(10),
+                    Setting.Property.NodeScope, Setting.Property.Dynamic);
     public static final Setting<TimeValue> MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING = Setting.positiveTimeSetting(
-            "async_search.max_wait_for_completion_timeout", timeValueMinutes(1), Setting.Property.NodeScope,
+            "opendistro_asynchronous_search.max_wait_for_completion_timeout", timeValueMinutes(1), Setting.Property.NodeScope,
             Setting.Property.Dynamic);
 
     private volatile long maxKeepAlive;
@@ -118,12 +119,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private final LongSupplier currentTimeSupplier;
     private final AsyncSearchStateMachine asyncSearchStateMachine;
     private final NamedWriteableRegistry namedWriteableRegistry;
-    private final AsyncSearchContextListener statsListener;
+    private final AsyncSearchContextEventListener contextEventListener;
 
     public AsyncSearchService(AsyncSearchPersistenceService asyncSearchPersistenceService, AsyncSearchActiveStore asyncSearchActiveStore,
                               Client client, ClusterService clusterService, ThreadPool threadPool,
-                              AsyncSearchContextListener contextListener, NamedWriteableRegistry namedWriteableRegistry) {
-        this.statsListener = contextListener;
+                              AsyncSearchContextEventListener contextListener, NamedWriteableRegistry namedWriteableRegistry) {
+        this.contextEventListener = contextListener;
         this.client = client;
         Settings settings = clusterService.getSettings();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
@@ -169,9 +170,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME), threadPool::relativeTimeInMillis,
                 reduceContextBuilder);
         AsyncSearchActiveContext asyncSearchContext = new AsyncSearchActiveContext(asyncSearchContextId, clusterService.localNode().getId(),
-                request.getKeepAlive(), request.getKeepOnCompletion(), threadPool, currentTimeSupplier, progressActionListener,
-                statsListener, user);
-        asyncSearchActiveStore.putContext(asyncSearchContextId, asyncSearchContext, statsListener::onContextRejected);
+                request.getKeepAlive(), request.getKeepOnCompletion(), threadPool, currentTimeSupplier, progressActionListener, user);
+        asyncSearchActiveStore.putContext(asyncSearchContextId, asyncSearchContext, contextEventListener::onContextRejected);
         return asyncSearchContext;
     }
 
@@ -312,7 +312,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                                                         GroupedActionListener<Boolean> groupedDeletionListener) {
         //Intent of the lock here is to disallow ongoing migration to system index
         // as if that is underway we might end up creating a new document post a DELETE was executed
-        asyncSearchContext.acquireContextPermit(ActionListener.wrap(
+        asyncSearchContext.acquireContextPermitIfRequired(ActionListener.wrap(
                 releasable -> {
                     boolean response = freeActiveContext(asyncSearchContext);
                     cancelTask(asyncSearchContext, "User triggered context deletion");
@@ -378,7 +378,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         // for all other stages we don't really care much as those contexts are destined to be discarded
         if (asyncSearchContextOptional.isPresent()) {
             AsyncSearchActiveContext asyncSearchActiveContext = asyncSearchContextOptional.get();
-            asyncSearchActiveContext.acquireContextPermit(ActionListener.wrap(
+            asyncSearchActiveContext.acquireContextPermitIfRequired(ActionListener.wrap(
                     releasable -> {
                         // At this point it's possible that the response would have been persisted to system index
                         if (asyncSearchActiveContext.getAsyncSearchState() == AsyncSearchState.PERSISTED) {
@@ -437,7 +437,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
 
     private AsyncSearchStateMachine initStateMachine() {
         AsyncSearchStateMachine stateMachine = new AsyncSearchStateMachine(
-                EnumSet.allOf(AsyncSearchState.class), INIT);
+                EnumSet.allOf(AsyncSearchState.class), INIT, contextEventListener);
 
         stateMachine.markTerminalStates(EnumSet.of(DELETED));
 
@@ -509,7 +509,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      * @return Async Search stats accumulated on the current node
      */
     public AsyncSearchStats stats() {
-        return ((InternalAsyncSearchStats) statsListener).stats(clusterService.localNode());
+        return ((InternalAsyncSearchStats) contextEventListener).stats(clusterService.localNode());
     }
 
 

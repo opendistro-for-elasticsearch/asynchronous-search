@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 /**
  * An listener for async search context events.
  */
-public interface AsyncSearchContextListener {
+public interface AsyncSearchContextEventListener {
 
     /**
      * @param contextId Executed when a new async search context was created

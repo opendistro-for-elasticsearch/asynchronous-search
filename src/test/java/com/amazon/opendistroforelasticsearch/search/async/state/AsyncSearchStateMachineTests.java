@@ -29,7 +29,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.event.Se
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchFailureEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchStartedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextEventListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
@@ -138,7 +138,7 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, discoveryNode.getId(),
                     keepAlive, true, threadPool,
-                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, customContextListener, null);
+                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, null);
             assertNull(context.getTask());
             assertEquals(context.getAsyncSearchState(), INIT);
             AsyncSearchStateMachine stateMachine = asyncSearchService.getStateMachine();
@@ -252,7 +252,7 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
         }
     }
 
-    static class CustomContextListener implements AsyncSearchContextListener {
+    static class CustomContextListener implements AsyncSearchContextEventListener {
 
         private final AtomicInteger runningCount = new AtomicInteger();
         private final AtomicInteger persistedCount = new AtomicInteger();

@@ -67,8 +67,8 @@ public class AsyncSearchManagementServiceIT extends AsyncSearchIntegTestCase {
         return Settings.builder()
                 .put(super.nodeSettings(nodeOrdinal))
                 .put("node.attr.asynchronous_search_enabled", true)
-                .put(AsyncSearchManagementService.REAPER_INTERVAL_SETTING.getKey(),  TimeValue.timeValueSeconds(5))
-                .put(AsyncSearchManagementService.RESPONSE_CLEAN_UP_INTERVAL_SETTING.getKey(),  TimeValue.timeValueSeconds(5))
+                .put(AsyncSearchManagementService.ACTIVE_CONTEXT_REAPER_INTERVAL_SETTING.getKey(),  TimeValue.timeValueSeconds(5))
+                .put(AsyncSearchManagementService.PERSISTED_RESPONSE_CLEAN_UP_INTERVAL_SETTING.getKey(),  TimeValue.timeValueSeconds(5))
                 .put(SearchService.LOW_LEVEL_CANCELLATION_SETTING.getKey(), lowLevelCancellation)
                 .build();
     }

@@ -1,7 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextEventListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import org.elasticsearch.Version;
@@ -87,13 +87,12 @@ public class AsyncSearchActiveStoreTests extends ESTestCase {
                                 runningContexts.incrementAndGet());
                         boolean keepOnCompletion = randomBoolean();
                         TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
-                        AsyncSearchContextListener asyncSearchContextListener = new AsyncSearchContextListener() {
+                        AsyncSearchContextEventListener asyncSearchContextEventListener = new AsyncSearchContextEventListener() {
                         };
                         AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node.getId(),
                                 keepAlive, keepOnCompletion, finalTestThreadPool1,
-                                finalTestThreadPool1::absoluteTimeInMillis, asyncSearchProgressListener, asyncSearchContextListener, null);
-
-                        activeStore.putContext(asyncSearchContextId, context, asyncSearchContextListener::onContextRejected);
+                                finalTestThreadPool1::absoluteTimeInMillis, asyncSearchProgressListener, null);
+                        activeStore.putContext(asyncSearchContextId, context, asyncSearchContextEventListener::onContextRejected);
                         numSuccesses.getAndIncrement();
                         Optional<AsyncSearchActiveContext> optional = activeStore.getContext(asyncSearchContextId);
                         assert (optional.isPresent());

@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextEventListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
@@ -82,8 +82,7 @@ public class AsyncSearchActiveContextTests extends AsyncSearchTestCase {
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
-                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
-            }, user);
+                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, user);
             assertEquals(AsyncSearchState.INIT, context.getAsyncSearchState());
             assertNull(context.getTask());
             assertNull(context.getAsyncSearchId());
@@ -118,8 +117,7 @@ public class AsyncSearchActiveContextTests extends AsyncSearchTestCase {
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
-                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
-            }, user);
+                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, user);
             AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport",
                     SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null, (c) -> {
             });
@@ -165,8 +163,7 @@ public class AsyncSearchActiveContextTests extends AsyncSearchTestCase {
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
-                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
-            }, null);
+                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, null);
 
             int numThreads = 10;
             AtomicInteger numSuccesses = new AtomicInteger();
@@ -228,8 +225,7 @@ public class AsyncSearchActiveContextTests extends AsyncSearchTestCase {
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsyncSearchActiveContext context = new AsyncSearchActiveContext(asyncSearchContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
-                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, new AsyncSearchContextListener() {
-            }, null);
+                    threadPool::absoluteTimeInMillis, asyncSearchProgressListener, null);
             AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport",
                     SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null, (c) -> {
             });

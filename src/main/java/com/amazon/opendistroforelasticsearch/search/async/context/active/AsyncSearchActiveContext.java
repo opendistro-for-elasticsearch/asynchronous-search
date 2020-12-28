@@ -21,10 +21,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchCon
 import com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchProgressActionListener;
@@ -49,13 +46,9 @@ import static com.amazon.opendistroforelasticsearch.search.async.context.state.A
  */
 public class AsyncSearchActiveContext extends AsyncSearchContext implements Closeable {
 
-    private static final Logger logger = LogManager.getLogger(AsyncSearchContext.class);
-
     private final SetOnce<SearchTask> searchTask;
-
     private volatile long expirationTimeMillis;
-
-    private volatile long startTimeMillis;
+    private long startTimeMillis;
     private final Boolean keepOnCompletion;
     private final TimeValue keepAlive;
     private final String nodeId;
@@ -64,6 +57,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     private final SetOnce<Exception> error;
     private final SetOnce<SearchResponse> searchResponse;
     private final AtomicBoolean closed;
+    @Nullable
     private AsyncSearchContextPermits asyncSearchContextPermits;
     @Nullable
     private final User user;
@@ -72,7 +66,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
                                     TimeValue keepAlive, boolean keepOnCompletion,
                                     ThreadPool threadPool, LongSupplier currentTimeSupplier,
                                     AsyncSearchProgressListener searchProgressActionListener,
-                                    AsyncSearchContextListener asyncSearchContextListener, @Nullable User user) {
+                                    @Nullable User user) {
         super(asyncSearchContextId, currentTimeSupplier);
         this.keepOnCompletion = keepOnCompletion;
         this.error = new SetOnce<>();
@@ -82,7 +76,6 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
         this.asyncSearchProgressListener = searchProgressActionListener;
         this.searchTask = new SetOnce<>();
         this.asyncSearchId = new SetOnce<>();
-        this.asyncSearchContextListener = asyncSearchContextListener;
         this.completed = new AtomicBoolean(false);
         this.closed = new AtomicBoolean(false);
         if (keepOnCompletion) {
@@ -163,7 +156,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
         return user;
     }
 
-    public void acquireContextPermit(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
+    public void acquireContextPermitIfRequired(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
         if (asyncSearchContextPermits != null) {
             asyncSearchContextPermits.asyncAcquirePermit(onPermitAcquired, timeout, reason);
         } else {
@@ -172,7 +165,9 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     }
 
     public void acquireAllContextPermits(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
-        assert asyncSearchContextPermits != null : "trying to acquire permits for non retained responses";
+        if (asyncSearchContextPermits == null) {
+            throw new IllegalStateException("Acquiring all permits is not allowed for asynchronous search id" + asyncSearchId.get());
+        }
         asyncSearchContextPermits.asyncAcquireAllPermits(onPermitAcquired, timeout, reason);
     }
 
@@ -187,7 +182,9 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            asyncSearchContextPermits.close();
+            if (asyncSearchContextPermits != null) {
+                asyncSearchContextPermits.close();
+            }
         }
     }
 }

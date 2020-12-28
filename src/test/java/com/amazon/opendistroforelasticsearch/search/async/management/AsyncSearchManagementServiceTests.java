@@ -61,7 +61,7 @@ public class AsyncSearchManagementServiceTests extends ESTestCase {
     public void testSchedulesContextReaperAtRefreshIntervals() {
         long refreshInterval = randomLongBetween(100000, 200000);
         final Settings settings = Settings.builder()
-                .put(AsyncSearchManagementService.REAPER_INTERVAL_SETTING.getKey(), refreshInterval + "ms")
+                .put(AsyncSearchManagementService.ACTIVE_CONTEXT_REAPER_INTERVAL_SETTING.getKey(), refreshInterval + "ms")
                 .build();
         AsyncSearchManagementService managementService = new AsyncSearchManagementService(settings, Mockito.mock(ClusterService.class),
                 deterministicTaskQueue.getThreadPool(), Mockito.mock(AsyncSearchService.class), Mockito.mock(TransportService.class),
@@ -91,7 +91,7 @@ public class AsyncSearchManagementServiceTests extends ESTestCase {
     public void testSchedulesResponseCleanupAtRefreshIntervals() {
         long refreshInterval = randomLongBetween(60000, 120000);
         final Settings settings = Settings.builder()
-                .put(AsyncSearchManagementService.RESPONSE_CLEAN_UP_INTERVAL_SETTING.getKey(), refreshInterval + "ms")
+                .put(AsyncSearchManagementService.PERSISTED_RESPONSE_CLEAN_UP_INTERVAL_SETTING.getKey(), refreshInterval + "ms")
                 .build();
         DiscoveryNode localNode = new DiscoveryNode("local-node", buildNewFakeTransportAddress(),
                 Collections.singletonMap("asynchronous_search_enabled", "true"), Sets.newHashSet(DiscoveryNodeRole.DATA_ROLE),

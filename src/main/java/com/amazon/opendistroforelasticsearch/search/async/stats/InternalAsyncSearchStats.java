@@ -16,11 +16,11 @@
 package com.amazon.opendistroforelasticsearch.search.async.stats;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextListener;
+import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchContextEventListener;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.metrics.CounterMetric;
 
-public class InternalAsyncSearchStats implements AsyncSearchContextListener {
+public class InternalAsyncSearchStats implements AsyncSearchContextEventListener {
 
     private final CountStatsHolder countStatsHolder = new CountStatsHolder();
 

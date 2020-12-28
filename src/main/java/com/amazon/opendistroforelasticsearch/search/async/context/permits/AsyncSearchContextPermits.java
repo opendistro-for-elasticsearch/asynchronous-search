@@ -69,7 +69,7 @@ public class AsyncSearchContextPermits implements Closeable {
             if (semaphore.tryAcquire(permits, timeout.getMillis(), TimeUnit.MILLISECONDS)) {
                 this.lockDetails = details;
                 release = new RunOnce(() -> {
-                    logger.warn("Releasing permit(s) [{}] with reason [{}]", permits, lockDetails);
+                    logger.debug("Releasing permit(s) [{}] with reason [{}]", permits, lockDetails);
                     semaphore.release(permits);});
                 if (closed) {
                     release.run();
@@ -100,7 +100,7 @@ public class AsyncSearchContextPermits implements Closeable {
             @Override
             protected void doRun() throws TimeoutException, AsyncSearchContextClosedException {
                 final Releasable releasable = acquirePermits(permits, timeout, reason);
-                logger.warn("Successfully acquired context permit {} for {}", permits, reason);
+                logger.debug("Successfully acquired context permit {} for {}", permits, reason);
                 onAcquired.onResponse(releasable);
             }
         });
