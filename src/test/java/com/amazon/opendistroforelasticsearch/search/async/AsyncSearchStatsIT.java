@@ -1,6 +1,7 @@
 package com.amazon.opendistroforelasticsearch.search.async;
 
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
+import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchStatsRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
@@ -44,7 +45,7 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
         logger.info("Using lowLevelCancellation: {}", lowLevelCancellation);
         return Settings.builder()
                 .put(super.nodeSettings(nodeOrdinal))
-                .put("async_search.max_running_context", asyncSearchConcurrentLimit)
+                .put(AsyncSearchActiveStore.MAX_RUNNING_CONTEXT.getKey(), asyncSearchConcurrentLimit)
                 .build();
     }
 

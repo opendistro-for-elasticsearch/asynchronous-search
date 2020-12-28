@@ -48,7 +48,7 @@ public class AsyncSearchSettingsIT extends AsyncSearchRestTestCase {
             ResponseException responseException = expectThrows(ResponseException.class, () -> executeSubmitAsyncSearch(invalidRequest));
             assertThat(responseException.getMessage(), containsString("Wait for completion timeout for async search (" +
                     validRequest.getWaitForCompletionTimeout().getMillis() + ") is too large"));
-            updateClusterSettings(AsyncSearchService.MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.getKey(), TimeValue.timeValueSeconds(2));
+            updateClusterSettings(AsyncSearchService.MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.getKey(), TimeValue.timeValueSeconds(60));
         } finally {
             deleteIndexIfExists();
         }

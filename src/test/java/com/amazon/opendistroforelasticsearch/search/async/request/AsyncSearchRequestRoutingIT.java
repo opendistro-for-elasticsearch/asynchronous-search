@@ -31,7 +31,7 @@ import static org.elasticsearch.index.query.QueryBuilders.scriptQuery;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertAcked;
 import static org.hamcrest.Matchers.containsString;
 
-@ESIntegTestCase.ClusterScope(numDataNodes = 5, transportClientRatio = 0)
+@ESIntegTestCase.ClusterScope(numDataNodes = 5)
 public class AsyncSearchRequestRoutingIT extends AsyncSearchIntegTestCase {
 
     @Override

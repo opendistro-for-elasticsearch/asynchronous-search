@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async;
 
+import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
@@ -53,7 +54,7 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
 
     @Override
     protected Settings nodeSettings() {
-        return Settings.builder().put("async_search.max_running_context", asyncSearchConcurrentLimit).build();
+        return Settings.builder().put(AsyncSearchActiveStore.MAX_RUNNING_CONTEXT.getKey(), asyncSearchConcurrentLimit).build();
     }
 
     public void testSubmitAsyncSearchWithoutRetainedResponse() throws InterruptedException {
@@ -68,8 +69,8 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         assertConcurrentSubmits(submitAsyncSearchRequest, searchResponse, (numStartedAsyncSearch, numFailedAsyncSearch,
                                                                            numErrorResponseAsyncSearch) -> {
             assertEquals(concurrentRuns, numStartedAsyncSearch.get());
-            assertEquals(0,  numFailedAsyncSearch.get());
-            assertEquals(0,  numErrorResponseAsyncSearch.get());
+            assertEquals(0, numFailedAsyncSearch.get());
+            assertEquals(0, numErrorResponseAsyncSearch.get());
         }, concurrentRuns);
     }
 
@@ -85,8 +86,8 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         assertConcurrentSubmits(submitAsyncSearchRequest, searchResponse, (numStartedAsyncSearch, numFailedAsyncSearch,
                                                                            numErrorResponseAsyncSearch) -> {
             assertEquals(concurrentRuns, numStartedAsyncSearch.get());
-            assertEquals(0,  numFailedAsyncSearch.get());
-            assertEquals(0,  numErrorResponseAsyncSearch.get());
+            assertEquals(0, numFailedAsyncSearch.get());
+            assertEquals(0, numErrorResponseAsyncSearch.get());
         }, concurrentRuns);
     }
 
@@ -94,8 +95,8 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         int concurrentRuns = randomIntBetween(asyncSearchConcurrentLimit + 10, asyncSearchConcurrentLimit + 20);
         assertConcurrentSubmitsForBlockedSearch((numStartedAsyncSearch, numFailedAsyncSearch, numRejectedAsyncSearch) -> {
             assertEquals(asyncSearchConcurrentLimit, numStartedAsyncSearch.get());
-            assertEquals(concurrentRuns - asyncSearchConcurrentLimit,  numFailedAsyncSearch.get());
-            assertEquals(concurrentRuns - asyncSearchConcurrentLimit,  numRejectedAsyncSearch.get());
+            assertEquals(concurrentRuns - asyncSearchConcurrentLimit, numFailedAsyncSearch.get());
+            assertEquals(concurrentRuns - asyncSearchConcurrentLimit, numRejectedAsyncSearch.get());
         }, concurrentRuns);
     }
 
@@ -204,12 +205,14 @@ public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
 
                                     @Override
                                     public void onFailure(Exception e) {
-                                        fail("Search deletion failed for async search id "+ asyncSearchResponse.getId());
+                                        fail("Search deletion failed for async search id " + asyncSearchResponse.getId());
                                         finalCountDownLatch.countDown();
                                     }
                                 });
-                            };
+                            }
+                            ;
                         }
+
                         @Override
                         public void onFailure(Exception e) {
                             numFailedAsyncSearch.incrementAndGet();

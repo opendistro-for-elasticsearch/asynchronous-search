@@ -49,7 +49,7 @@ public class AsyncSearchActiveStoreTests extends ESTestCase {
         Settings settings = Settings.builder()
                 .put("node.name", "test")
                 .put("cluster.name", "ClusterServiceTests")
-                .put("async_search.max_running_context", maxRunningContexts) //TODO setting not working fix this
+                .put(AsyncSearchActiveStore.MAX_RUNNING_CONTEXT.getKey(), maxRunningContexts) //TODO setting not working fix this
                 .build();
         final Set<Setting<?>> settingsSet =
                 Stream.concat(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(), Stream.of(
