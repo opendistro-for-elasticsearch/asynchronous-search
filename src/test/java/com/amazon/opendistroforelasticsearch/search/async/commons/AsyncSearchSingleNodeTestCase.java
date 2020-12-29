@@ -78,6 +78,7 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        assertTrue(getInstanceFromNode(AsyncSearchService.class).getAllActiveContexts().isEmpty());
         createIndex(TEST_INDEX, Settings.builder().put("index.refresh_interval", -1).build());
         for (int i = 0; i < 10; i++)
             client().prepareIndex(TEST_INDEX, "type", String.valueOf(i)).setSource("field", "value" + i)
@@ -195,6 +196,7 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
 
     @After
     public void tearDownData() throws InterruptedException {
+        waitUntil(() -> getInstanceFromNode(AsyncSearchService.class).getAllActiveContexts().isEmpty());
         logger.warn("delete async search response index");
         CountDownLatch deleteLatch = new CountDownLatch(1);
         client().admin().indices().prepareDelete(INDEX).execute(ActionListener.wrap(r -> deleteLatch.countDown(), e -> {
