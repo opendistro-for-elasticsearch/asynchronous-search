@@ -1,5 +1,6 @@
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.integTests;
 
+import com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchSingleNodeTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
@@ -30,22 +31,30 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 public class MixedOperationSingleNodeIT extends AsyncSearchSingleNodeTestCase {
 
     public void testGetAsyncSearchForRetainedResponse() throws InterruptedException {
-        SearchRequest searchRequest = new SearchRequest();
-        searchRequest.indices("index");
-        searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
-        submitAsyncSearchRequest.keepOnCompletion(true);
-        submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 5000)));
-        AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
-        assertNotNull(submitResponse);
-        int concurrentRuns = randomIntBetween(20, 50);
-        assertConcurrentGetOrUpdatesWithDeletes(submitResponse,
-                (numSuccess, numGetFailures, numVersionConflictFailure, numResourceNotFoundFailures) -> {
-                    assertEquals(concurrentRuns, numSuccess.get() + numResourceNotFoundFailures.get()
-                            + numVersionConflictFailure.get());
-                    assertEquals(0, numGetFailures.get());
-                }, false, concurrentRuns, true);
-        assertAsyncSearchResourceCleanUp(submitResponse.getId());
+        try {
+            SearchRequest searchRequest = new SearchRequest();
+            searchRequest.indices("index");
+            searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            submitAsyncSearchRequest.keepOnCompletion(true);
+            submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 5000)));
+            AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
+            assertNotNull(submitResponse);
+            int concurrentRuns = randomIntBetween(20, 50);
+            assertConcurrentGetOrUpdatesWithDeletes(submitResponse,
+                    (numSuccess, numGetFailures, numVersionConflictFailure, numResourceNotFoundFailures) -> {
+                        assertEquals(concurrentRuns, numSuccess.get() + numResourceNotFoundFailures.get()
+                                + numVersionConflictFailure.get());
+                        assertEquals(0, numGetFailures.get());
+                    }, false, concurrentRuns, true);
+            assertAsyncSearchResourceCleanUp(submitResponse.getId());
+        } finally {
+            CountDownLatch deleteLatch = new CountDownLatch(1);
+            client().admin().indices().prepareDelete(INDEX).execute(ActionListener.wrap(r -> deleteLatch.countDown(), e -> {
+                deleteLatch.countDown();
+            }));
+            deleteLatch.await();
+        }
     }
 
     private void assertConcurrentGetOrUpdatesWithDeletes(AsyncSearchResponse submitResponse,
@@ -61,11 +70,11 @@ public class MixedOperationSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         try {
             testThreadPool = new TestThreadPool(GetAsyncSearchSingleNodeIT.class.getName());
             int numThreads = concurrentRuns;
-            long lowerKeepAliveMillis = 5 * 1000 * 60 * 60 ; // 5 hours in millis
+            long lowerKeepAliveMillis = 5 * 1000 * 60 * 60; // 5 hours in millis
             long higherKeepAliveMillis = 10 * 1000 * 60 * 60; // 10 hours in millis
             List<Runnable> operationThreads = new ArrayList<>();
             CountDownLatch countDownLatch = new CountDownLatch(numThreads);
-            long randomDeleteThread = randomLongBetween(0, numThreads);
+            long randomDeleteThread = randomLongBetween(1, numThreads);
             for (int i = 0; i < numThreads; i++) {
                 long keepAlive = randomLongBetween(lowerKeepAliveMillis, higherKeepAliveMillis);
                 int currentThreadIteration = i;
@@ -74,21 +83,21 @@ public class MixedOperationSingleNodeIT extends AsyncSearchSingleNodeTestCase {
                         DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(submitResponse.getId());
                         executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest,
                                 new LatchedActionListener<>(new ActionListener<AcknowledgedResponse>() {
-                            @Override
-                            public void onResponse(AcknowledgedResponse acknowledgedResponse) {
-                                assertTrue(acknowledgedResponse.isAcknowledged());
-                                numSuccess.incrementAndGet();
-                            }
+                                    @Override
+                                    public void onResponse(AcknowledgedResponse acknowledgedResponse) {
+                                        assertTrue(acknowledgedResponse.isAcknowledged());
+                                        numSuccess.incrementAndGet();
+                                    }
 
-                            @Override
-                            public void onFailure(Exception e) {
-                                if (e instanceof ElasticsearchTimeoutException) {
-                                    numTimeouts.incrementAndGet();
-                                } else {
-                                    fail("Unexpected exception "+ e.getMessage());
-                                }
-                            }
-                        }, countDownLatch));
+                                    @Override
+                                    public void onFailure(Exception e) {
+                                        if (e instanceof ElasticsearchTimeoutException) {
+                                            numTimeouts.incrementAndGet();
+                                        } else {
+                                            fail("Unexpected exception " + e.getMessage());
+                                        }
+                                    }
+                                }, countDownLatch));
                     } else {
                         GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
                         long requestedTime = System.currentTimeMillis() + keepAlive;

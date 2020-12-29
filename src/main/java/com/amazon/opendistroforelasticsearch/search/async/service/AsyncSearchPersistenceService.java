@@ -141,16 +141,16 @@ public class AsyncSearchPersistenceService {
                         if (isUserValid(user, asyncSearchPersistenceModel.getUser())) {
                             listener.onResponse(asyncSearchPersistenceModel);
                         } else {
-                            logger.debug("Invalid user requesting GET persisted context for async search id {}", id);
+                            logger.debug("Invalid user requesting GET persisted context for async search [{}]", id);
                             listener.onFailure(new ElasticsearchSecurityException(
-                                    "User doesn't have necessary roles to access the async search with id " + id, RestStatus.FORBIDDEN));
+                                    "User doesn't have necessary roles to access the async search [" + id + "]", RestStatus.FORBIDDEN));
                         }
                     } else {
                         listener.onFailure(new ResourceNotFoundException(id));
                     }
                 },
                 exception -> {
-                    logger.error(() -> new ParameterizedMessage("Failed to get response for async search {}", id), exception);
+                    logger.error(() -> new ParameterizedMessage("Failed to get response for async search [{}]", id), exception);
                     final Throwable cause = ExceptionsHelper.unwrapCause(exception);
                     listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
                 }));
@@ -287,7 +287,7 @@ public class AsyncSearchPersistenceService {
             if (cause instanceof DocumentMissingException) {
                 listener.onFailure(new ResourceNotFoundException(id));
             } else {
-                logger.error(() -> new ParameterizedMessage("Exception occurred updating expiration time for async search {}",
+                logger.error(() -> new ParameterizedMessage("Exception occurred updating expiration time for async search [{}]",
                         id), exception);
                 listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
             }
@@ -314,8 +314,7 @@ public class AsyncSearchPersistenceService {
                                 if ((deleteResponse.getBulkFailures() != null && deleteResponse.getBulkFailures().size() > 0) ||
                                         (deleteResponse.getSearchFailures() != null && deleteResponse.getSearchFailures().size() > 0)) {
                                     logger.error("Failed to delete expired async search responses with bulk failures[{}] / search " +
-                                                    "failures [{}] as ",
-                                            deleteResponse.getBulkFailures(), deleteResponse.getSearchFailures());
+                                            "failures [{}]", deleteResponse.getBulkFailures(), deleteResponse.getSearchFailures());
                                     listener.onResponse(new AcknowledgedResponse(false));
 
                                 } else {
@@ -375,13 +374,15 @@ public class AsyncSearchPersistenceService {
             public void onFailure(Exception e) {
                 final Throwable cause = ExceptionsHelper.unwrapCause(e);
                 if (((cause instanceof EsRejectedExecutionException || cause instanceof ClusterBlockException
-                        || TransportActions.isShardNotAvailableException(e)) == false) || backoff.hasNext() == false) {
-                    logger.error(() -> new ParameterizedMessage("failed to store async search response, not retrying"), e);
-                    listener.onFailure(e);
-                } else {
+                        || TransportActions.isShardNotAvailableException(e))) && backoff.hasNext()) {
                     TimeValue wait = backoff.next();
-                    logger.warn(() -> new ParameterizedMessage("failed to store async search response, retrying in [{}]", wait), e);
+                    logger.warn(() -> new ParameterizedMessage("failed to store async search response [{}], retrying in [{}]",
+                            indexRequestBuilder.request().id(), wait), e);
                     threadPool.schedule(() -> doStoreResult(backoff, indexRequestBuilder, listener), wait, ThreadPool.Names.SAME);
+                } else {
+                    logger.error(() -> new ParameterizedMessage("failed to store async search response [{}], not retrying",
+                            indexRequestBuilder.request().id()), e);
+                    listener.onFailure(e);
                 }
             }
         });

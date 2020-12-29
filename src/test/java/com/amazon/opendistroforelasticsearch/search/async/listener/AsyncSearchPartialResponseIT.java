@@ -14,7 +14,7 @@
  */
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchAssertions;
+import com.amazon.opendistroforelasticsearch.search.async.utils.AsyncSearchAssertions;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.index.IndexRequestBuilder;

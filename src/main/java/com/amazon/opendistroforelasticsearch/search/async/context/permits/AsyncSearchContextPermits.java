@@ -92,7 +92,7 @@ public class AsyncSearchContextPermits implements Closeable {
         threadPool.executor(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(new AbstractRunnable() {
             @Override
             public void onFailure(final Exception e) {
-                logger.debug(() -> new ParameterizedMessage("Failed to acquire permit {} for {}",
+                logger.debug(() -> new ParameterizedMessage("Failed to acquire permit [{}] for [{}]",
                         permits, reason), e);
                 onAcquired.onFailure(e);
             }
@@ -100,7 +100,7 @@ public class AsyncSearchContextPermits implements Closeable {
             @Override
             protected void doRun() throws TimeoutException, AsyncSearchContextClosedException {
                 final Releasable releasable = acquirePermits(permits, timeout, reason);
-                logger.debug("Successfully acquired context permit {} for {}", permits, reason);
+                logger.debug("Successfully acquired context permit [{}] for [{}]", permits, reason);
                 onAcquired.onResponse(releasable);
             }
         });

@@ -1,6 +1,7 @@
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.integTests;
 
 import com.amazon.opendistroforelasticsearch.search.async.action.AsyncSearchStatsAction;
+import com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchIntegTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchStatsRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
@@ -30,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIntegTestCase.ScriptedBlockPlugin.SCRIPT_NAME;
+import static com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchIntegTestCase.ScriptedBlockPlugin.SCRIPT_NAME;
 import static org.elasticsearch.index.query.QueryBuilders.scriptQuery;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;

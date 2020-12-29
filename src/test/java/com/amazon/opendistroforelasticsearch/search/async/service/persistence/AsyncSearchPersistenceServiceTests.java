@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.search.async.service.persistence;
 
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchSingleNodeTestCase;
+import com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchSingleNodeTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService;

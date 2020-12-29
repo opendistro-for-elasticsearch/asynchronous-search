@@ -13,9 +13,10 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.integTests;
 
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchIntegTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
@@ -44,7 +45,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIntegTestCase.ScriptedBlockPlugin.SCRIPT_NAME;
+import static com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchIntegTestCase.ScriptedBlockPlugin.SCRIPT_NAME;
 import static org.elasticsearch.index.query.QueryBuilders.scriptQuery;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertNoFailures;
 import static org.hamcrest.Matchers.equalTo;

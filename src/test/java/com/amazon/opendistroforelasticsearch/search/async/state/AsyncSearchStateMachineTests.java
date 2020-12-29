@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.state;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchTestCase;
+import com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;

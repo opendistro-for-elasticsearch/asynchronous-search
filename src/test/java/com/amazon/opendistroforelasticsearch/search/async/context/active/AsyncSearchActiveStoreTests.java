@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchTestCase.mockAsyncSearchProgressListener;
+import static com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchTestCase.mockAsyncSearchProgressListener;
 
 public class AsyncSearchActiveStoreTests extends ESTestCase {
     private ClusterSettings clusterSettings;

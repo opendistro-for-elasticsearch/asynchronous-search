@@ -227,13 +227,13 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
                         @Override
                         public void handleResponse(AcknowledgedResponse response) {
-                            logger.debug("Successfully executed clean up action on node {} with response {}", randomNode,
+                            logger.debug("Successfully executed clean up action on node [{}] with response [{}]", randomNode,
                                     response.isAcknowledged());
                         }
 
                         @Override
                         public void handleException(TransportException e) {
-                            logger.error(() -> new ParameterizedMessage("Exception executing action {}",
+                            logger.error(() -> new ParameterizedMessage("Exception executing action [{}]",
                                     CLEANUP_ACTION_NAME), e);
                         }
 

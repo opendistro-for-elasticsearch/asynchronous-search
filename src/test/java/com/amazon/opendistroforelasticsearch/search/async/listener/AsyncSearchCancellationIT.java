@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.listener;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchAssertions;
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIntegTestCase;
+import com.amazon.opendistroforelasticsearch.search.async.utils.AsyncSearchAssertions;
+import com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchIntegTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksResponse;
 import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
@@ -50,7 +50,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchIntegTestCase.ScriptedBlockPlugin.SCRIPT_NAME;
+import static com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchIntegTestCase.ScriptedBlockPlugin.SCRIPT_NAME;
 import static org.elasticsearch.index.query.QueryBuilders.scriptQuery;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertNoFailures;
 import static org.hamcrest.Matchers.equalTo;

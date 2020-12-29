@@ -54,7 +54,7 @@ public class AsyncSearchTask extends SearchTask {
 
     @Override
     protected void onCancelled() {
-        logger.debug("On Cancelled async search context for id {} due to [{}]", asyncSearchActiveContext.getAsyncSearchId(),
+        logger.debug("On Cancelled event received for async search context [{}] due to [{}]", asyncSearchActiveContext.getAsyncSearchId(),
                 getReasonCancelled());
         freeActiveContextConsumer.accept(asyncSearchActiveContext);
     }

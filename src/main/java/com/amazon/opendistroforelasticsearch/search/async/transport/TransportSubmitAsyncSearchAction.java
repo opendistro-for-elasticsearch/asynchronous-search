@@ -107,17 +107,17 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             transportSearchAction.execute(searchRequest, progressListener);
 
         } catch (Exception e) {
-            logger.error(() -> new ParameterizedMessage("Failed to submit async search request {}", request), e);
+            logger.error(() -> new ParameterizedMessage("Failed to submit async search request [{}]", request), e);
             if (asyncSearchContext != null) {
                 AsyncSearchActiveContext asyncSearchActiveContext = (AsyncSearchActiveContext) asyncSearchContext;
                 asyncSearchService.freeContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), user,
                         ActionListener.wrap((r) -> {
                             logger.debug(() -> new ParameterizedMessage("Successfully cleaned up context on submit async" +
-                                    " search id [{}] on failure", asyncSearchActiveContext.getAsyncSearchId()), e);
+                                    " search [{}] on failure", asyncSearchActiveContext.getAsyncSearchId()), e);
                             listener.onFailure(e);
                         }, (ex) -> {
                             logger.debug(() -> new ParameterizedMessage("Failed to cleaned up context on submit async search" +
-                                    " id [{}] on failure", asyncSearchActiveContext.getAsyncSearchId()), ex);
+                                    " [{}] on failure", asyncSearchActiveContext.getAsyncSearchId()), ex);
                             listener.onFailure(e);
                         })
                 );

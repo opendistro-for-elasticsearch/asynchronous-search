@@ -13,7 +13,7 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.commons;
 
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
@@ -195,7 +195,7 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
 
     @After
     public void tearDownData() throws InterruptedException {
-
+        logger.warn("delete async search response index");
         CountDownLatch deleteLatch = new CountDownLatch(1);
         client().admin().indices().prepareDelete(INDEX).execute(ActionListener.wrap(r -> deleteLatch.countDown(), e -> {
             deleteLatch.countDown();

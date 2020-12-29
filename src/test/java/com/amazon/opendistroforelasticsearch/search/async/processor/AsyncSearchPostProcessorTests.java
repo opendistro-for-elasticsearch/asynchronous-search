@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.processor;
 
-import com.amazon.opendistroforelasticsearch.search.async.AsyncSearchAssertions;
+import com.amazon.opendistroforelasticsearch.search.async.utils.AsyncSearchAssertions;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService;

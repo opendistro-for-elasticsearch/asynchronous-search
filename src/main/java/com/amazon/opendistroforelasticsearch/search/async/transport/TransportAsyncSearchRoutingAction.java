@@ -101,7 +101,7 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
                         logger, threadPool.getThreadContext());
                 this.targetNode = clusterService.state().nodes().get(asyncSearchId.getNode());
             } catch (IllegalArgumentException e) { // failure in parsing async search
-                logger.error("Failed to parse async search ID " + request.getId(), e);
+                logger.error(() -> new ParameterizedMessage("Failed to parse async search ID [{}]", request.getId()), e);
                 listener.onFailure(new ResourceNotFoundException(request.getId()));
                 throw e;
             }
@@ -109,7 +109,7 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
 
         @Override
         public void onFailure(Exception e) {
-            logger.error(new ParameterizedMessage("Failed to dispatch request for action {} for async search {}", actionName,
+            logger.error(() -> new ParameterizedMessage("Failed to dispatch request for action [{}] for async search [{}]", actionName,
                     request.getId()), e);
             sendLocalRequest(asyncSearchId, request, listener);
         }

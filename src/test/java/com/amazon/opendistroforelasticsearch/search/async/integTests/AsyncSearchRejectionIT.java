@@ -13,10 +13,12 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.integTests;
 
+import com.amazon.opendistroforelasticsearch.search.async.utils.AsyncSearchAssertions;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchIntegTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListenerIT;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;

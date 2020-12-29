@@ -13,8 +13,10 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.async;
+package com.amazon.opendistroforelasticsearch.search.async.integTests;
 
+import com.amazon.opendistroforelasticsearch.search.async.utils.AsyncSearchAssertions;
+import com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchSingleNodeTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
@@ -45,7 +47,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.amazon.opendistroforelasticsearch.search.async.AsyncSearchSingleNodeTestCase.SearchDelayPlugin.SCRIPT_NAME;
+import static com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchSingleNodeTestCase.SearchDelayPlugin.SCRIPT_NAME;
 import static org.elasticsearch.index.query.QueryBuilders.scriptQuery;
 
 public class SubmitAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase {

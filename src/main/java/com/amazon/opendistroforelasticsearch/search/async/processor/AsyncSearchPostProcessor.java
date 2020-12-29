@@ -5,7 +5,6 @@ import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSe
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchContextClosedException;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachineClosedException;
@@ -15,6 +14,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.state.event.Se
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchResponsePersistedEvent;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchSuccessfulEvent;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -121,13 +121,14 @@ public class AsyncSearchPostProcessor {
                                         } catch (AsyncSearchStateMachineClosedException ex) {
                                             //this should never happen since we had checked after acquiring the all permits so a
                                             // concurrent delete is not expected here
-                                            throw new IllegalStateException(String.format(Locale.ROOT,"Unexpected, state machine for " +
-                                                     "context id [%s] closed while triggering event",
+                                            throw new IllegalStateException(String.format(Locale.ROOT, "Unexpected, state machine for " +
+                                                            "context id [%s] closed while triggering event",
                                                     asyncSearchContext.getAsyncSearchId(),
                                                     SearchResponsePersistFailedEvent.class.getName()));
                                         }
-                                        logger.error("Failed to persist final response for async search [{}] due to [{}]",
-                                                asyncSearchContext.getAsyncSearchId(), e);
+                                        logger.error(() -> new ParameterizedMessage(
+                                                "Failed to persist final response for async search [{}]",
+                                                asyncSearchContext.getAsyncSearchId()), e);
                                     }
                             ), releasable::close));
 
@@ -137,8 +138,8 @@ public class AsyncSearchPostProcessor {
                     Throwable cause = ExceptionsHelper.unwrapCause(e);
                     Level level = cause instanceof AsyncSearchContextClosedException || cause instanceof TimeoutException
                             ? Level.DEBUG : Level.WARN;
-                    logger.log(level, () -> new ParameterizedMessage("Exception while acquiring the permit for " +
-                            "asyncSearchContext [{}] due to ", asyncSearchContext), e);
+                    logger.log(level, () -> new ParameterizedMessage("Exception  occured while acquiring the permit for " +
+                            "asyncSearchContext [{}]", asyncSearchContext.getAsyncSearchId()), e);
                     freeActiveContextConsumer.accept(asyncSearchContext);
                 }),
                 TimeValue.timeValueSeconds(120), "persisting response");
