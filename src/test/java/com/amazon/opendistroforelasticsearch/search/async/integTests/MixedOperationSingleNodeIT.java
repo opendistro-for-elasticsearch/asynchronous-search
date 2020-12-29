@@ -30,7 +30,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
 public class MixedOperationSingleNodeIT extends AsyncSearchSingleNodeTestCase {
 
-    public void testGetAsyncSearchForRetainedResponse() throws InterruptedException {
+    public void testGetAndDeleteAsyncSearchForRetainedResponse() throws InterruptedException {
         try {
             SearchRequest searchRequest = new SearchRequest();
             searchRequest.indices("index");
@@ -74,7 +74,7 @@ public class MixedOperationSingleNodeIT extends AsyncSearchSingleNodeTestCase {
             long higherKeepAliveMillis = 10 * 1000 * 60 * 60; // 10 hours in millis
             List<Runnable> operationThreads = new ArrayList<>();
             CountDownLatch countDownLatch = new CountDownLatch(numThreads);
-            long randomDeleteThread = randomLongBetween(1, numThreads);
+            long randomDeleteThread = randomLongBetween(0, numThreads - 1);
             for (int i = 0; i < numThreads; i++) {
                 long keepAlive = randomLongBetween(lowerKeepAliveMillis, higherKeepAliveMillis);
                 int currentThreadIteration = i;

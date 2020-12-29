@@ -126,9 +126,8 @@ public class AsyncSearchPostProcessor {
                                                     asyncSearchContext.getAsyncSearchId(),
                                                     SearchResponsePersistFailedEvent.class.getName()));
                                         }
-                                        logger.error(() -> new ParameterizedMessage(
-                                                "Failed to persist final response for async search [{}]",
-                                                asyncSearchContext.getAsyncSearchId()), e);
+                                        logger.error(() -> new ParameterizedMessage("Failed to persist final response for [{}] due to [{}]",
+                                                asyncSearchContext.getAsyncSearchId(), e));
                                     }
                             ), releasable::close));
 
