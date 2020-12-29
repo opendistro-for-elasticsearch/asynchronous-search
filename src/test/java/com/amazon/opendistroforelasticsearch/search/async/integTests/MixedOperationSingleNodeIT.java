@@ -58,8 +58,8 @@ public class MixedOperationSingleNodeIT extends AsyncSearchSingleNodeTestCase {
     }
 
     private void assertConcurrentGetOrUpdatesWithDeletes(AsyncSearchResponse submitResponse,
-                                              QuadConsumer<AtomicInteger, AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer,
-                                              boolean update, int concurrentRuns, boolean retainResponse)
+                                                         QuadConsumer<AtomicInteger, AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer,
+                                                         boolean update, int concurrentRuns, boolean retainResponse)
             throws InterruptedException {
         AtomicInteger numSuccess = new AtomicInteger();
         AtomicInteger numGetFailures = new AtomicInteger();
@@ -140,11 +140,11 @@ public class MixedOperationSingleNodeIT extends AsyncSearchSingleNodeTestCase {
             operationThreads.forEach(runnable -> finalTestThreadPool.executor("generic").execute(runnable));
             countDownLatch.await();
             if (retainResponse && update) {
+                assertEquals(numTimeouts.get(), 0);
                 assertionConsumer.apply(numSuccess, numGetFailures, numVersionConflictFailures, numTimeouts);
             } else {
                 assertionConsumer.apply(numSuccess, numGetFailures, numVersionConflictFailures, numResourceNotFoundFailures);
             }
-
         } finally {
             ThreadPool.terminate(testThreadPool, 500, TimeUnit.MILLISECONDS);
         }
