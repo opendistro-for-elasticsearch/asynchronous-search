@@ -57,9 +57,8 @@ public class MixedOperationSingleNodeIT extends AsyncSearchSingleNodeTestCase {
         }
     }
 
-    private void assertConcurrentGetOrUpdatesWithDeletes(AsyncSearchResponse submitResponse,
-                                                         QuadConsumer<AtomicInteger, AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer,
-                                                         boolean update, int concurrentRuns, boolean retainResponse)
+    private void assertConcurrentGetOrUpdatesWithDeletes(AsyncSearchResponse submitResponse, QuadConsumer<AtomicInteger,
+            AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer, boolean update, int concurrentRuns, boolean retainResponse)
             throws InterruptedException {
         AtomicInteger numSuccess = new AtomicInteger();
         AtomicInteger numGetFailures = new AtomicInteger();
