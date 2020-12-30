@@ -140,7 +140,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
         try {
             SearchRequest searchRequest = new SearchRequest("test");
             searchRequest.setCcsMinimizeRoundtrips(true);
-            SubmitAsyncSearchRequest request = getRequestWithDefaults(searchRequest);
+            SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
             try {
                 AsyncSearchResponse asyncSearchResponse = executeSubmitAsyncSearch(request);
                 fail("Expecting ResponseException with param validation failure");
