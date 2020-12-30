@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSear
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveContext;
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
@@ -27,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearch
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.lucene.search.TotalHits;
@@ -37,11 +37,11 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.painless.PainlessPlugin;
 import org.elasticsearch.index.IndexNotFoundException;
+import org.elasticsearch.index.reindex.ReindexPlugin;
+import org.elasticsearch.painless.PainlessPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.PluginsService;
-import org.elasticsearch.index.reindex.ReindexPlugin;
 import org.elasticsearch.script.MockScriptPlugin;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
@@ -53,13 +53,13 @@ import org.elasticsearch.test.ESSingleNodeTestCase;
 import org.junit.After;
 import org.junit.Before;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.concurrent.CountDownLatch;
-import java.util.List;
-import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -118,7 +118,7 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
     }
 
     public static void executeGetAsyncSearch(Client client, GetAsyncSearchRequest request,
-                                                ActionListener<AsyncSearchResponse> listener) {
+                                             ActionListener<AsyncSearchResponse> listener) {
         client.execute(GetAsyncSearchAction.INSTANCE, request, listener);
     }
 

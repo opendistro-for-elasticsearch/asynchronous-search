@@ -48,7 +48,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("index");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
         submitAsyncSearchRequest.keepOnCompletion(true);
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 500)));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
@@ -67,7 +67,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("index");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
         submitAsyncSearchRequest.keepOnCompletion(false);
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 500)));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
@@ -85,7 +85,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("index");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
         submitAsyncSearchRequest.keepOnCompletion(false);
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(5000));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
@@ -104,7 +104,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("index");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
         submitAsyncSearchRequest.keepOnCompletion(true);
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(5000));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
@@ -124,7 +124,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         SearchRequest searchRequest = new SearchRequest("index");
         searchRequest.source(new SearchSourceBuilder());
         searchRequest.source().query(scriptQuery(new Script(ScriptType.INLINE, "mockscript", SCRIPT_NAME, Collections.emptyMap())));
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
         submitAsyncSearchRequest.keepOnCompletion(true);
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 500)));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();
@@ -144,7 +144,7 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
         SearchRequest searchRequest = new SearchRequest("index");
         searchRequest.source(new SearchSourceBuilder());
         searchRequest.source().query(scriptQuery(new Script(ScriptType.INLINE, "mockscript", SCRIPT_NAME, Collections.emptyMap())));
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        SubmitAsyncSearchRequest submitAsyncSearchRequest =SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
         submitAsyncSearchRequest.keepOnCompletion(false);
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 500)));
         AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest).actionGet();

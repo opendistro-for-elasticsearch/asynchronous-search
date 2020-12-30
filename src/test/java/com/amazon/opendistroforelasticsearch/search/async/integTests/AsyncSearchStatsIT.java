@@ -133,7 +133,8 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
 
                         } else {
                             expectedNumFailures.getAndIncrement();
-                            submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest("non_existent_index"));
+                            submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(new SearchRequest(
+                                    "non_existent_index"));
                             submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
                         }
 
@@ -191,7 +192,7 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
                 scriptQuery(new Script(
                         ScriptType.INLINE, "mockscript", SCRIPT_NAME, Collections.emptyMap())))
                 .request();
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
         submitAsyncSearchRequest.keepOnCompletion(true);
         AsyncSearchResponse asyncSearchResponse = executeSubmitAsyncSearch(client(), submitAsyncSearchRequest);
         AsyncSearchStatsResponse statsResponse = client().execute(AsyncSearchStatsAction.INSTANCE, new AsyncSearchStatsRequest()).get();
@@ -242,7 +243,7 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
         for (int i = 0; i < numThreads; i++) {
             Thread t = new Thread(() -> {
                 try {
-                    SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+                    SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
                     executeSubmitAsyncSearch(client(randomDataNode.getName()), submitAsyncSearchRequest);
 
 

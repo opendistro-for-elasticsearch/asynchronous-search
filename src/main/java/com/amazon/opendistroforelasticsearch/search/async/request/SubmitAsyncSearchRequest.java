@@ -75,7 +75,7 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
      */
     public SubmitAsyncSearchRequest(SearchRequest searchRequest) {
         this.searchRequest = searchRequest;
-        if(searchRequest.getPreFilterShardSize() == null) {
+        if (searchRequest.getPreFilterShardSize() == null) {
             this.searchRequest.setPreFilterShardSize(DEFAULT_PRE_FILTER_SHARD_SIZE);
         }
     }
@@ -190,5 +190,11 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
             }
         };
         return submitAsyncSearchTask;
+    }
+
+    public static SubmitAsyncSearchRequest getRequestWithDefaults(SearchRequest searchRequest) {
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        searchRequest.setCcsMinimizeRoundtrips(false);
+        return submitAsyncSearchRequest;
     }
 }

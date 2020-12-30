@@ -59,7 +59,7 @@ public class AsyncSearchRequestRoutingIT extends AsyncSearchIntegTestCase {
         waitForRelocation(ClusterHealthStatus.GREEN);
         refresh();
 
-        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(new SearchRequest(idx));
+        SubmitAsyncSearchRequest request = SubmitAsyncSearchRequest.getRequestWithDefaults(new SearchRequest(idx));
         request.keepOnCompletion(true);
         AsyncSearchResponse submitResponse = client().execute(SubmitAsyncSearchAction.INSTANCE, request).get();
         AsyncSearchId asyncSearchId = AsyncSearchIdConverter.parseAsyncId(submitResponse.getId());
@@ -112,7 +112,7 @@ public class AsyncSearchRequestRoutingIT extends AsyncSearchIntegTestCase {
                         ScriptType.INLINE, "mockscript", SCRIPT_NAME,
                         Collections.emptyMap())))
                 .request();
-        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
+        SubmitAsyncSearchRequest request = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
         request.keepOnCompletion(false);
         request.waitForCompletionTimeout(TimeValue.timeValueMillis(0));
         CountDownLatch latch = new CountDownLatch(1);
@@ -196,7 +196,7 @@ public class AsyncSearchRequestRoutingIT extends AsyncSearchIntegTestCase {
 //        clusterService().state().nodes().getDataNodes().iterator().forEachRemaining(entry -> dataNodes.add(entry.value));
 //        assertFalse(dataNodes.isEmpty());
 //        DiscoveryNode coordinatorNode = dataNodes.get(0);
-//        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(new SearchRequest(idx));
+//        SubmitAsyncSearchRequest request = SubmitAsyncSearchRequest.getRequestWithDefaults(new SearchRequest(idx));
 //        request.keepOnCompletion(true);
 //        AsyncSearchResponse submitResponse = client(coordinatorNode.getName()).execute(SubmitAsyncSearchAction.INSTANCE, request).get();
 //        TestClientUtils.assertResponsePersistence(client(), submitResponse.getId());
@@ -250,7 +250,7 @@ public class AsyncSearchRequestRoutingIT extends AsyncSearchIntegTestCase {
 //                        ScriptType.INLINE, "mockscript", SCRIPT_NAME,
 //                        Collections.emptyMap())))
 //                .request();
-//        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
+//        SubmitAsyncSearchRequest request = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
 //        request.keepOnCompletion(true);
 //        AsyncSearchResponse submitResponse = client(coordinatorNode.getName()).execute(SubmitAsyncSearchAction.INSTANCE, request).get();
 //        CountDownLatch latch = new CountDownLatch(1);

@@ -360,7 +360,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
 
     private AsyncSearchResponse submitAndGetPersistedAsyncSearchResponse() throws InterruptedException {
         SearchRequest searchRequest = new SearchRequest().indices("index").source(new SearchSourceBuilder());
-        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
+        SubmitAsyncSearchRequest request = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
         request.keepOnCompletion(true);
         request.waitForCompletionTimeout(TimeValue.timeValueMillis(1));
         AsyncSearchResponse asyncSearchResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), request);

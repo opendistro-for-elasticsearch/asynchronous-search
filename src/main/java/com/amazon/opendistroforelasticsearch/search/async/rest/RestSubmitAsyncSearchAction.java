@@ -82,13 +82,18 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
         }
         if (request.hasParam("ccs_minimize_roundtrips")) {
             searchRequest.setCcsMinimizeRoundtrips(request.paramAsBoolean("ccs_minimize_roundtrips", false));
+        } else {
+            searchRequest.setCcsMinimizeRoundtrips(false);
         }
         if (request.hasParam("pre_filter_shard_size")) {
             searchRequest.setPreFilterShardSize(request.paramAsInt("pre_filter_shard_size",
                     SubmitAsyncSearchRequest.DEFAULT_PRE_FILTER_SHARD_SIZE));
         }
         if (request.hasParam("request_cache")) {
+            searchRequest.setCcsMinimizeRoundtrips(request.paramAsBoolean("request_cache", false));
+        } else {
             searchRequest.requestCache(false);
+
         }
         if (request.hasParam("batched_reduce_size")) {
             final int batchedReduceSize = request.paramAsInt("batched_reduce_size",
