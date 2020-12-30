@@ -45,7 +45,8 @@ public class SubmitAsyncSearchRequestTests extends ESTestCase {
     public void testCcsMinimizeRoundtripsFlagFailsValidation() {
         SearchSourceBuilder source = new SearchSourceBuilder();
         SearchRequest searchRequest = new SearchRequest(new String[]{"test"}, source);
-        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
+        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(
+                searchRequest);
         ValidationException validationException = request.validate();
         assertNotNull(validationException);
         assertEquals(1, validationException.validationErrors().size());

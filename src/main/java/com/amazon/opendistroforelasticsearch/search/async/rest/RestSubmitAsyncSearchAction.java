@@ -68,7 +68,7 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
         IntConsumer setSize = size -> searchRequest.source().size(size);
         request.withContentOrSourceParamParserOrNull(parser ->
                 RestSearchAction.parseSearchRequest(searchRequest, request, parser, setSize));
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
         if (request.hasParam("wait_for_completion_timeout")) {
             submitAsyncSearchRequest.waitForCompletionTimeout(request.paramAsTime("wait_for_completion_timeout",
                     SubmitAsyncSearchRequest.DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT));

@@ -128,7 +128,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
             User user1 = TestClientUtils.randomUser();
             User user2 = TestClientUtils.randomUser();
             SearchRequest searchRequest = new SearchRequest();
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(false);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis(),
@@ -246,7 +246,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
             TimeValue keepAlive = timeValueDays(9);
             boolean keepOnCompletion = false;
             SearchRequest searchRequest = new SearchRequest();
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis(),
@@ -328,7 +328,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
             TimeValue keepAlive = timeValueDays(9);
             User user1 = TestClientUtils.randomUser();
             SearchRequest searchRequest = new SearchRequest();
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(false);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             CountDownLatch findContextLatch = new CountDownLatch(2);
@@ -374,7 +374,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
             TimeValue keepAlive = timeValueDays(9);
             boolean keepOnCompletion = false;
             SearchRequest searchRequest = new SearchRequest();
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis(),
@@ -420,7 +420,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
             User user1 = TestClientUtils.randomUser();
             User user2 = TestClientUtils.randomUser();
             SearchRequest searchRequest = new SearchRequest();
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(false);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis(),
@@ -482,7 +482,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
             User user1 = TestClientUtils.randomUser();
             User user2 = TestClientUtils.randomUser();
             SearchRequest searchRequest = new SearchRequest();
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(false);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis(),

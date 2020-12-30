@@ -252,7 +252,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
 //        client().admin().indices().prepareUpdateSettings(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX)
 //                .setSettings(Settings.builder().put(IndexMetadata.SETTING_READ_ONLY_ALLOW_DELETE, true).build()).execute().actionGet();
 //        SearchRequest searchRequest = new SearchRequest().indices("index").source(new SearchSourceBuilder());
-//        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
+//        SubmitAsyncSearchRequest request = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
 //        request.keepOnCompletion(true);
 //        request.waitForCompletionTimeout(TimeValue.timeValueMillis(5000));
 //        AsyncSearchResponse asyncSearchResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), request);

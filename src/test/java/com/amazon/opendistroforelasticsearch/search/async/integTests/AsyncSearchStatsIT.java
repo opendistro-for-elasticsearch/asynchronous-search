@@ -56,7 +56,7 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
                         .setSource("field1", "the quick brown fox jumps"),
                 client().prepareIndex(index, "type1", "2").setSource("field1", "quick brown"),
                 client().prepareIndex(index, "type1", "3").setSource("field1", "quick"));
-        SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest(index));
+        SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(new SearchRequest(index));
         submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueSeconds(2));
         submitAsyncSearchRequest.keepOnCompletion(true);
         List<DiscoveryNode> dataNodes = new LinkedList<>();
@@ -127,7 +127,7 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
                         SubmitAsyncSearchRequest submitAsyncSearchRequest;
                         if (success) {
                             expectedNumSuccesses.getAndIncrement();
-                            submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest(index));
+                            submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(new SearchRequest(index));
                             submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueSeconds(2));
                             submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
 

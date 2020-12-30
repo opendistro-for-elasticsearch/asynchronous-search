@@ -273,7 +273,7 @@ public class AsyncSearchQueryIT extends ESIntegTestCase {
     }
 
     private AsyncSearchResponse getPersistedAsyncSearchResponse(SearchRequest searchRequest) throws InterruptedException {
-        SubmitAsyncSearchRequest request = SubmitAsyncSearchRequest.getRequestWithDefaults(new SearchRequest());
+        SubmitAsyncSearchRequest request = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
         request.waitForCompletionTimeout(TimeValue.timeValueMillis(1));
         request.keepOnCompletion(true);
         AsyncSearchResponse asyncSearchResponse = TestClientUtils.blockingSubmitAsyncSearch(client(),

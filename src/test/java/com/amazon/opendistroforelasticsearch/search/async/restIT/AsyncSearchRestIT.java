@@ -24,7 +24,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         try {
             SearchRequest searchRequest = new SearchRequest("test");
             searchRequest.source(new SearchSourceBuilder());
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(false);
             submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 500)));
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
@@ -55,7 +55,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         try {
             SearchRequest searchRequest = new SearchRequest("test");
             searchRequest.source(new SearchSourceBuilder());
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(true);
             submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 500)));
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
@@ -92,7 +92,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         try {
             SearchRequest searchRequest = new SearchRequest("test");
             searchRequest.source(new SearchSourceBuilder());
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(false);
             submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(0));
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
@@ -130,7 +130,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         try {
             SearchRequest searchRequest = new SearchRequest("test");
             searchRequest.source(new SearchSourceBuilder());
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(true);
             submitAsyncSearchRequest.keepAlive(TimeValue.timeValueHours(5));
             submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueSeconds(1));
@@ -152,7 +152,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         try {
             SearchRequest searchRequest = new SearchRequest("test");
             searchRequest.source(new SearchSourceBuilder());
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(true);
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
             AsyncSearchResponse getResponse = executeGetAsyncSearch(new GetAsyncSearchRequest(submitResponse.getId()));
@@ -171,7 +171,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
             SearchRequest searchRequest = new SearchRequest("test");
             TimeValue keepAlive = TimeValue.timeValueDays(5);
             searchRequest.source(new SearchSourceBuilder());
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(true);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);

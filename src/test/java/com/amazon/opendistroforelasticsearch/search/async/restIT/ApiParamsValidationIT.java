@@ -15,13 +15,14 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest.getRequestWithDefaults;
 import static org.hamcrest.Matchers.containsString;
 
 public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
 
     public void testSubmitInvalidKeepAlive() throws IOException {
         try {
-            SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(new SearchRequest());
+            SubmitAsyncSearchRequest request = getRequestWithDefaults(new SearchRequest());
             request.keepAlive(TimeValue.timeValueDays(100));
             ResponseException responseException = expectThrows(ResponseException.class, () -> executeSubmitAsyncSearch(request));
             assertThat(responseException.getMessage(), containsString("Keep alive for async search (" +
@@ -33,7 +34,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
 
     public void testSubmitInvalidWaitForCompletion() throws IOException {
         try {
-            SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(new SearchRequest());
+            SubmitAsyncSearchRequest request = getRequestWithDefaults(new SearchRequest());
             request.waitForCompletionTimeout(TimeValue.timeValueMinutes(2));
             ResponseException responseException = expectThrows(ResponseException.class, () -> executeSubmitAsyncSearch(request));
             assertThat(responseException.getMessage(), containsString("Wait for completion timeout for async search (" +
@@ -45,7 +46,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
 
     public void testSubmitDefaultKeepAlive() throws IOException {
         try {
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest("test"));
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = getRequestWithDefaults(new SearchRequest("test"));
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
             List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.DELETED);
             assertTrue(legalStates.contains(submitResponse.getState()));
@@ -59,7 +60,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
 
     public void testSubmitDefaultWaitForCompletion() throws IOException {
         try {
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest("test"));
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = getRequestWithDefaults(new SearchRequest("test"));
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
             List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.DELETED);
             assertTrue(legalStates.contains(submitResponse.getState()));
@@ -74,7 +75,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
      */
     public void testSubmitSearchAllIndices() throws IOException {
         try {
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest());
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = getRequestWithDefaults(new SearchRequest());
             submitAsyncSearchRequest.keepOnCompletion(false);
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
             List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.DELETED);
@@ -87,7 +88,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
 
     public void testSubmitSearchOnInvalidIndex() throws IOException {
         try {
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(new SearchRequest("afknwefwoef"));
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = getRequestWithDefaults(new SearchRequest("afknwefwoef"));
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
             List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.FAILED, AsyncSearchState.DELETED);
             assertNull(submitResponse.getSearchResponse());
@@ -104,7 +105,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
             SearchRequest searchRequest = new SearchRequest("test");
             TimeValue keepAlive = TimeValue.timeValueDays(5);
             searchRequest.source(new SearchSourceBuilder());
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = getRequestWithDefaults(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(true);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
@@ -122,7 +123,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
     public void testSuggestOnlySearchRequest() throws IOException {
         try {
             SearchSourceBuilder source = new SearchSourceBuilder().suggest(new SuggestBuilder());
-            SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(new SearchRequest(new String[]{"test"}, source));
+            SubmitAsyncSearchRequest request = getRequestWithDefaults(new SearchRequest(new String[]{"test"}, source));
             try {
                 AsyncSearchResponse asyncSearchResponse = executeSubmitAsyncSearch(request);
             } catch (Exception e) {
@@ -139,7 +140,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
         try {
             SearchRequest searchRequest = new SearchRequest("test");
             searchRequest.setCcsMinimizeRoundtrips(true);
-            SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest request = getRequestWithDefaults(searchRequest);
             try {
                 AsyncSearchResponse asyncSearchResponse = executeSubmitAsyncSearch(request);
                 fail("Expecting ResponseException with param validation failure");
@@ -156,7 +157,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
         try {
             SearchRequest searchRequest = new SearchRequest("test");
             searchRequest.scroll(TimeValue.timeValueMinutes(1));
-            SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
+            SubmitAsyncSearchRequest request = getRequestWithDefaults(searchRequest);
             try {
                 AsyncSearchResponse asyncSearchResponse = executeSubmitAsyncSearch(request);
             } catch (Exception e) {
