@@ -47,7 +47,22 @@ public class InternalAsyncSearchStats implements AsyncSearchContextEventListener
 
     @Override
     public void onContextRejected(AsyncSearchContextId contextId) {
-        countStatsHolder.rejectedAsyncSearchCount.inc();
+        countStatsHolder.submittedAsyncSearchCount.inc();
+    }
+
+    @Override
+    public void onNewContext(AsyncSearchContextId contextId) {
+        countStatsHolder.submittedAsyncSearchCount.inc();
+    }
+
+    @Override
+    public void onContextCancelled(AsyncSearchContextId contextId) {
+        countStatsHolder.cancelledAsyncSearchCount.inc();
+    }
+
+    @Override
+    public void onContextInitialized(AsyncSearchContextId contextId) {
+        countStatsHolder.initializedAsyncSearchCount.inc();
     }
 
     @Override
@@ -72,11 +87,16 @@ public class InternalAsyncSearchStats implements AsyncSearchContextEventListener
         final CounterMetric failedAsyncSearchCount = new CounterMetric();
         final CounterMetric completedAsyncSearchCount = new CounterMetric();
         final CounterMetric rejectedAsyncSearchCount = new CounterMetric();
+        final CounterMetric submittedAsyncSearchCount = new CounterMetric();
+        final CounterMetric cancelledAsyncSearchCount = new CounterMetric();
+        final CounterMetric initializedAsyncSearchCount = new CounterMetric();
+
 
         public AsyncSearchCountStats countStats() {
             return new AsyncSearchCountStats(runningAsyncSearchCount.count(), persistedAsyncSearchCount.count(),
                     completedAsyncSearchCount.count(), failedAsyncSearchCount.count(), rejectedAsyncSearchCount.count(),
-                    persistFailedAsyncSearchCount.count());
+                    persistFailedAsyncSearchCount.count(), initializedAsyncSearchCount.count(), submittedAsyncSearchCount.count(),
+                    cancelledAsyncSearchCount.count());
         }
     }
 }

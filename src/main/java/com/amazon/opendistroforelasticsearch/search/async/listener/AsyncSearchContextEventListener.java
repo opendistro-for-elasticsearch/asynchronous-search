@@ -78,4 +78,18 @@ public interface AsyncSearchContextEventListener {
     default void onRunningContextDeleted(AsyncSearchContextId contextId) {
 
     }
+
+    /**
+     * @param contextId Executed when an async search context is cancelled
+     */
+    default void onContextCancelled(AsyncSearchContextId contextId) {
+
+    }
+
+    /**
+     * @param contextId Executed when an async search context is initialized
+     */
+    default void onContextInitialized(AsyncSearchContextId contextId) {
+
+    }
 }

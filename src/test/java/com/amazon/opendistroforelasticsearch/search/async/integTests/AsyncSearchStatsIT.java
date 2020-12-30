@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -78,8 +77,11 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
                 if (nodeStats.getNode().equals(randomDataNode)) {
                     assertEquals(1, asyncSearchCountStats.getPersistedCount());
                     assertEquals(1, asyncSearchCountStats.getCompletedCount());
+                    assertEquals(1, asyncSearchCountStats.getSubmittedCount());
+                    assertEquals(1, asyncSearchCountStats.getInitializedCount());
                     assertEquals(0, asyncSearchCountStats.getFailedCount());
                     assertEquals(0, asyncSearchCountStats.getRunningCount());
+                    assertEquals(0, asyncSearchCountStats.getCancelledCount());
                 } else {
                     assertEquals(0, asyncSearchCountStats.getPersistedCount());
                     assertEquals(0, asyncSearchCountStats.getCompletedCount());
@@ -92,7 +94,7 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
         }
     }
 
-    public void testStatsAcrossNodes() throws InterruptedException, ExecutionException, BrokenBarrierException {
+    public void testStatsAcrossNodes() throws InterruptedException, ExecutionException {
         TestThreadPool threadPool = null;
         try {
             threadPool = new TestThreadPool(AsyncSearchStatsIT.class.getName());

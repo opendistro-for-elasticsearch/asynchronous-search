@@ -88,8 +88,8 @@ public class TransportSubmitAsyncSearchAction extends HandledTransportAction<Sub
             SearchRequest searchRequest = new SearchRequest(request.getSearchRequest()) {
                 @Override
                 public SearchTask createTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers) {
-                    AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, AsyncSearchTask.NAME,
-                            parentTaskId, headers, (AsyncSearchActiveContext) context, request, asyncSearchService::freeActiveContext);
+                    AsyncSearchTask asyncSearchTask = new AsyncSearchTask(id, type, AsyncSearchTask.NAME, parentTaskId, headers,
+                            (AsyncSearchActiveContext) context, request, asyncSearchService::onCancelledFreeActiveContext);
 
                     asyncSearchService.bootstrapSearch(asyncSearchTask, context.getContextId());
                     PrioritizedActionListener<AsyncSearchResponse> wrappedListener = AsyncSearchTimeoutWrapper

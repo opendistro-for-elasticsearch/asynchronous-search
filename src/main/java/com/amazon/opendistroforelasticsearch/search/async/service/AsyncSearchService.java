@@ -165,6 +165,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                                                     Supplier<InternalAggregation.ReduceContextBuilder> reduceContextBuilder, User user) {
         validateRequest(request);
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), idGenerator.incrementAndGet());
+        contextEventListener.onNewContext(asyncSearchContextId);
         AsyncSearchProgressListener progressActionListener = new AsyncSearchProgressListener(relativeStartTimeMillis,
                 (response) -> asyncSearchPostProcessor.processSearchResponse(response, asyncSearchContextId),
                 (e) -> asyncSearchPostProcessor.processSearchFailure(e, asyncSearchContextId),
@@ -173,6 +174,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         AsyncSearchActiveContext asyncSearchContext = new AsyncSearchActiveContext(asyncSearchContextId, clusterService.localNode().getId(),
                 request.getKeepAlive(), request.getKeepOnCompletion(), threadPool, currentTimeSupplier, progressActionListener, user);
         asyncSearchActiveStore.putContext(asyncSearchContextId, asyncSearchContext, contextEventListener::onContextRejected);
+        contextEventListener.onContextInitialized(asyncSearchContextId);
         return asyncSearchContext;
     }
 
@@ -364,6 +366,18 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
     /**
+     * Moves the context to DELETED state. Must be invoked when the context needs to be completely removed from the
+     * system and move the state machine to a terminal state
+     *
+     * @param asyncSearchContext the active async search context
+     * @return boolean indicating if the state machine moved the state to DELETED
+     */
+    public boolean onCancelledFreeActiveContext(AsyncSearchActiveContext asyncSearchContext) {
+        contextEventListener.onContextCancelled(asyncSearchContext.getContextId());
+        return this.freeActiveContext(asyncSearchContext);
+    }
+
+    /**
      * If an active context is found, a permit is acquired from
      * {@linkplain com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits} and on acquisition of
      * permit, a check is performed to see if response has been persisted in system index. If true, we update expiration in index. Else
@@ -462,12 +476,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> {}, BeginPersistEvent.class));
+                (contextId, listener) -> {
+                }, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> {}, BeginPersistEvent.class));
+                (contextId, listener) -> {
+                }, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSISTED,
                 (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
