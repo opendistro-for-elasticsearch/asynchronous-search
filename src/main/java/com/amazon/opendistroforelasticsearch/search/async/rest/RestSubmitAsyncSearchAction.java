@@ -101,8 +101,8 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
             searchRequest.setBatchedReduceSize(batchedReduceSize);
         }
         return channel -> {
-            RestCancellableNodeClient cancelClient = new RestCancellableNodeClient(client, request.getHttpChannel());
-            cancelClient.execute(SubmitAsyncSearchAction.INSTANCE, submitAsyncSearchRequest, new RestStatusToXContentListener<>(channel));
+            //RestCancellableNodeClient cancelClient = new RestCancellableNodeClient(client, request.getHttpChannel());
+            client.execute(SubmitAsyncSearchAction.INSTANCE, submitAsyncSearchRequest, new RestStatusToXContentListener<>(channel));
         };
     }
 

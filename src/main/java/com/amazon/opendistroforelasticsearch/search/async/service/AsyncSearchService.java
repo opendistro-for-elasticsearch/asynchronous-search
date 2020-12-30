@@ -147,7 +147,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.asyncSearchActiveStore = asyncSearchActiveStore;
         this.asyncSearchStateMachine = initStateMachine();
         this.asyncSearchPostProcessor = new AsyncSearchPostProcessor(persistenceService, asyncSearchActiveStore, asyncSearchStateMachine,
-                this::freeActiveContext);
+                this::freeActiveContext, threadPool);
         this.namedWriteableRegistry = namedWriteableRegistry;
     }
 

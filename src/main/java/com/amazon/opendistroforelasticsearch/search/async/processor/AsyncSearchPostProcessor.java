@@ -23,6 +23,8 @@ import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.concurrent.ThreadContext;
+import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -41,14 +43,18 @@ public class AsyncSearchPostProcessor {
     private final AsyncSearchActiveStore asyncSearchActiveStore;
     private final AsyncSearchStateMachine asyncSearchStateMachine;
     private final Consumer<AsyncSearchActiveContext> freeActiveContextConsumer;
+    private final ThreadPool threadPool;
 
     public AsyncSearchPostProcessor(AsyncSearchPersistenceService asyncSearchPersistenceService,
                                     AsyncSearchActiveStore asyncSearchActiveStore, AsyncSearchStateMachine stateMachine,
-                                    Consumer<AsyncSearchActiveContext> freeActiveContextConsumer) {
+                                    Consumer<AsyncSearchActiveContext> freeActiveContextConsumer,
+                                    ThreadPool threadPool) {
         this.asyncSearchActiveStore = asyncSearchActiveStore;
         this.asyncSearchPersistenceService = asyncSearchPersistenceService;
         this.asyncSearchStateMachine = stateMachine;
         this.freeActiveContextConsumer = freeActiveContextConsumer;
+        this.threadPool = threadPool;
+
     }
 
     public AsyncSearchResponse processSearchFailure(Exception exception, AsyncSearchContextId asyncSearchContextId) {
@@ -98,38 +104,40 @@ public class AsyncSearchPostProcessor {
                         return;
                     }
                     logger.debug("Persisting response for async search id [{}]", asyncSearchContext.getAsyncSearchId());
-                    asyncSearchPersistenceService.storeResponse(asyncSearchContext.getAsyncSearchId(),
-                            persistenceModel, ActionListener.runAfter(ActionListener.wrap(
-                                    (indexResponse) -> {
-                                        //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
-                                        logger.debug("Successfully persisted response for async search id [{}]",
-                                                asyncSearchContext.getAsyncSearchId());
-                                        try {
-                                            asyncSearchStateMachine.trigger(new SearchResponsePersistedEvent(asyncSearchContext));
-                                        } catch (AsyncSearchStateMachineClosedException ex) {
-                                            // this should never happen since we had checked after acquiring the all permits so a
-                                            // concurrent delete is not expected here
-                                            throw new IllegalStateException(String.format(Locale.ROOT, "Unexpected, context with id [%s] " +
-                                                            "closed while triggering event [$s]", asyncSearchContext.getAsyncSearchId(),
-                                                    SearchResponsePersistedEvent.class.getName()));
-                                        }
-                                    },
+                    try (ThreadContext.StoredContext ignore = threadPool.getThreadContext().stashContext()) {
+                        asyncSearchPersistenceService.storeResponse(asyncSearchContext.getAsyncSearchId(),
+                                persistenceModel, ActionListener.runAfter(ActionListener.wrap(
+                                        (indexResponse) -> {
+                                            //Mark any dangling reference as PERSISTED and cleaning it up from the IN_MEMORY context
+                                            logger.debug("Successfully persisted response for async search id [{}]",
+                                                    asyncSearchContext.getAsyncSearchId());
+                                            try {
+                                                asyncSearchStateMachine.trigger(new SearchResponsePersistedEvent(asyncSearchContext));
+                                            } catch (AsyncSearchStateMachineClosedException ex) {
+                                                // this should never happen since we had checked after acquiring the all permits so a
+                                                // concurrent delete is not expected here
+                                                throw new IllegalStateException(String.format(Locale.ROOT, "Unexpected, context with id [%s] " +
+                                                                "closed while triggering event [$s]", asyncSearchContext.getAsyncSearchId(),
+                                                        SearchResponsePersistedEvent.class.getName()));
+                                            }
+                                        },
 
-                                    (e) -> {
-                                        try {
-                                            asyncSearchStateMachine.trigger(new SearchResponsePersistFailedEvent(asyncSearchContext));
-                                        } catch (AsyncSearchStateMachineClosedException ex) {
-                                            //this should never happen since we had checked after acquiring the all permits so a
-                                            // concurrent delete is not expected here
-                                            throw new IllegalStateException(String.format(Locale.ROOT, "Unexpected, state machine for " +
-                                                            "context id [%s] closed while triggering event",
-                                                    asyncSearchContext.getAsyncSearchId(),
-                                                    SearchResponsePersistFailedEvent.class.getName()));
+                                        (e) -> {
+                                            try {
+                                                asyncSearchStateMachine.trigger(new SearchResponsePersistFailedEvent(asyncSearchContext));
+                                            } catch (AsyncSearchStateMachineClosedException ex) {
+                                                //this should never happen since we had checked after acquiring the all permits so a
+                                                // concurrent delete is not expected here
+                                                throw new IllegalStateException(String.format(Locale.ROOT, "Unexpected, state machine for " +
+                                                                "context id [%s] closed while triggering event",
+                                                        asyncSearchContext.getAsyncSearchId(),
+                                                        SearchResponsePersistFailedEvent.class.getName()));
+                                            }
+                                            logger.error(() -> new ParameterizedMessage("Failed to persist final response for [{}] due to [{}]",
+                                                    asyncSearchContext.getAsyncSearchId(), e));
                                         }
-                                        logger.error(() -> new ParameterizedMessage("Failed to persist final response for [{}] due to [{}]",
-                                                asyncSearchContext.getAsyncSearchId(), e));
-                                    }
-                            ), releasable::close));
+                                ), releasable::close));
+                    }
 
                 }, (e) -> {
                     // Failure to acquire context can happen either due to a TimeoutException or AsyncSearchAlreadyClosedException
