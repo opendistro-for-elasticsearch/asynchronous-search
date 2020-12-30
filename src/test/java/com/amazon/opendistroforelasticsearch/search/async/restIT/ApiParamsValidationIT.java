@@ -142,6 +142,7 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
             SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
             try {
                 AsyncSearchResponse asyncSearchResponse = executeSubmitAsyncSearch(request);
+                fail("Expecting ResponseException with param validation failure");
             } catch (Exception e) {
                 assertTrue(e instanceof ResponseException);
                 assertThat(e.getMessage(), containsString("[ccs_minimize_roundtrips] must be false"));

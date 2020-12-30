@@ -81,7 +81,7 @@ public class RestSubmitAsyncSearchAction extends BaseRestHandler {
                     SubmitAsyncSearchRequest.DEFAULT_KEEP_ON_COMPLETION));
         }
         if (request.hasParam("ccs_minimize_roundtrips")) {
-            searchRequest.setCcsMinimizeRoundtrips(false);
+            searchRequest.setCcsMinimizeRoundtrips(request.paramAsBoolean("ccs_minimize_roundtrips", false));
         }
         if (request.hasParam("pre_filter_shard_size")) {
             searchRequest.setPreFilterShardSize(request.paramAsInt("pre_filter_shard_size",
