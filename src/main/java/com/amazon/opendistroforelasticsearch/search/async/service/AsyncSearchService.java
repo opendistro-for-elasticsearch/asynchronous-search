@@ -91,6 +91,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.context.state.A
 import static org.elasticsearch.action.ActionListener.runAfter;
 import static org.elasticsearch.action.ActionListener.wrap;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
+import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMinutes;
 
 /***
@@ -104,12 +105,16 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     public static final Setting<TimeValue> MAX_KEEP_ALIVE_SETTING =
             Setting.positiveTimeSetting("opendistro_asynchronous_search.max_keep_alive", timeValueDays(10),
                     Setting.Property.NodeScope, Setting.Property.Dynamic);
+    public static final Setting<TimeValue> MAX_SEARCH_RUNNING_TIME_SETTING =
+            Setting.positiveTimeSetting("opendistro_asynchronous_search.max_search_running_time_setting", timeValueHours(12),
+                    Setting.Property.NodeScope, Setting.Property.Dynamic);
     public static final Setting<TimeValue> MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING = Setting.positiveTimeSetting(
             "opendistro_asynchronous_search.max_wait_for_completion_timeout", timeValueMinutes(1), Setting.Property.NodeScope,
             Setting.Property.Dynamic);
 
     private volatile long maxKeepAlive;
     private volatile long maxWaitForCompletion;
+    private volatile long maxSearchRunningTime;
     private final AtomicLong idGenerator = new AtomicLong();
     private final Client client;
     private final ThreadPool threadPool;
@@ -130,6 +135,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         Settings settings = clusterService.getSettings();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
         setKeepAlive(MAX_KEEP_ALIVE_SETTING.get(settings));
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_SEARCH_RUNNING_TIME_SETTING, this::setMaxSearchRunningTime);
+        setMaxSearchRunningTime(MAX_SEARCH_RUNNING_TIME_SETTING.get(settings));
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING,
                 this::setMaxWaitForCompletion);
         setMaxWaitForCompletion(MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.get(settings));
@@ -142,6 +149,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.asyncSearchPostProcessor = new AsyncSearchPostProcessor(persistenceService, asyncSearchActiveStore, asyncSearchStateMachine,
                 this::freeActiveContext);
         this.namedWriteableRegistry = namedWriteableRegistry;
+    }
+
+    private void setMaxSearchRunningTime(TimeValue maxSearchRunningTime) {
+        this.maxSearchRunningTime = maxSearchRunningTime.millis();
     }
 
     private void setMaxWaitForCompletion(TimeValue maxWaitForCompletion) {
@@ -244,7 +255,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         Map<Long, AsyncSearchActiveContext> allContexts = asyncSearchActiveStore.getAllContexts();
         return Collections.unmodifiableSet(allContexts.values().stream()
                 .filter(Objects::nonNull)
-                .filter((c) -> EnumSet.of(DELETED, PERSIST_FAILED).contains(c.getAsyncSearchState()) || c.isExpired())
+                .filter((c) -> EnumSet.of(DELETED, PERSIST_FAILED).contains(c.getAsyncSearchState()) ||
+                        isOverRunning(c) || c.isExpired())
                 .collect(Collectors.toSet()));
     }
 
@@ -559,6 +571,16 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                             TimeValue.timeValueMillis(maxKeepAlive) + ").This limit can be set by changing the ["
                             + MAX_KEEP_ALIVE_SETTING.getKey() + "] cluster level setting.");
         }
+    }
+
+
+    /**
+     * @param asyncSearchActiveContext the active context
+     * @return Where the search has been running beyond the max search running time.
+     */
+    private boolean isOverRunning(AsyncSearchActiveContext asyncSearchActiveContext) {
+        return EnumSet.of(RUNNING, INIT).equals(asyncSearchActiveContext.getAsyncSearchState()) &&
+                asyncSearchActiveContext.getStartTimeMillis() + maxSearchRunningTime < currentTimeSupplier.getAsLong();
     }
 
 }

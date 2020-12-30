@@ -99,6 +99,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
                 Stream.concat(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(), Stream.of(
                         AsyncSearchActiveStore.MAX_RUNNING_CONTEXT,
                         AsyncSearchService.MAX_KEEP_ALIVE_SETTING,
+                        AsyncSearchService.MAX_SEARCH_RUNNING_TIME_SETTING,
                         AsyncSearchService.MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING)).collect(Collectors.toSet());
         final int availableProcessors = EsExecutors.allocatedProcessors(settings);
         List<ExecutorBuilder<?>> executorBuilders = new ArrayList<>();
