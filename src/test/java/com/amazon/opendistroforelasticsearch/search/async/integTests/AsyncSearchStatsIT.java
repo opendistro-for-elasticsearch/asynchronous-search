@@ -234,18 +234,18 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
         AtomicBoolean throttlingOccured = new AtomicBoolean();
         int numThreads = 21;
         List<Thread> threads = new ArrayList<>();
+        List<ScriptedBlockPlugin> plugins = initBlockFactory();
+        SearchRequest searchRequest = client().prepareSearch(index).setQuery(
+                scriptQuery(new Script(
+                        ScriptType.INLINE, "mockscript", SCRIPT_NAME, Collections.emptyMap())))
+                .request();
         for (int i = 0; i < numThreads; i++) {
             Thread t = new Thread(() -> {
                 try {
-                    List<ScriptedBlockPlugin> plugins = initBlockFactory();
-                    SearchRequest searchRequest = client().prepareSearch(index).setQuery(
-                            scriptQuery(new Script(
-                                    ScriptType.INLINE, "mockscript", SCRIPT_NAME, Collections.emptyMap())))
-                            .request();
                     SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
                     executeSubmitAsyncSearch(client(randomDataNode.getName()), submitAsyncSearchRequest);
-                    waitUntil(() -> verifyThrottlingFromStats(throttlingOccured));
-                    disableBlocks(plugins);
+
+
                 } catch (ExecutionException e) {
                     assertThat(e.getMessage(), containsString("Trying to create too many running contexts"));
                 } catch (InterruptedException e) {
@@ -256,8 +256,10 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
         }
         threads.forEach(Thread::start);
         for (Thread thread : threads) {
-            thread.join(100);
+            thread.join();
         }
+        waitUntil(() -> verifyThrottlingFromStats(throttlingOccured));
+        disableBlocks(plugins);
     }
 
     private boolean verifyThrottlingFromStats(AtomicBoolean throttlingOccurred) {
