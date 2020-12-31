@@ -333,6 +333,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         // as if that is underway we might end up creating a new document post a DELETE was executed
         asyncSearchContext.acquireContextPermitIfRequired(wrap(
                 releasable -> {
+                    //TODO fix the reason for cancellation by user
                     boolean response = freeActiveContext(asyncSearchContext);
                     cancelTask(asyncSearchContext, "User triggered context deletion",
                             () -> groupedDeletionListener.onResponse(response));

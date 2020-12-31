@@ -178,10 +178,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
         @Override
         public void run() {
-            final ThreadContext threadContext = threadPool.getThreadContext();
-            try (ThreadContext.StoredContext ignore = threadContext.stashContext()) {
-                // we have to execute under the system context so that if security is enabled the sync is authorized
-                threadContext.markAsSystemContext();
+            try {
                 Set<AsyncSearchContext> toFree = asyncSearchService.getContextsToReap();
                 // don't block on response
                 toFree.forEach(

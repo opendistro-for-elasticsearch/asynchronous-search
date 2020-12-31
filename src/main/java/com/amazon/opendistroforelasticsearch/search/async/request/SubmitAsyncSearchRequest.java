@@ -40,7 +40,7 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
     public static final TimeValue DEFAULT_KEEP_ALIVE = TimeValue.timeValueDays(5);
     public static final TimeValue DEFAULT_WAIT_FOR_COMPLETION_TIMEOUT = TimeValue.timeValueSeconds(1);
     public static final Boolean DEFAULT_KEEP_ON_COMPLETION = Boolean.FALSE;
-    public static final Boolean CCR_MINIMIZE_ROUNDTRIPS = Boolean.FALSE;
+    public static final Boolean CCS_MINIMIZE_ROUNDTRIPS = Boolean.FALSE;
     public static final Boolean DEFAULT_REQUEST_CACHE = Boolean.TRUE;
 
 
