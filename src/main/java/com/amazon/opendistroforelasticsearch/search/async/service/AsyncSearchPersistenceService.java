@@ -78,7 +78,7 @@ public class AsyncSearchPersistenceService {
     public static final String USER = "user";
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceService.class);
-    public static final String ASYNC_SEARCH_RESPONSE_INDEX = ".opendistro_asynchronous_search_response";
+    public static final String ASYNC_SEARCH_RESPONSE_INDEX = ".opendistro-asynchronous-search-response";
     private static final String MAPPING_TYPE = "_doc";
     /**
      * The backoff policy to use when saving a async search response fails. The total wait
