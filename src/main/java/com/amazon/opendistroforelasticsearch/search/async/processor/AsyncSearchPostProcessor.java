@@ -98,7 +98,8 @@ public class AsyncSearchPostProcessor {
         asyncSearchContext.acquireAllContextPermits(ActionListener.wrap(releasable -> {
                     // check again after acquiring permit if the context has been deleted mean while
                     if (asyncSearchContext.shouldPersist() == false) {
-                        logger.debug("Async search context [{}] has been closed while waiting to acquire permits for post processing",
+                        logger.debug(
+                                "Async search context [{}] has been closed while waiting to acquire permits for post processing",
                                 asyncSearchContext.getAsyncSearchId());
                         releasable.close();
                         return;
@@ -116,7 +117,8 @@ public class AsyncSearchPostProcessor {
                                             } catch (AsyncSearchStateMachineClosedException ex) {
                                                 // this should never happen since we had checked after acquiring the all permits so a
                                                 // concurrent delete is not expected here
-                                                throw new IllegalStateException(String.format(Locale.ROOT, "Unexpected, context with id [%s] " +
+                                                throw new IllegalStateException(String.format(Locale.ROOT,
+                                                        "Unexpected, context with id [%s] " +
                                                                 "closed while triggering event [$s]", asyncSearchContext.getAsyncSearchId(),
                                                         SearchResponsePersistedEvent.class.getName()));
                                             }
@@ -128,12 +130,14 @@ public class AsyncSearchPostProcessor {
                                             } catch (AsyncSearchStateMachineClosedException ex) {
                                                 //this should never happen since we had checked after acquiring the all permits so a
                                                 // concurrent delete is not expected here
-                                                throw new IllegalStateException(String.format(Locale.ROOT, "Unexpected, state machine for " +
+                                                throw new IllegalStateException(String.format(Locale.ROOT,
+                                                        "Unexpected, state machine for " +
                                                                 "context id [%s] closed while triggering event",
                                                         asyncSearchContext.getAsyncSearchId(),
                                                         SearchResponsePersistFailedEvent.class.getName()));
                                             }
-                                            logger.error(() -> new ParameterizedMessage("Failed to persist final response for [{}] due to [{}]",
+                                            logger.error(() -> new ParameterizedMessage(
+                                                    "Failed to persist final response for [{}] due to [{}]",
                                                     asyncSearchContext.getAsyncSearchId(), e));
                                         }
                                 ), releasable::close));

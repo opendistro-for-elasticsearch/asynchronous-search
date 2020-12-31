@@ -136,23 +136,6 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
 
     }
 
-    public void testCcsMinimizedRoundtripsSetSearchRequest() throws IOException {
-        try {
-            SearchRequest searchRequest = new SearchRequest("test");
-            searchRequest.setCcsMinimizeRoundtrips(true);
-            SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
-            try {
-                AsyncSearchResponse asyncSearchResponse = executeSubmitAsyncSearch(request);
-                fail("Expecting ResponseException with param validation failure");
-            } catch (Exception e) {
-                assertTrue(e instanceof ResponseException);
-                assertThat(e.getMessage(), containsString("[ccs_minimize_roundtrips] must be false"));
-            }
-        } finally {
-            deleteIndexIfExists();
-        }
-    }
-
     public void testScrollSearchRequest() throws IOException {
         try {
             SearchRequest searchRequest = new SearchRequest("test");

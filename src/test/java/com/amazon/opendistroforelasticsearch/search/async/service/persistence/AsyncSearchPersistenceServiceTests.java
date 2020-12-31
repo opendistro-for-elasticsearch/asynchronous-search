@@ -240,7 +240,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         }
         assertEquals(600000L, total);
     }
-//FIXME
+//TODO
 //    public void testAsyncSearchExpirationUpdateOnBlockedPersistence() throws Exception {
 //        AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), randomInt(100));
 //        AsyncSearchId newAsyncSearchId = new AsyncSearchId(getInstanceFromNode(TransportService.class).getLocalNode().getId(), 1,

@@ -1,9 +1,9 @@
 package com.amazon.opendistroforelasticsearch.search.async.request;
 
-import com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchIntegTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
+import com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchIntegTestCase;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
@@ -172,7 +172,7 @@ public class AsyncSearchRequestRoutingIT extends AsyncSearchIntegTestCase {
         latch.await();
         disableBlocks(plugins);
     }
-
+//TODO
 //    public void testCoordinatorNodeDropOnPersistedSearch() throws Exception {
 //        String idx = "idx";
 //        assertAcked(prepareCreate(idx)
@@ -218,7 +218,7 @@ public class AsyncSearchRequestRoutingIT extends AsyncSearchIntegTestCase {
 //        latch.await();
 //
 //    }
-//FIXME after test completes MockSearchService.assertNoInFlightContext() FAILS because we test killing a node with a running blocked search
+//TODO after test completes MockSearchService.assertNoInFlightContext() FAILS because we test killing a node with a running blocked search
 
 //    public void testCoordinatorNodeDropOnRunningSearch() throws Exception {
 //        List<ScriptedBlockPlugin> plugins = initBlockFactory();
