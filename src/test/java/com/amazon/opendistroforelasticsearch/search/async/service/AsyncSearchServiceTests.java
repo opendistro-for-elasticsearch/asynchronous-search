@@ -129,7 +129,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
             User user2 = TestClientUtils.randomUser();
             SearchRequest searchRequest = new SearchRequest();
             SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
-            submitAsyncSearchRequest.keepOnCompletion(false);
+            submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis(),
                     () -> null, user1);
@@ -199,15 +199,14 @@ public class AsyncSearchServiceTests extends ESTestCase {
             }
             waitUntil(() -> asyncSearchService.getAllActiveContexts().isEmpty());
             if (keepOnCompletion) { //persist to disk
-                waitUntil(() -> asyncSearchService.getAllActiveContexts().isEmpty());
-                waitUntil(() -> fakeClient.persistenceCount == 1);
+                assertEquals(1, fakeClient.persistenceCount.intValue());
             } else {
                 assertEquals(fakeClient.persistenceCount, Integer.valueOf(0));
                 CountDownLatch freeContextLatch = new CountDownLatch(1);
                 asyncSearchService.findContext(context.getAsyncSearchId(), context.getContextId(), null, wrap(
                         r -> {
                             try {
-                                fail("No context should have been found");
+                                fail("No context should have been found but found " + asyncSearchService.getAllActiveContexts().size());
                             } finally {
                                 freeContextLatch.countDown();
                             }

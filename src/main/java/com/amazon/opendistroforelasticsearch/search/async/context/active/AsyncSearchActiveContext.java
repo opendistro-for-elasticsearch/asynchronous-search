@@ -100,7 +100,9 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
         assert isAlive();
         if (completed.compareAndSet(false, true)) {
             // we don't want to process stack traces
-            e.getCause().setStackTrace(new StackTraceElement[]{});
+            if (e.getCause() != null) {
+                e.getCause().setStackTrace(new StackTraceElement[]{});
+            }
             error.set(e);
         }
     }
@@ -111,7 +113,9 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
             ShardSearchFailure [] shardSearchFailures = response.getShardFailures();
             for(ShardSearchFailure shardSearchFailure : shardSearchFailures) {
                 // we don't want to process stack traces
-                shardSearchFailure.getCause().setStackTrace(new StackTraceElement[]{});
+                if (shardSearchFailure.getCause() != null) {
+                    shardSearchFailure.getCause().setStackTrace(new StackTraceElement[]{});
+                }
             }
             this.searchResponse.set(response);
         }

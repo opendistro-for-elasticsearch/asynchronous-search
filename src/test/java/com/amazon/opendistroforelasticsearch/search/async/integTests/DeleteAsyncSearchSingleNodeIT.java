@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedR
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.LatchedActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.common.TriConsumer;
 import org.elasticsearch.common.unit.TimeValue;
@@ -174,7 +175,8 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                 Runnable thread = () -> {
                     logger.info("Triggering async search delete --->");
                     DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(id);
-                    executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest, new ActionListener<AcknowledgedResponse>() {
+                    executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest, new LatchedActionListener<>
+                            (new ActionListener<AcknowledgedResponse>() {
                         @Override
                         public void onResponse(AcknowledgedResponse acknowledgedResponse) {
                             if (acknowledgedResponse.isAcknowledged()) {
@@ -182,7 +184,6 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                             } else {
                                 numDeleteUnAcknowledged.incrementAndGet();
                             }
-                            countDownLatch.countDown();
                         }
 
                         @Override
@@ -190,9 +191,8 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                             if (e instanceof ResourceNotFoundException) {
                                 numResourceNotFound.incrementAndGet();
                             }
-                            countDownLatch.countDown();
                         }
-                    });
+                    }, countDownLatch));
                 };
                 operationThreads.add(thread);
             }
@@ -221,7 +221,8 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                 Runnable thread = () -> {
                     logger.info("Triggering async search delete --->");
                     DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(id);
-                    executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest, new ActionListener<AcknowledgedResponse>() {
+                    executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest, new LatchedActionListener<>
+                            (new ActionListener<AcknowledgedResponse>() {
                         @Override
                         public void onResponse(AcknowledgedResponse acknowledgedResponse) {
                             if (acknowledgedResponse.isAcknowledged()) {
@@ -229,7 +230,6 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                             } else {
                                 numDeleteUnAcknowledged.incrementAndGet();
                             }
-                            countDownLatch.countDown();
                         }
 
                         @Override
@@ -237,9 +237,8 @@ public class DeleteAsyncSearchSingleNodeIT extends AsyncSearchSingleNodeTestCase
                             if (e instanceof ResourceNotFoundException) {
                                 numResourceNotFound.incrementAndGet();
                             }
-                            countDownLatch.countDown();
                         }
-                    });
+                    }, countDownLatch));
                 };
                 operationThreads.add(thread);
             }

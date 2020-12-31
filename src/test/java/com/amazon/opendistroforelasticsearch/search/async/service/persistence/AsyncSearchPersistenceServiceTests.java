@@ -106,7 +106,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
             }
             CountDownLatch deleteLatch2 = new CountDownLatch(1);
             persistenceService.deleteResponse(newAsyncSearchResponse.getId(), user,
-                    ActionListener.wrap(r -> assertBoolean(deleteLatch2, r, true), e -> failure(deleteLatch2, e)));
+                    ActionListener.wrap(r -> assertBoolean(deleteLatch2, r, true), e -> assertRnf(deleteLatch2, e)));
             deleteLatch2.await();
 
             //assert failure
@@ -148,7 +148,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
                         exception -> assertRnf(latch, exception)));
                 //assert failure
                 persistenceService.deleteResponse("id", currentuser,
-                        ActionListener.wrap((r) -> assertBoolean(latch, r, false), e -> failure(latch, e)));
+                        ActionListener.wrap((r) -> assertBoolean(latch, r, false), e -> assertRnf(latch, e)));
                 latch.await();
             }
         }
@@ -401,7 +401,6 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
             assertEquals(expected, actual);
         } finally {
             latch.countDown();
-
         }
     }
 
@@ -410,7 +409,6 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
             assertTrue(ex instanceof ElasticsearchSecurityException);
         } finally {
             latch.countDown();
-
         }
     }
 

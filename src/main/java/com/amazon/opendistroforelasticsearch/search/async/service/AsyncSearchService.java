@@ -58,6 +58,7 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
+import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
@@ -75,6 +76,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -272,74 +274,83 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
      * @param listener             listener to invoke on deletion or failure to do so
      */
     public void freeContext(String id, AsyncSearchContextId asyncSearchContextId, User user, ActionListener<Boolean> listener) {
-        // if there are no context found to be cleaned up we throw a ResourceNotFoundException
-        GroupedActionListener<Boolean> groupedDeletionListener = new GroupedActionListener<>(
-                wrap((responses) -> {
-                    if (responses.stream().anyMatch(r -> r)) {
-                        logger.debug("Free context for async search [{}] successful ", id);
-                        listener.onResponse(true);
-                    } else {
-                        logger.debug("Freeing context, async search [{}] not found ", id);
-                        listener.onFailure(new ResourceNotFoundException(id));
-                    }
-                }, listener::onFailure), 2);
         Optional<AsyncSearchActiveContext> asyncSearchContextOptional = asyncSearchActiveStore.getContext(asyncSearchContextId);
         if (asyncSearchContextOptional.isPresent()) {
             logger.debug("Active context present for async search id [{}]", id);
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
-            if (isUserValid(user, asyncSearchContext.getUser()) == false) {
-                groupedDeletionListener.onFailure(new ElasticsearchSecurityException(
-                        "User doesn't have necessary roles to access the async search with id " + id, RestStatus.FORBIDDEN));
+            if (isUserValid(user, asyncSearchContext.getUser())) {
+                cancelAndFreeActiveAndPersistedContext(asyncSearchContext, listener);
             } else {
-                cancelAndFreeActiveAndPersistedContext(asyncSearchContext, groupedDeletionListener);
+                listener.onFailure(new ElasticsearchSecurityException(
+                        "User doesn't have necessary roles to access the async search with id " + id, RestStatus.FORBIDDEN));
             }
         } else {
             logger.debug("Active context NOT present for async search [{}]", id);
-            // async search context didn't exist so obviously we didn't delete
-            groupedDeletionListener.onResponse(false);
+            //async search context didn't exist so obviously we didn't delete
             //deleted persisted context if one exists. If not the listener returns acknowledged as false
             //we don't need to acquire lock if the in-memory context doesn't exist. For persistence context we have a distributed view
             //with the last writer wins policy
             logger.debug("Deleting async search [{}] from system index ", id);
-            persistenceService.deleteResponse(id, user, groupedDeletionListener);
+            persistenceService.deleteResponse(id, user, listener);
         }
     }
 
     private void cancelTask(AsyncSearchActiveContext asyncSearchContext, String reason, Runnable runnable) {
         if (asyncSearchContext.getTask() != null && asyncSearchContext.getTask().isCancelled() == false) {
-            try {
-                CancelTasksRequest cancelTasksRequest = new CancelTasksRequest()
+            CancelTasksRequest cancelTasksRequest = new CancelTasksRequest()
                         .setTaskId(new TaskId(clusterService.localNode().getId(), asyncSearchContext.getTask().getId())).setReason(reason);
-                client.admin().cluster().cancelTasks(cancelTasksRequest, runAfter(wrap(cancelTasksResponse -> {
-                    logger.debug("Successfully cancelled tasks [{}] with async search [{}] with response [{}]",
-                            asyncSearchContext.getTask(), asyncSearchContext.getAsyncSearchId(), cancelTasksResponse);
-
-                }, e -> {
-                }), runnable));
-
-            } catch (Exception ex) {
-                logger.error(() -> new ParameterizedMessage("Unable to cancel async search task [{}] for async search [{}]",
-                        asyncSearchContext.getTask(), asyncSearchContext.getAsyncSearchId()), ex);
-            }
+            client.admin().cluster().cancelTasks(cancelTasksRequest, runAfter(wrap(cancelTasksResponse ->
+                   logger.debug("Successfully cancelled tasks [{}] with async search [{}] with response [{}]",
+                            asyncSearchContext.getTask(), asyncSearchContext.getAsyncSearchId(), cancelTasksResponse),
+                   e -> logger.error(() -> new ParameterizedMessage("Failed to cancel task [{}] with async search [{}]" +
+                                " with exception", asyncSearchContext.getTask(), asyncSearchContext.getAsyncSearchId()), e)),
+                    runnable));
+        } else {
+            runnable.run();
         }
-
     }
 
     // We are skipping user check in this while deleting from the persisted layer
     // as we have already checked for user in the present active context.
     private void cancelAndFreeActiveAndPersistedContext(AsyncSearchActiveContext asyncSearchContext,
-                                                        GroupedActionListener<Boolean> groupedDeletionListener) {
+                                                        ActionListener<Boolean> listener) {
+        // if there are no context found to be cleaned up we throw a ResourceNotFoundException
+        AtomicReference<Releasable> releasableReference = new AtomicReference<>(() -> {});
+        ActionListener<Boolean> releasableListener = runAfter(listener, releasableReference.get()::close);
+        GroupedActionListener<Boolean> groupedDeletionListener = new GroupedActionListener<>(
+                wrap((responses) -> {
+                    if (responses.stream().anyMatch(r -> r)) {
+                        logger.debug("Free context for async search [{}] successful ", asyncSearchContext.getAsyncSearchId());
+                        releasableListener.onResponse(true);
+                    } else {
+                        logger.debug("Freeing context, async search [{}] not found ",  asyncSearchContext.getAsyncSearchId());
+                        releasableListener.onFailure(new ResourceNotFoundException( asyncSearchContext.getAsyncSearchId()));
+                    }
+                }, releasableListener::onFailure), 2);
+
+        //We get a true or a ResourceNotFound from persistence layer. We want to translate it to either a true/false or any other exception
+        //that should be surfaced up
+        ActionListener<Boolean> translatedListener = ActionListener.wrap(
+                (resp) -> groupedDeletionListener.onResponse(resp), (ex) -> {
+                    if (ex instanceof ResourceNotFoundException) {
+                        groupedDeletionListener.onResponse(false);
+                    } else {
+                        logger.debug(() -> new ParameterizedMessage("Translating exception, received for async search [{}]",
+                                asyncSearchContext.getAsyncSearchId()), ex);
+                        groupedDeletionListener.onFailure(ex);
+                    }
+                });
         //Intent of the lock here is to disallow ongoing migration to system index
         // as if that is underway we might end up creating a new document post a DELETE was executed
         asyncSearchContext.acquireContextPermitIfRequired(wrap(
                 releasable -> {
+                    releasableReference.set(releasable);
                     //TODO fix the reason for cancellation by user
                     boolean response = freeActiveContext(asyncSearchContext);
                     cancelTask(asyncSearchContext, "User triggered context deletion",
                             () -> groupedDeletionListener.onResponse(response));
                     logger.debug("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
-                    persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), null, groupedDeletionListener);
-                    releasable.close();
+                    persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), null, translatedListener);
                 }, exception -> {
                     Throwable cause = ExceptionsHelper.unwrapCause(exception);
                     if (cause instanceof TimeoutException) {
@@ -347,7 +358,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         logger.debug(() -> new ParameterizedMessage("Failed to acquire permits for " +
                                 "async search id [{}] for updating context within timeout 5s",
                                 asyncSearchContext.getAsyncSearchId()), exception);
-                        groupedDeletionListener.onFailure(new ElasticsearchTimeoutException(asyncSearchContext.getAsyncSearchId()));
+                        listener.onFailure(new ElasticsearchTimeoutException(asyncSearchContext.getAsyncSearchId()));
                     } else {
                         // best effort clean up with acknowledged as false
                         logger.debug(() -> new ParameterizedMessage("Failed to acquire permits for async search id " +
@@ -355,7 +366,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         cancelTask(asyncSearchContext, "User triggered context deletion", () -> groupedDeletionListener.onResponse(false));
 
                         logger.debug("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
-                        persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), null, groupedDeletionListener);
+                        persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), null, translatedListener);
                     }
                 }
         ), TimeValue.timeValueSeconds(5), "free context");
@@ -413,25 +424,28 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             AsyncSearchActiveContext asyncSearchActiveContext = asyncSearchContextOptional.get();
             asyncSearchActiveContext.acquireContextPermitIfRequired(wrap(
                     releasable -> {
+                        ActionListener<AsyncSearchContext> releasableActionListener = runAfter(listener, releasable::close);
                         // At this point it's possible that the response would have been persisted to system index
                         if (asyncSearchActiveContext.getAsyncSearchState() == AsyncSearchState.PERSISTED) {
                             logger.debug("Updating persistence store after state is PERSISTED async search id [{}] " +
                                     "for updating context", asyncSearchActiveContext.getAsyncSearchId());
                             persistenceService.updateExpirationTime(id, requestedExpirationTime, user, wrap(
-                                    (actionResponse) -> listener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId,
-                                            actionResponse, currentTimeSupplier, namedWriteableRegistry)), listener::onFailure));
+                                    (actionResponse) ->
+                                            releasableActionListener.onResponse(new AsyncSearchPersistenceContext(id, asyncSearchContextId,
+                                            actionResponse, currentTimeSupplier, namedWriteableRegistry)),
+                                    releasableActionListener::onFailure));
                         } else {
                             if (isUserValid(user, asyncSearchActiveContext.getUser()) == false) {
-                                listener.onFailure(new ElasticsearchSecurityException("User doesn't have necessary roles to access the " +
+                                releasableActionListener.onFailure(
+                                        new ElasticsearchSecurityException("User doesn't have necessary roles to access the " +
                                         "async search with id " + id, RestStatus.FORBIDDEN));
                             } else {
                                 logger.debug("Updating persistence store: NO as state is NOT PERSISTED yet async search id [{}] " +
                                         "for updating context", asyncSearchActiveContext.getAsyncSearchId());
                                 asyncSearchActiveContext.setExpirationTimeMillis(requestedExpirationTime);
-                                listener.onResponse(asyncSearchActiveContext);
+                                releasableActionListener.onResponse(asyncSearchActiveContext);
                             }
                         }
-                        releasable.close();
                     },
                     exception -> {
                         Throwable cause = ExceptionsHelper.unwrapCause(exception);

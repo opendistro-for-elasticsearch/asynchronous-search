@@ -196,6 +196,7 @@ public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase
 
     @After
     public void tearDownData() throws InterruptedException {
+        logger.warn("deleting async search response index");
         waitUntil(() -> getInstanceFromNode(AsyncSearchService.class).getAllActiveContexts().isEmpty());
         logger.warn("delete async search response index");
         CountDownLatch deleteLatch = new CountDownLatch(1);

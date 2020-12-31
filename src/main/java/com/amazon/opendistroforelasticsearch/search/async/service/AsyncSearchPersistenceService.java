@@ -169,14 +169,14 @@ public class AsyncSearchPersistenceService {
     public void deleteResponse(String id, User user, ActionListener<Boolean> listener) {
         if (indexExists() == false) {
             logger.debug("Async search index [{}] doesn't exists", ASYNC_SEARCH_RESPONSE_INDEX);
-            listener.onResponse(false);
+            listener.onFailure(new ResourceNotFoundException(id));
             return;
         }
         Consumer<Exception> onFailure = e -> {
             final Throwable cause = ExceptionsHelper.unwrapCause(e);
             if (cause instanceof DocumentMissingException) {
                 logger.debug(() -> new ParameterizedMessage("Async search response doc already deleted {}", id), e);
-                listener.onResponse(false);
+                listener.onFailure(new ResourceNotFoundException(id));
             } else {
                 logger.debug(() -> new ParameterizedMessage("Failed to delete async search for id {}", id), e);
                 listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
@@ -189,7 +189,7 @@ public class AsyncSearchPersistenceService {
                     listener.onResponse(true);
                 } else {
                     logger.debug("Delete async search {} unsuccessful. Returned result {}", id, deleteResponse.getResult());
-                    listener.onResponse(false);
+                    listener.onFailure(new ResourceNotFoundException(id));
                 }
             }, onFailure));
         } else {
@@ -211,10 +211,8 @@ public class AsyncSearchPersistenceService {
                                 "User doesn't have necessary roles to access the async search with id " + id, RestStatus.FORBIDDEN));
                         break;
                     case NOT_FOUND:
-                        listener.onResponse(false);
-                        break;
                     case DELETED:
-                        listener.onResponse(true);
+                        listener.onFailure(new ResourceNotFoundException(id));
                         break;
                 }
             }, onFailure));
