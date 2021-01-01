@@ -32,6 +32,7 @@ import org.elasticsearch.ElasticsearchSecurityException;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.LatchedActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.ActionType;
@@ -149,38 +150,14 @@ public class AsyncSearchServiceTests extends ESTestCase {
             assertEquals(asyncSearchActiveContext.getExpirationTimeMillis(), task.getStartTime() + keepAlive.millis());
             assertEquals(asyncSearchActiveContext.getAsyncSearchState(), RUNNING);
             CountDownLatch findContextLatch = new CountDownLatch(3);
-            ActionListener<AsyncSearchContext> expectedSuccessfulActive = wrap(
+            ActionListener<AsyncSearchContext> expectedSuccessfulActive = new LatchedActionListener<>(wrap(
                     r -> {
-                        try {
                             assertTrue(r instanceof AsyncSearchActiveContext);
                             assertEquals(r, context);
-                        } finally {
-                            findContextLatch.countDown();
-                        }
-                    }, e -> {
-                        try {
-                            logger.error(e);
-                            fail("Find context shouldn't have failed. " + e.getMessage());
-                        } finally {
-                            findContextLatch.countDown();
-                        }
-                    }
-            );
-            ActionListener<AsyncSearchContext> expectedSecurityException = wrap(
-                    r -> {
-                        try {
-                            fail("Expecting security exception");
-                        } finally {
-                            findContextLatch.countDown();
-                        }
-                    }, e -> {
-                        try {
-                            assertTrue(e instanceof ElasticsearchSecurityException);
-                        } finally {
-                            findContextLatch.countDown();
-                        }
-                    }
-            );
+                    }, e -> fail("Find context shouldn't have failed. " + e.getMessage())), findContextLatch);
+            ActionListener<AsyncSearchContext> expectedSecurityException = new LatchedActionListener<>(wrap(
+                    r -> fail("Expecting security exception"), e -> assertTrue(e instanceof ElasticsearchSecurityException)
+            ), findContextLatch);
             asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(),
                     asyncSearchActiveContext.getContextId(), user1, expectedSuccessfulActive);
             asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(),
@@ -203,26 +180,12 @@ public class AsyncSearchServiceTests extends ESTestCase {
             } else {
                 assertEquals(fakeClient.persistenceCount, Integer.valueOf(0));
                 CountDownLatch freeContextLatch = new CountDownLatch(1);
-                asyncSearchService.findContext(context.getAsyncSearchId(), context.getContextId(), null, wrap(
-                        r -> {
-                            try {
-                                fail("No context should have been found but found " + asyncSearchService.getAllActiveContexts().size());
-                            } finally {
-                                freeContextLatch.countDown();
-                            }
-                        },
-                        e -> {
-                            try {
-                                assertTrue(e instanceof ResourceNotFoundException);
-                            } finally {
-                                freeContextLatch.countDown();
-                            }
-                        }
-                ));
+                asyncSearchService.findContext(context.getAsyncSearchId(), context.getContextId(), null,
+                        new LatchedActionListener<>(wrap(
+                        r -> fail("No context should have been found but found " + asyncSearchService.getAllActiveContexts().size()),
+                        e -> assertTrue(e instanceof ResourceNotFoundException)), freeContextLatch));
                 freeContextLatch.await();
             }
-
-
         } finally {
             ThreadPool.terminate(testThreadPool, 200, TimeUnit.MILLISECONDS);
         }
@@ -267,44 +230,22 @@ public class AsyncSearchServiceTests extends ESTestCase {
             assertEquals(originalExpirationTimeMillis, task.getStartTime() + keepAlive.millis());
             assertEquals(asyncSearchActiveContext.getAsyncSearchState(), RUNNING);
             CountDownLatch findContextLatch = new CountDownLatch(1);
-            asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), null, wrap(
+            asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), null,
+                    new LatchedActionListener<>(wrap(
                     r -> {
-                        try {
-                            assertTrue(r instanceof AsyncSearchActiveContext);
-                            assertEquals(r, context);
-                        } finally {
-                            findContextLatch.countDown();
-                        }
-                    }, e -> {
-                        try {
-                            logger.error(e);
-                            fail("Find context shouldn't have failed");
-                        } finally {
-                            findContextLatch.countDown();
-                        }
-                    }
-            ));
+                        assertTrue(r instanceof AsyncSearchActiveContext);
+                        assertEquals(r, context);
+                    }, e -> fail("Find context shouldn't have failed")
+            ), findContextLatch));
             findContextLatch.await();
             CountDownLatch updateLatch = new CountDownLatch(1);
             TimeValue newKeepAlive = timeValueDays(10);
             asyncSearchService.updateKeepAliveAndGetContext(asyncSearchActiveContext.getAsyncSearchId(), newKeepAlive,
-                    asyncSearchActiveContext.getContextId(), null, wrap(r -> {
-                        try {
+                    asyncSearchActiveContext.getContextId(), null, new LatchedActionListener<>(wrap(r -> {
                             assertTrue(r instanceof AsyncSearchActiveContext);
                             assertThat(r.getExpirationTimeMillis(), greaterThan(originalExpirationTimeMillis));
-                        } finally {
-                            updateLatch.countDown();
-                        }
-                    }, e -> {
-                        try {
-                            fail();
-                        } finally {
-                            updateLatch.countDown();
-                        }
-                    }));
+                    }, e -> fail()), updateLatch));
             updateLatch.await();
-
-
         } finally {
             ThreadPool.terminate(testThreadPool, 200, TimeUnit.MILLISECONDS);
         }
@@ -331,21 +272,8 @@ public class AsyncSearchServiceTests extends ESTestCase {
             submitAsyncSearchRequest.keepOnCompletion(false);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             CountDownLatch findContextLatch = new CountDownLatch(2);
-            ActionListener<AsyncSearchContext> failureExpectingListener = wrap(r -> {
-
-                try {
-                    fail();
-                } finally {
-                    findContextLatch.countDown();
-                }
-            }, e -> {
-                try {
-                    assertTrue(e instanceof ResourceNotFoundException);
-                } finally {
-                    findContextLatch.countDown();
-                }
-
-            });
+            ActionListener<AsyncSearchContext> failureExpectingListener = new LatchedActionListener<>(wrap(r -> fail(),
+                    e -> assertTrue(e instanceof ResourceNotFoundException)), findContextLatch);
             asyncSearchService.findContext("nonExistentId", new AsyncSearchContextId(randomAlphaOfLength(10), randomNonNegativeLong()),
                     null, failureExpectingListener);
             asyncSearchService.findContext("nonExistentId", new AsyncSearchContextId(randomAlphaOfLength(10), randomNonNegativeLong()),
@@ -393,8 +321,6 @@ public class AsyncSearchServiceTests extends ESTestCase {
             asyncSearchActiveContext.setState(DELETED);
             expectThrows(IllegalStateException.class, () -> asyncSearchService.bootstrapSearch(task,
                     context.getContextId()));
-
-
         } finally {
             ThreadPool.terminate(testThreadPool, 200, TimeUnit.MILLISECONDS);
         }
@@ -420,7 +346,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
             User user2 = TestClientUtils.randomUser();
             SearchRequest searchRequest = new SearchRequest();
             SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
-            submitAsyncSearchRequest.keepOnCompletion(false);
+            submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis(),
                     () -> null, user1);
@@ -443,19 +369,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
             assertTrue(asyncSearchService.getAllActiveContexts().isEmpty());
             CountDownLatch latch = new CountDownLatch(1);
             asyncSearchService.freeContext(context.getAsyncSearchId(), context.getContextId(), user1,
-                    wrap(r -> {
-                        try {
-                            fail();
-                        } finally {
-                            latch.countDown();
-                        }
-                    }, e -> {
-                        try {
-                            assertTrue(e instanceof ResourceNotFoundException);
-                        } finally {
-                            latch.countDown();
-                        }
-                    }));
+                    new LatchedActionListener<>(wrap(r -> fail(), e -> assertTrue(e instanceof ResourceNotFoundException)), latch));
             latch.await();
         } finally {
             ThreadPool.terminate(testThreadPool, 200, TimeUnit.MILLISECONDS);
@@ -482,7 +396,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
             User user2 = TestClientUtils.randomUser();
             SearchRequest searchRequest = new SearchRequest();
             SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
-            submitAsyncSearchRequest.keepOnCompletion(false);
+            submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
             submitAsyncSearchRequest.keepAlive(keepAlive);
             AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis(),
                     () -> null, user1);
@@ -503,19 +417,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
             assertEquals(asyncSearchActiveContext.getAsyncSearchState(), RUNNING);
             CountDownLatch latch = new CountDownLatch(1);
             asyncSearchService.freeContext(context.getAsyncSearchId(), context.getContextId(), user1,
-                    wrap(r -> {
-                        try {
-                            assertTrue(r);
-                        } finally {
-                            latch.countDown();
-                        }
-                    }, e -> {
-                        try {
-                            fail();
-                        } finally {
-                            latch.countDown();
-                        }
-                    }));
+                    new LatchedActionListener<>(wrap(r -> assertTrue(r), e -> fail()), latch));
             latch.await();
         } finally {
             ThreadPool.terminate(testThreadPool, 200, TimeUnit.MILLISECONDS);

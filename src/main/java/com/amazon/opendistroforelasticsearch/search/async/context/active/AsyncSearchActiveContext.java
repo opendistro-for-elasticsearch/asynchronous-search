@@ -101,7 +101,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
         if (completed.compareAndSet(false, true)) {
             // we don't want to process stack traces
             if (e.getCause() != null) {
-                e.getCause().setStackTrace(new StackTraceElement[]{});
+                e.getCause().setStackTrace(new StackTraceElement[0]);
             }
             error.set(e);
         }
@@ -114,7 +114,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
             for(ShardSearchFailure shardSearchFailure : shardSearchFailures) {
                 // we don't want to process stack traces
                 if (shardSearchFailure.getCause() != null) {
-                    shardSearchFailure.getCause().setStackTrace(new StackTraceElement[]{});
+                    shardSearchFailure.getCause().setStackTrace(new StackTraceElement[0]);
                 }
             }
             this.searchResponse.set(response);
