@@ -97,8 +97,8 @@ public class AsyncSearchCountStats implements Writeable, ToXContentFragment {
         private static final String RUNNING = "running_current";
         private static final String PERSISTED = "persisted";
         private static final String PERSIST_FAILED = "persist_failed";
-        private static final String FAILED = "failed";
-        private static final String COMPLETED = "completed";
+        private static final String FAILED = "search_failed";
+        private static final String COMPLETED = "search_completed";
         private static final String REJECTED = "rejected";
         private static final String SUBMITTED = "submitted";
         private static final String INITIALIZED = "initialized";
