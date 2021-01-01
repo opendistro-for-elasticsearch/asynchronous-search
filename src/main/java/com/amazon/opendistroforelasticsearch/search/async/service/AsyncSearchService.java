@@ -279,7 +279,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             logger.debug("Active context present for async search id [{}]", id);
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
             if (isUserValid(user, asyncSearchContext.getUser())) {
-                cancelAndFreeActiveAndPersistedContext(asyncSearchContext, listener);
+                //passing user as null since we have already validated the user once
+                cancelAndFreeActiveAndPersistedContext(asyncSearchContext, listener, null);
             } else {
                 listener.onFailure(new ElasticsearchSecurityException(
                         "User doesn't have necessary roles to access the async search with id " + id, RestStatus.FORBIDDEN));
@@ -313,7 +314,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     // We are skipping user check in this while deleting from the persisted layer
     // as we have already checked for user in the present active context.
     private void cancelAndFreeActiveAndPersistedContext(AsyncSearchActiveContext asyncSearchContext,
-                                                        ActionListener<Boolean> listener) {
+                                                        ActionListener<Boolean> listener, User user) {
         // if there are no context found to be cleaned up we throw a ResourceNotFoundException
         AtomicReference<Releasable> releasableReference = new AtomicReference<>(() -> {});
         ActionListener<Boolean> releasableListener = runAfter(listener, releasableReference.get()::close);
@@ -350,7 +351,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     cancelTask(asyncSearchContext, "User triggered context deletion",
                             () -> groupedDeletionListener.onResponse(response));
                     logger.debug("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
-                    persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), null, translatedListener);
+                    persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), user, translatedListener);
                 }, exception -> {
                     Throwable cause = ExceptionsHelper.unwrapCause(exception);
                     if (cause instanceof TimeoutException) {
@@ -366,7 +367,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         cancelTask(asyncSearchContext, "User triggered context deletion", () -> groupedDeletionListener.onResponse(false));
 
                         logger.debug("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
-                        persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), null, translatedListener);
+                        persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), user, translatedListener);
                     }
                 }
         ), TimeValue.timeValueSeconds(5), "free context");

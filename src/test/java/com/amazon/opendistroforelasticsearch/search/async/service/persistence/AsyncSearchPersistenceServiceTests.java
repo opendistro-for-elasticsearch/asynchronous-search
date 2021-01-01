@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.search.async.context.persistence.As
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
+import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
@@ -56,7 +57,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.core.IsInstanceOf.instanceOf;
 
 public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTestCase {
 
@@ -264,21 +265,15 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         request.waitForCompletionTimeout(TimeValue.timeValueMillis(5000));
         AsyncSearchResponse asyncSearchResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), request);
         waitUntil(() -> verifyAsyncSearchState(client(), asyncSearchResponse.getId(), AsyncSearchState.PERSISTING));
-        GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(asyncSearchResponse.getId());
-        getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueHours(10));
-        CountDownLatch getLatch = new CountDownLatch(1);
-        executeGetAsyncSearch(client(), getAsyncSearchRequest, new LatchedActionListener<>(new ActionListener<AsyncSearchResponse>() {
-            @Override
-            public void onResponse(AsyncSearchResponse asyncSearchResponse) {
-                fail("Expected timeout. Got " + asyncSearchResponse);
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                assertThat(e, instanceOf(ElasticsearchTimeoutException.class));
-            }
-        }, getLatch));
-        getLatch.await();
+        // This is needed to ensure we are able to acquire a permit for post processing before we try a GET operation
+        waitUntil(() -> getRequestTimesOut(asyncSearchResponse.getId(), AsyncSearchState.PERSISTING));
+        DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(asyncSearchResponse.getId());
+        try {
+            executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest).actionGet();
+            fail("Expected timeout");
+        } catch (Exception e) {
+            assertThat(e, instanceOf(ElasticsearchTimeoutException.class));
+        }
         client().admin().indices().prepareUpdateSettings(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX)
                 .setSettings(Settings.builder().put(IndexMetadata.SETTING_READ_ONLY_ALLOW_DELETE, false).build()).execute().actionGet();
         waitUntil(() -> verifyAsyncSearchState(client(), asyncSearchResponse.getId(), AsyncSearchState.PERSISTED));
@@ -314,30 +309,22 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         getLatch.await();
 
         CountDownLatch deleteLatch = new CountDownLatch(1);
-        persistenceService.deleteExpiredResponses(new ActionListener<AcknowledgedResponse>() {
+        persistenceService.deleteExpiredResponses(new LatchedActionListener<>(new ActionListener<AcknowledgedResponse>() {
             @Override
             public void onResponse(AcknowledgedResponse acknowledgedResponse) {
                 assertTrue(acknowledgedResponse.isAcknowledged());
-                deleteLatch.countDown();
             }
 
             @Override
             public void onFailure(Exception e) {
-                try {
-                    fail("Received exception while deleting expired response");
-                } finally {
-                    deleteLatch.countDown();
-                }
-
+               fail("Received exception while deleting expired response");
             }
-        }, System.currentTimeMillis());
-
+        }, deleteLatch), System.currentTimeMillis());
     }
 
     private void assertRnf(CountDownLatch latch, Exception exception) {
         try {
-            assertTrue("Expected : RNF. Actual : " + exception.getClass() + "with cause : " + exception.getCause(),
-                    exception instanceof ResourceNotFoundException);
+            assertThat(exception, instanceOf(ResourceNotFoundException.class));
         } finally {
             latch.countDown();
         }
@@ -432,6 +419,20 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
             return null;
         }
         return user.getName() + "|" + String.join(",", user.getBackendRoles()) + "|" + String.join(",", user.getRoles());
+    }
+
+    private boolean getRequestTimesOut(String id, AsyncSearchState state) {
+        boolean timedOut;
+        final GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(id);
+        getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueHours(10));
+        try {
+            AsyncSearchResponse asyncSearchResponse = executeGetAsyncSearch(client(), getAsyncSearchRequest).actionGet();
+            assertEquals(AsyncSearchState.PERSISTING, asyncSearchResponse.getState());
+            timedOut = false;
+        } catch (ElasticsearchTimeoutException e) {
+            timedOut = true;
+        }
+        return timedOut;
     }
 
     @Override
