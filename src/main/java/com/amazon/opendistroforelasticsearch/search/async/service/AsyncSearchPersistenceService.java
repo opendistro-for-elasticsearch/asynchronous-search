@@ -321,7 +321,7 @@ public class AsyncSearchPersistenceService {
                                 }
                             },
                             (e) -> {
-                                logger.debug(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}",
+                                logger.error(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}",
                                         expirationTimeInMillis), e);
                                 final Throwable cause = ExceptionsHelper.unwrapCause(e);
                                 listener.onFailure(cause instanceof Exception ? (Exception) cause :

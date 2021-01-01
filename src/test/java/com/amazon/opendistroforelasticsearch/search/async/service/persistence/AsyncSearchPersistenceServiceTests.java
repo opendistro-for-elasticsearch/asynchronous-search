@@ -275,7 +275,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
             assertThat(e, instanceOf(ElasticsearchTimeoutException.class));
         }
         client().admin().indices().prepareUpdateSettings(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX)
-                .setSettings(Settings.builder().put(IndexMetadata.SETTING_READ_ONLY_ALLOW_DELETE, false).build()).execute().actionGet();
+                .setSettings(Settings.builder().putNull(IndexMetadata.SETTING_READ_ONLY_ALLOW_DELETE).build()).execute().actionGet();
         waitUntil(() -> verifyAsyncSearchState(client(), asyncSearchResponse.getId(), AsyncSearchState.PERSISTED));
         CountDownLatch deleteLatch = new CountDownLatch(1);
         persistenceService.deleteResponse(asyncSearchResponse.getId(), null,
@@ -317,9 +317,10 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
 
             @Override
             public void onFailure(Exception e) {
-               fail("Received exception while deleting expired response");
+               fail("Received exception while deleting expired response " + e.getMessage());
             }
         }, deleteLatch), System.currentTimeMillis());
+        deleteLatch.await();
     }
 
     private void assertRnf(CountDownLatch latch, Exception exception) {

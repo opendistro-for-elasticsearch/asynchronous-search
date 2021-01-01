@@ -150,7 +150,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
     }
 
     private void executeRefresh(ClusterState clusterState, String reason) {
-        if (clusterState.nodes().getDataNodes().size() > 1) {
+        if (clusterState.nodes().getDataNodes().size() > 0) {
             logger.trace("refreshing cluster info in background [{}]", reason);
             threadPool.executor(RESPONSE_CLEANUP_SCHEDULING_EXECUTOR).execute(new ResponseCleanUpRunnable(reason));
         }
