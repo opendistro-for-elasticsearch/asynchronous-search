@@ -279,8 +279,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             logger.debug("Active context present for async search id [{}]", id);
             AsyncSearchActiveContext asyncSearchContext = asyncSearchContextOptional.get();
             if (isUserValid(user, asyncSearchContext.getUser())) {
-                //passing user as null since we have already validated the user once
-                cancelAndFreeActiveAndPersistedContext(asyncSearchContext, listener, null);
+                cancelAndFreeActiveAndPersistedContext(asyncSearchContext, listener, user);
             } else {
                 listener.onFailure(new ElasticsearchSecurityException(
                         "User doesn't have necessary roles to access the async search with id " + id, RestStatus.FORBIDDEN));
