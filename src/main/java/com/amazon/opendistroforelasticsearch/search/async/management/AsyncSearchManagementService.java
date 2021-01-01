@@ -81,7 +81,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
     private TimeValue taskCancellationInterval;
     private TimeValue responseCleanUpInterval;
 
-    public static final String CLEANUP_ACTION_NAME = "indices:data/read/async_search/cleanup";
+    public static final String CLEANUP_ACTION_NAME = "indices:data/read/opendistro/asynchronous_search/response_cleanup";
 
     public static final Setting<TimeValue> ACTIVE_CONTEXT_REAPER_INTERVAL_SETTING =
             Setting.timeSetting("opendistro_asynchronous_search.expired.task.reaper_interval", TimeValue.timeValueMinutes(5),

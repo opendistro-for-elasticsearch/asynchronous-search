@@ -47,7 +47,7 @@ public class InternalAsyncSearchStats implements AsyncSearchContextEventListener
 
     @Override
     public void onContextRejected(AsyncSearchContextId contextId) {
-        countStatsHolder.submittedAsyncSearchCount.inc();
+        countStatsHolder.rejectedAsyncSearchCount.inc();
     }
 
     @Override
