@@ -121,7 +121,7 @@ public class AsyncSearchManagementServiceTests extends ESTestCase {
         ClusterState previousState = createSimpleClusterState();
         ClusterState newState = createState(numNodesInCluster, true, initialIndices);
         managementService.clusterChanged(new ClusterChangedEvent("_na_", newState, previousState));
-        assertFalse(deterministicTaskQueue.hasRunnableTasks());
+        assertTrue(deterministicTaskQueue.hasRunnableTasks());
         assertTrue(deterministicTaskQueue.hasDeferredTasks());
         int rescheduledCount = 0;
         for (int i = 1; i <= randomIntBetween(5, 10); i++) {

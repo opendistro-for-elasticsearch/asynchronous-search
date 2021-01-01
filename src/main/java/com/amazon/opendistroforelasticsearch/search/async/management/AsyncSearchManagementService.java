@@ -84,12 +84,12 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
     public static final String CLEANUP_ACTION_NAME = "indices:data/read/async_search/cleanup";
 
     public static final Setting<TimeValue> ACTIVE_CONTEXT_REAPER_INTERVAL_SETTING =
-            Setting.timeSetting("opendistro_asynchronous_search.expired.task.reaper_interval", TimeValue.timeValueMinutes(30),
+            Setting.timeSetting("opendistro_asynchronous_search.expired.task.reaper_interval", TimeValue.timeValueMinutes(5),
                     TimeValue.timeValueSeconds(5),
                     Setting.Property.NodeScope);
     public static final Setting<TimeValue> PERSISTED_RESPONSE_CLEAN_UP_INTERVAL_SETTING =
             Setting.timeSetting("opendistro_asynchronous_search.expired.persisted_response.cleanup_interval",
-                    TimeValue.timeValueMinutes(10), TimeValue.timeValueSeconds(5),
+                    TimeValue.timeValueMinutes(5), TimeValue.timeValueSeconds(5),
                     Setting.Property.NodeScope);
 
     @Inject
@@ -137,8 +137,8 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
         if (event.localNodeMaster() && activeResponseCleanUpRunnable.get() == null) {
-            logger.trace("elected as master, scheduling cluster info update tasks");
-            executeRefresh(event.state(), "became master");
+            logger.trace("elected as master, triggering response cleanup tasks");
+            triggerCleanUp(event.state(), "became master");
 
             final ResponseCleanUpAndRescheduleRunnable newRunnable = new ResponseCleanUpAndRescheduleRunnable();
             activeResponseCleanUpRunnable.set(newRunnable);
@@ -149,9 +149,9 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
         }
     }
 
-    private void executeRefresh(ClusterState clusterState, String reason) {
+    private void triggerCleanUp(ClusterState clusterState, String reason) {
         if (clusterState.nodes().getDataNodes().size() > 0) {
-            logger.trace("refreshing cluster info in background [{}]", reason);
+            logger.debug("triggering response cleanup in background [{}]", reason);
             threadPool.executor(RESPONSE_CLEANUP_SCHEDULING_EXECUTOR).execute(new ResponseCleanUpRunnable(reason));
         }
     }
@@ -207,8 +207,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
             List<DiscoveryNode> nodes = Stream.of(dataNodes.values().toArray(DiscoveryNode.class))
                     .filter((node) -> isAsyncSearchEnabledNode(node)).collect(Collectors.toList());
             if (nodes == null || nodes.isEmpty()) {
-                logger.debug("Found empty data nodes with async search enabled attribute [{}] for response clean up," +
-                        " scheduling next wake up!", dataNodes);
+                logger.debug("Found empty data nodes with async search enabled attribute [{}] for response clean up", dataNodes);
                 return;
             }
             int pos = Randomness.get().nextInt(nodes.size());
@@ -247,7 +246,7 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
     // TODO: only here temporarily for BWC development, remove once complete
     private boolean isAsyncSearchEnabledNode(DiscoveryNode discoveryNode) {
-        return Booleans.isTrue(discoveryNode.getAttributes().getOrDefault("asynchronous_search_enabled", "false"));
+        return Booleans.isTrue(discoveryNode.getAttributes().getOrDefault("asynchronous_search_enabled", "true"));
     }
 
 
