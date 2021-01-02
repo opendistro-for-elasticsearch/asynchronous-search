@@ -201,8 +201,8 @@ public class AsyncSearchPostProcessorTests extends ESTestCase {
             assertNotNull(asyncSearchResponse.getId());
             assertNull(asyncSearchResponse.getError());
             assertEquals(AsyncSearchState.PERSISTING, asyncSearchResponse.getState());
-            waitUntil(() -> context.getAsyncSearchState() == AsyncSearchState.PERSISTED);
-            assertEquals(AsyncSearchState.PERSISTED, context.getAsyncSearchState());
+            waitUntil(() -> context.getAsyncSearchState() == AsyncSearchState.DELETED);
+            assertEquals(AsyncSearchState.DELETED, context.getAsyncSearchState());
             AsyncSearchAssertions.assertSearchResponses(mockSearchResponse, asyncSearchResponse.getSearchResponse());
             assertFalse(activeContextCleanUpConsumerInvocation.get());
             assertEquals(1, fakeClient.persistenceCount);

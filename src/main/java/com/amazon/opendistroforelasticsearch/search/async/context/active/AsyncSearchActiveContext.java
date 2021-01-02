@@ -139,6 +139,10 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
         return keepOnCompletion && isExpired() == false && isAlive();
     }
 
+    public boolean keepOnCompletion() {
+        return keepOnCompletion;
+    }
+
     public void setExpirationTimeMillis(long expirationTimeMillis) {
         assert isAlive();
         this.expirationTimeMillis = expirationTimeMillis;

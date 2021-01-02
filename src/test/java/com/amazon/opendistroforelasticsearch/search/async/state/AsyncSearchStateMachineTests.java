@@ -85,9 +85,7 @@ import java.util.stream.Stream;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSIST_FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.SUCCEEDED;
 import static java.util.Collections.emptyList;
@@ -167,13 +165,10 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
                 }
                 doConcurrentStateMachineTrigger(stateMachine, new BeginPersistEvent(context), PERSISTING,
                         IllegalStateException.class);
-                waitUntil(() -> context.getAsyncSearchState().equals(PERSIST_FAILED) || context.getAsyncSearchState().equals(PERSISTED), 1
-                        , TimeUnit.MINUTES);
+                waitUntil(() -> context.getAsyncSearchState().equals(DELETED), 1, TimeUnit.MINUTES);
                 assertTrue(context.getAsyncSearchState().toString() + " numFailure : " + numFailure.get() + " numSuccess : "
                                 + numCompleted.get(),
-                        context.getAsyncSearchState().equals(PERSIST_FAILED) || context.getAsyncSearchState().equals(PERSISTED));
-                doConcurrentStateMachineTrigger(stateMachine, new SearchDeletedEvent(context), DELETED,
-                        AsyncSearchStateMachineClosedException.class);
+                        context.getAsyncSearchState().equals(DELETED));
                 assertEquals(1, customContextListener.getPersistedCount() + customContextListener.getPersistFailedCount());
             }
             assertEquals(numCompleted.get(), customContextListener.getCompletedCount());
