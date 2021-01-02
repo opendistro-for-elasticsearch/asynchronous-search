@@ -82,7 +82,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.DELETED;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.CLOSED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
@@ -151,7 +151,7 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
                     RUNNING, IllegalStateException.class);
             assertNotNull(context.getTask());
             if (randomBoolean()) { //delete running context
-                doConcurrentStateMachineTrigger(stateMachine, new SearchDeletedEvent(context), DELETED,
+                doConcurrentStateMachineTrigger(stateMachine, new SearchDeletedEvent(context), CLOSED,
                         AsyncSearchStateMachineClosedException.class);
             } else {
                 if (randomBoolean()) {//success or failure
@@ -165,10 +165,10 @@ public class AsyncSearchStateMachineTests extends AsyncSearchTestCase {
                 }
                 doConcurrentStateMachineTrigger(stateMachine, new BeginPersistEvent(context), PERSISTING,
                         IllegalStateException.class);
-                waitUntil(() -> context.getAsyncSearchState().equals(DELETED), 1, TimeUnit.MINUTES);
+                waitUntil(() -> context.getAsyncSearchState().equals(CLOSED), 1, TimeUnit.MINUTES);
                 assertTrue(context.getAsyncSearchState().toString() + " numFailure : " + numFailure.get() + " numSuccess : "
                                 + numCompleted.get(),
-                        context.getAsyncSearchState().equals(DELETED));
+                        context.getAsyncSearchState().equals(CLOSED));
                 assertEquals(1, customContextListener.getPersistedCount() + customContextListener.getPersistFailedCount());
             }
             assertEquals(numCompleted.get(), customContextListener.getCompletedCount());

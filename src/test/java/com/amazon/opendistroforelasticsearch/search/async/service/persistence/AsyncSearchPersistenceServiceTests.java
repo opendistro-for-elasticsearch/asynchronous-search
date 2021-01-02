@@ -81,7 +81,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         User user2 = TestClientUtils.randomUser();
         for (User user : Arrays.asList(user1, null)) {
             AsyncSearchResponse newAsyncSearchResponse = new AsyncSearchResponse(id,
-                    AsyncSearchState.PERSISTED,
+                    AsyncSearchState.PERSIST_SUCCESSFUL,
                     asyncSearchResponse.getStartTimeMillis(),
                     asyncSearchResponse.getExpirationTimeMillis(),
                     asyncSearchResponse.getSearchResponse(),
@@ -255,12 +255,12 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
                 asyncSearchContextId);
         String id = AsyncSearchIdConverter.buildAsyncId(newAsyncSearchId);
         AsyncSearchResponse mockResponse = new AsyncSearchResponse(id,
-                AsyncSearchState.PERSISTED, randomNonNegativeLong(), randomNonNegativeLong(), getMockSearchResponse(), null);
+                AsyncSearchState.PERSIST_SUCCESSFUL, randomNonNegativeLong(), randomNonNegativeLong(), getMockSearchResponse(), null);
         createDoc(getInstanceFromNode(AsyncSearchPersistenceService.class), mockResponse, null);
         client().admin().indices().prepareUpdateSettings(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX)
                 .setSettings(Settings.builder().put(IndexMetadata.SETTING_READ_ONLY_ALLOW_DELETE, true).build()).execute().actionGet();
         SearchRequest searchRequest = new SearchRequest().indices("index").source(new SearchSourceBuilder());
-        SubmitAsyncSearchRequest request = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
+        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
         request.keepOnCompletion(true);
         request.waitForCompletionTimeout(TimeValue.timeValueMillis(5000));
         AsyncSearchResponse asyncSearchResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), request);
@@ -276,7 +276,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         }
         client().admin().indices().prepareUpdateSettings(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX)
                 .setSettings(Settings.builder().putNull(IndexMetadata.SETTING_READ_ONLY_ALLOW_DELETE).build()).execute().actionGet();
-        waitUntil(() -> verifyAsyncSearchState(client(), asyncSearchResponse.getId(), AsyncSearchState.DELETED));
+        waitUntil(() -> verifyAsyncSearchState(client(), asyncSearchResponse.getId(), AsyncSearchState.CLOSED));
         CountDownLatch deleteLatch = new CountDownLatch(1);
         persistenceService.deleteResponse(asyncSearchResponse.getId(), null,
                 ActionListener.wrap(r -> assertBoolean(deleteLatch, r, true), e -> fail("Unexpected failure " + e.getMessage())));
@@ -354,7 +354,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
 
     private AsyncSearchResponse submitAndGetPersistedAsyncSearchResponse() throws InterruptedException {
         SearchRequest searchRequest = new SearchRequest().indices("index").source(new SearchSourceBuilder());
-        SubmitAsyncSearchRequest request = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
+        SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
         request.keepOnCompletion(true);
         request.waitForCompletionTimeout(TimeValue.timeValueMillis(1));
         AsyncSearchResponse asyncSearchResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), request);
