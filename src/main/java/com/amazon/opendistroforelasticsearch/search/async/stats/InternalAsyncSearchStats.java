@@ -50,20 +50,6 @@ public class InternalAsyncSearchStats implements AsyncSearchContextEventListener
         countStatsHolder.submittedAsyncSearchCount.inc();
     }
 
-    @Override
-    public void onNewContext(AsyncSearchContextId contextId) {
-        countStatsHolder.submittedAsyncSearchCount.inc();
-    }
-
-    @Override
-    public void onContextCancelled(AsyncSearchContextId contextId) {
-        countStatsHolder.cancelledAsyncSearchCount.inc();
-    }
-
-    @Override
-    public void onContextInitialized(AsyncSearchContextId contextId) {
-        countStatsHolder.initializedAsyncSearchCount.inc();
-    }
 
     @Override
     public void onNewContext(AsyncSearchContextId contextId) {

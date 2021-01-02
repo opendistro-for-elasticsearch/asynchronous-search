@@ -446,7 +446,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     releasable -> {
                         ActionListener<AsyncSearchContext> releasableActionListener = runAfter(listener, releasable::close);
                         // At this point it's possible that the response would have been persisted to system index
-                        if (asyncSearchActiveContext.getAsyncSearchState() == AsyncSearchState.PERSISTED) {
+                        if (asyncSearchActiveContext.isAlive() == false && asyncSearchActiveContext.keepOnCompletion()) {
                             logger.debug("Updating persistence store after state is PERSISTED async search id [{}] " +
                                     "for updating context", asyncSearchActiveContext.getAsyncSearchId());
                             persistenceService.updateExpirationTime(id, requestedExpirationTime, user, wrap(
