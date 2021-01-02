@@ -194,7 +194,7 @@ public class SubmitAsyncSearchRequest extends ActionRequest {
 
     public static SubmitAsyncSearchRequest getRequestWithDefaults(SearchRequest searchRequest) {
         SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
-        searchRequest.setCcsMinimizeRoundtrips(false);
+        searchRequest.setCcsMinimizeRoundtrips(CCS_MINIMIZE_ROUNDTRIPS);
         return submitAsyncSearchRequest;
     }
 }

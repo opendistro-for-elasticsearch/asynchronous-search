@@ -245,8 +245,6 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
                 try {
                     SubmitAsyncSearchRequest submitAsyncSearchRequest = SubmitAsyncSearchRequest.getRequestWithDefaults(searchRequest);
                     executeSubmitAsyncSearch(client(randomDataNode.getName()), submitAsyncSearchRequest);
-
-
                 } catch (ExecutionException e) {
                     assertThat(e.getMessage(), containsString("Trying to create too many running contexts"));
                 } catch (InterruptedException e) {

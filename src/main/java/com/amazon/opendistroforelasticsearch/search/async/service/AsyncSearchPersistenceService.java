@@ -212,7 +212,7 @@ public class AsyncSearchPersistenceService {
                         break;
                     case NOT_FOUND:
                     case DELETED:
-                        listener.onResponse(true);
+                        listener.onFailure(new ResourceNotFoundException(id));
                         break;
                 }
             }, onFailure));

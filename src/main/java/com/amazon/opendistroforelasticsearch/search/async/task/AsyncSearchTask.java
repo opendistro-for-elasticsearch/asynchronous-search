@@ -39,7 +39,7 @@ public class AsyncSearchTask extends SearchTask {
     private final AsyncSearchActiveContext asyncSearchActiveContext;
     private final SubmitAsyncSearchRequest request;
 
-    public static final String NAME = "indices:data/read/async_search";
+    public static final String NAME = "indices:data/read/opendistro/asynchronous_search";
 
     public AsyncSearchTask(long id, String type, String action, TaskId parentTaskId, Map<String, String> headers,
                            AsyncSearchActiveContext asyncSearchContext, SubmitAsyncSearchRequest request,
