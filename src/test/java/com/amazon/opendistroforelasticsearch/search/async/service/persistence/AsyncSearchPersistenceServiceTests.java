@@ -248,7 +248,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         assertEquals(600000L, total);
     }
 
-    public void testAsyncSearchExpirationUpdateOnBlockedPersistence() throws Exception {
+    public void testTimeoutsOnBlockedPersistence() throws Exception {
         AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), randomInt(100));
         AsyncSearchId newAsyncSearchId = new AsyncSearchId(getInstanceFromNode(TransportService.class).getLocalNode().getId(), 1,
@@ -276,7 +276,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         }
         client().admin().indices().prepareUpdateSettings(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX)
                 .setSettings(Settings.builder().putNull(IndexMetadata.SETTING_READ_ONLY_ALLOW_DELETE).build()).execute().actionGet();
-        waitUntil(() -> verifyAsyncSearchState(client(), asyncSearchResponse.getId(), AsyncSearchState.PERSISTED));
+        waitUntil(() -> verifyAsyncSearchState(client(), asyncSearchResponse.getId(), AsyncSearchState.DELETED));
         CountDownLatch deleteLatch = new CountDownLatch(1);
         persistenceService.deleteResponse(asyncSearchResponse.getId(), null,
                 ActionListener.wrap(r -> assertBoolean(deleteLatch, r, true), e -> fail("Unexpected failure " + e.getMessage())));
