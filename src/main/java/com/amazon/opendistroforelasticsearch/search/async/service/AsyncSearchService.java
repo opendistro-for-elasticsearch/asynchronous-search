@@ -345,19 +345,19 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 });
         //Intent of the lock here is to disallow ongoing migration to system index
         // as if that is underway we might end up creating a new document post a DELETE was executed
+        String cancelTaskReason = "Delete asynchronous search [" + asyncSearchContext.getAsyncSearchId()
+                + "] has been triggered. Attempting to cancel in-progress search task";
         asyncSearchContext.acquireContextPermitIfRequired(wrap(
                 releasable -> {
                     releasableReference.set(releasable);
                     //TODO fix the reason for cancellation by user
                     boolean response = freeActiveContext(asyncSearchContext);
                     if (asyncSearchContext.keepOnCompletion()) {
-                        cancelTask(asyncSearchContext, "User triggered context deletion",
-                                () -> groupedDeletionListener.onResponse(response));
+                        cancelTask(asyncSearchContext, cancelTaskReason, () -> groupedDeletionListener.onResponse(response));
                         logger.debug("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
                         persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), user, translatedListener);
                     } else {
-                        cancelTask(asyncSearchContext, "User triggered context deletion",
-                                () -> {
+                        cancelTask(asyncSearchContext, cancelTaskReason, () -> {
                                     if (response) {
                                         releasableListener.onResponse(true);
                                     } else {
@@ -378,15 +378,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         if (asyncSearchContext.keepOnCompletion()) {
                             logger.debug(() -> new ParameterizedMessage("Failed to acquire permits for async search id " +
                                     "[{}] for freeing context", asyncSearchContext.getAsyncSearchId()), exception);
-                            cancelTask(asyncSearchContext, "User triggered context deletion",
-                                    () -> groupedDeletionListener.onResponse(false));
+                            cancelTask(asyncSearchContext, cancelTaskReason, () -> groupedDeletionListener.onResponse(false));
 
                             logger.debug("Deleting async search id [{}] from system index ", asyncSearchContext.getAsyncSearchId());
                             persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), user, translatedListener);
                         } else {
                             logger.debug(() -> new ParameterizedMessage("Failed to acquire permits for async search id " +
                                     "[{}] for freeing context", asyncSearchContext.getAsyncSearchId()), exception);
-                            cancelTask(asyncSearchContext, "User triggered context deletion", () -> releasableListener.onResponse(false));
+                            cancelTask(asyncSearchContext, cancelTaskReason, () -> releasableListener.onResponse(false));
                         }
                     }
                 }

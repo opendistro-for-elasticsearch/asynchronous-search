@@ -85,47 +85,6 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
         }
     }
 
-    /**
-     * Before {@linkplain AsyncSearchProgressListener} onListShards() is invoked we won't have a partial search response.
-     */
-    public void testSubmitWaitForCompletionTimeoutTriggeredBeforeOnListShardsEvent() throws IOException {
-        try {
-            SearchRequest searchRequest = new SearchRequest("test");
-            searchRequest.source(new SearchSourceBuilder());
-            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
-            submitAsyncSearchRequest.keepOnCompletion(false);
-            submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(0));
-            AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
-
-            assertEquals(AsyncSearchState.RUNNING, submitResponse.getState());
-            assertNotNull(submitResponse.getId());
-            assertNull(submitResponse.getError());
-            if (submitResponse.getSearchResponse() == null) {
-                assertEquals(submitResponse.status(), RestStatus.OK);
-            }
-            List<AsyncSearchState> legalStates = Arrays.asList(
-                    AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
-            assertTrue(legalStates.contains(submitResponse.getState()));
-            GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
-            AsyncSearchResponse getResponse;
-            do {
-                getResponse = null;
-                try {
-                    getResponse = getAssertedAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
-                    if (AsyncSearchState.SUCCEEDED.equals(getResponse.getState())
-                            || AsyncSearchState.CLOSED.equals(getResponse.getState())) {
-                        assertNotNull(getResponse.getSearchResponse());
-                        assertHitCount(getResponse.getSearchResponse(), 5L);
-                    }
-                } catch (Exception e) {
-                    assertRnf(e);
-                }
-            } while (getResponse != null && legalStates.contains(getResponse.getState()));
-        } finally {
-            deleteIndexIfExists();
-        }
-    }
-
     public void testSubmitSearchCompletesBeforeWaitForCompletionTimeout() throws IOException {
         try {
             SearchRequest searchRequest = new SearchRequest("test");
