@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.search.async.service;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.search.async.context.persistence.AsyncSearchPersistenceModel;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
+import com.amazon.opendistroforelasticsearch.search.async.utils.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -61,8 +62,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static com.amazon.opendistroforelasticsearch.search.async.UserAuthUtils.isUserValid;
-import static com.amazon.opendistroforelasticsearch.search.async.UserAuthUtils.parseUser;
+import static com.amazon.opendistroforelasticsearch.search.async.utils.UserAuthUtils.isUserValid;
+import static com.amazon.opendistroforelasticsearch.search.async.utils.UserAuthUtils.parseUser;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
 /**
@@ -124,7 +125,7 @@ public class AsyncSearchPersistenceService {
     @SuppressWarnings("unchecked")
     public void getResponse(String id, User user, ActionListener<AsyncSearchPersistenceModel> listener) {
         if (indexExists() == false) {
-            listener.onFailure(new ResourceNotFoundException(id));
+            listener.onFailure(new ResourceNotFoundException(ExceptionUtils.getRnfMessageForGet(id)));
             return;
         }
         GetRequest request = new GetRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
@@ -146,7 +147,7 @@ public class AsyncSearchPersistenceService {
                                     "User doesn't have necessary roles to access the async search [" + id + "]", RestStatus.FORBIDDEN));
                         }
                     } else {
-                        listener.onFailure(new ResourceNotFoundException(id));
+                        listener.onFailure(new ResourceNotFoundException(ExceptionUtils.getRnfMessageForGet(id)));
                     }
                 },
                 exception -> {
@@ -169,14 +170,14 @@ public class AsyncSearchPersistenceService {
     public void deleteResponse(String id, User user, ActionListener<Boolean> listener) {
         if (indexExists() == false) {
             logger.debug("Async search index [{}] doesn't exists", ASYNC_SEARCH_RESPONSE_INDEX);
-            listener.onFailure(new ResourceNotFoundException(id));
+            listener.onFailure(new ResourceNotFoundException(ExceptionUtils.getRnfMessageForDelete(id)));
             return;
         }
         Consumer<Exception> onFailure = e -> {
             final Throwable cause = ExceptionsHelper.unwrapCause(e);
             if (cause instanceof DocumentMissingException) {
                 logger.debug(() -> new ParameterizedMessage("Async search response doc already deleted {}", id), e);
-                listener.onFailure(new ResourceNotFoundException(id));
+                listener.onFailure(new ResourceNotFoundException(ExceptionUtils.getRnfMessageForDelete(id)));
             } else {
                 logger.debug(() -> new ParameterizedMessage("Failed to delete async search for id {}", id), e);
                 listener.onFailure(cause instanceof Exception ? (Exception) cause : new NotSerializableExceptionWrapper(cause));
@@ -189,7 +190,7 @@ public class AsyncSearchPersistenceService {
                     listener.onResponse(true);
                 } else {
                     logger.debug("Delete async search {} unsuccessful. Returned result {}", id, deleteResponse.getResult());
-                    listener.onFailure(new ResourceNotFoundException(id));
+                    listener.onFailure(new ResourceNotFoundException(ExceptionUtils.getRnfMessageForDelete(id)));
                 }
             }, onFailure));
         } else {
@@ -211,7 +212,7 @@ public class AsyncSearchPersistenceService {
                                 "User doesn't have necessary roles to access the async search with id " + id, RestStatus.FORBIDDEN));
                         break;
                     case NOT_FOUND:
-                        listener.onFailure(new ResourceNotFoundException(id));
+                        listener.onFailure(new ResourceNotFoundException(ExceptionUtils.getRnfMessageForDelete(id)));
                         break;
                     case DELETED:
                         listener.onResponse(true);
@@ -233,7 +234,7 @@ public class AsyncSearchPersistenceService {
     public void updateExpirationTime(String id, long expirationTimeMillis,
                                      User user, ActionListener<AsyncSearchPersistenceModel> listener) {
         if (indexExists() == false) {
-            listener.onFailure(new ResourceNotFoundException(id));
+            listener.onFailure(new ResourceNotFoundException(ExceptionUtils.getRnfMessageForGet(id)));
             return;
         }
         UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
@@ -279,13 +280,13 @@ public class AsyncSearchPersistenceService {
                 case DELETED:
                     logger.debug("Update Result [{}] for id [{}], expiration time requested, [{}]",
                             updateResponse.getResult(), id, expirationTimeMillis);
-                    listener.onFailure(new ResourceNotFoundException(id));
+                    listener.onFailure(new ResourceNotFoundException(ExceptionUtils.getRnfMessageForGet(id)));
                     break;
             }
         }, exception -> {
             final Throwable cause = ExceptionsHelper.unwrapCause(exception);
             if (cause instanceof DocumentMissingException) {
-                listener.onFailure(new ResourceNotFoundException(id));
+                listener.onFailure(new ResourceNotFoundException(ExceptionUtils.getRnfMessageForGet(id)));
             } else {
                 logger.error(() -> new ParameterizedMessage("Exception occurred updating expiration time for async search [{}]",
                         id), exception);

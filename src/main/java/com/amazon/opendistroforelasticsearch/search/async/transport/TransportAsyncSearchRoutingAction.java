@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchRoutingRequest;
+import com.amazon.opendistroforelasticsearch.search.async.utils.ExceptionUtils;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
@@ -102,7 +103,7 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
                 this.targetNode = clusterService.state().nodes().get(asyncSearchId.getNode());
             } catch (IllegalArgumentException e) { // failure in parsing async search
                 logger.error(() -> new ParameterizedMessage("Failed to parse async search ID [{}]", request.getId()), e);
-                listener.onFailure(new ResourceNotFoundException(request.getId()));
+                listener.onFailure(new ResourceNotFoundException(ExceptionUtils.getRnfMessageForGet(request.getId())));
                 throw e;
             }
         }
