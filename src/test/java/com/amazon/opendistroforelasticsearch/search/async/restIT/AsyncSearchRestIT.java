@@ -60,8 +60,8 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
             submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(randomLongBetween(1, 500)));
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
             List<AsyncSearchState> legalStates = Arrays.asList(
-                    AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.PERSIST_SUCCESSFUL, AsyncSearchState.PERSISTING,
-                    AsyncSearchState.CLOSED, AsyncSearchState.RETRIEVED_FROM_STORE);
+                    AsyncSearchState.RUNNING, AsyncSearchState.SUCCEEDED, AsyncSearchState.PERSIST_SUCCEEDED, AsyncSearchState.PERSISTING,
+                    AsyncSearchState.CLOSED, AsyncSearchState.STORE_RESIDENT);
             assertNotNull(submitResponse.getId());
             assertTrue(submitResponse.getState().name(), legalStates.contains(submitResponse.getState()));
             GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
@@ -74,10 +74,10 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
                     assertNotNull(getResponse.getSearchResponse());
                     assertNotEquals(getResponse.getSearchResponse().getTook(), -1L);
                 }
-            } while (AsyncSearchState.RETRIEVED_FROM_STORE.equals(getResponse.getState()) == false);
+            } while (AsyncSearchState.STORE_RESIDENT.equals(getResponse.getState()) == false);
             getResponse = getAssertedAsyncSearchResponse(submitResponse, getAsyncSearchRequest);
             assertNotNull(getResponse.getSearchResponse());
-            assertEquals(AsyncSearchState.RETRIEVED_FROM_STORE, getResponse.getState());
+            assertEquals(AsyncSearchState.STORE_RESIDENT, getResponse.getState());
             assertHitCount(getResponse.getSearchResponse(), 5);
             executeDeleteAsyncSearch(new DeleteAsyncSearchRequest(submitResponse.getId()));
         } finally {
@@ -135,8 +135,8 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
             submitAsyncSearchRequest.keepAlive(TimeValue.timeValueHours(5));
             submitAsyncSearchRequest.waitForCompletionTimeout(TimeValue.timeValueSeconds(1));
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
-            List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.PERSIST_SUCCESSFUL,
-                    AsyncSearchState.PERSISTING, AsyncSearchState.CLOSED, AsyncSearchState.RETRIEVED_FROM_STORE);
+            List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.PERSIST_SUCCEEDED,
+                    AsyncSearchState.PERSISTING, AsyncSearchState.CLOSED, AsyncSearchState.STORE_RESIDENT);
             assertTrue(submitResponse.getState().name(), legalStates.contains(submitResponse.getState()));
             assertHitCount(submitResponse.getSearchResponse(), 5L);
             GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());

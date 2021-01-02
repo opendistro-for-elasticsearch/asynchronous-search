@@ -85,7 +85,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.UserAuthUtils.i
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.CLOSED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
-import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSIST_SUCCESSFUL;
+import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSIST_SUCCEEDED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSISTING;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.PERSIST_FAILED;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
@@ -534,7 +534,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         e.getAsyncSearchPersistenceModel()),
                 (contextId, listener) -> {}, BeginPersistEvent.class));
 
-        stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSIST_SUCCESSFUL,
+        stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSIST_SUCCEEDED,
                 (s, e) -> {},
                 (contextId, listener) -> listener.onContextPersisted(contextId), SearchResponsePersistedEvent.class));
 
@@ -546,7 +546,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
                 (contextId, listener) -> listener.onRunningContextDeleted(contextId), SearchDeletedEvent.class));
 
-        for (AsyncSearchState state : EnumSet.of(PERSISTING, PERSIST_SUCCESSFUL, PERSIST_FAILED, SUCCEEDED, FAILED, INIT)) {
+        for (AsyncSearchState state : EnumSet.of(PERSISTING, PERSIST_SUCCEEDED, PERSIST_FAILED, SUCCEEDED, FAILED, INIT)) {
             stateMachine.registerTransition(new AsyncSearchTransition<>(state, CLOSED,
                     (s, e) -> asyncSearchActiveStore.freeContext(e.asyncSearchContext().getContextId()),
                     (contextId, listener) -> listener.onContextDeleted(contextId), SearchDeletedEvent.class));

@@ -77,7 +77,7 @@ public class AsyncSearchRequestRoutingIT extends AsyncSearchIntegTestCase {
             try {
                 AsyncSearchResponse getResponse = client(n).execute(GetAsyncSearchAction.INSTANCE,
                         new GetAsyncSearchRequest(submitResponse.getId())).get();
-                assertEquals(getResponse, new AsyncSearchResponse(submitResponse.getId(), AsyncSearchState.RETRIEVED_FROM_STORE,
+                assertEquals(getResponse, new AsyncSearchResponse(submitResponse.getId(), AsyncSearchState.STORE_RESIDENT,
                         submitResponse.getStartTimeMillis(), submitResponse.getExpirationTimeMillis(), submitResponse.getSearchResponse(),
                         submitResponse.getError()));
             } catch (InterruptedException | ExecutionException e) {

@@ -16,6 +16,7 @@ package com.amazon.opendistroforelasticsearch.search.async.context.active;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchStateMachine;
+import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletedEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -24,7 +25,6 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.CollectionUtils;
 import org.elasticsearch.common.util.concurrent.ConcurrentMapLong;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
-import com.amazon.opendistroforelasticsearch.search.async.context.state.event.SearchDeletedEvent;
 
 import java.util.List;
 import java.util.Map;
@@ -85,11 +85,12 @@ public class AsyncSearchActiveStore {
 
     /**
      * Should strictly be executed from within the state machine for a {@link SearchDeletedEvent}
+     *
      * @param asyncSearchContextId the context Id to be DELETED
      * @return if the context could be DELETED
      */
     public boolean freeContext(AsyncSearchContextId asyncSearchContextId) {
-        //assert calledFromAsyncSearchStateMachine() : "Method should only ever be invoked by the state machine";
+        //TODO assert calledFromAsyncSearchStateMachine() : "Method should only ever be invoked by the state machine";
         AsyncSearchActiveContext asyncSearchContext = activeContexts.get(asyncSearchContextId.getId());
         if (asyncSearchContext != null) {
             logger.debug("Removing async search [{}] from active store", asyncSearchContext.getAsyncSearchId());
