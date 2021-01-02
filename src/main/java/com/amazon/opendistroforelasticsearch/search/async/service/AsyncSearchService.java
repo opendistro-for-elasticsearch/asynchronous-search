@@ -327,7 +327,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                     } else {
                         logger.debug("Freeing context, async search [{}] not found ", asyncSearchContext.getAsyncSearchId());
                         releasableListener.onFailure(new ResourceNotFoundException(
-                                ExceptionUtils.getRnfMessageForGet(asyncSearchContext.getAsyncSearchId())));
+                                ExceptionUtils.getRnfMessageForDelete(asyncSearchContext.getAsyncSearchId())));
                     }
                 }, releasableListener::onFailure), 2);
 
