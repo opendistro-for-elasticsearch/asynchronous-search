@@ -1,7 +1,6 @@
 package com.amazon.opendistroforelasticsearch.search.async.restIT;
 
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
-import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
@@ -9,7 +8,6 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchRe
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
