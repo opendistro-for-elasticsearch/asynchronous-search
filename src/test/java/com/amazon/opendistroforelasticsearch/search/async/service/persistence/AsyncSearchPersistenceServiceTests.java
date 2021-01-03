@@ -436,6 +436,72 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         for (Thread t : threads) {
             t.join();
         }
+        executeDeleteAsyncSearch(client(), new DeleteAsyncSearchRequest(asyncSearchResponse.getId())).actionGet();
+    }
+
+    public void testConcurrentUpdatesAndDeletesRace() throws InterruptedException {
+        AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
+        AsyncSearchResponse asyncSearchResponse = submitAndGetPersistedAsyncSearchResponse();
+        int numThreads = 200;
+        List<Thread> threads = new ArrayList<>();
+        CountDownLatch latch = new CountDownLatch(numThreads);
+        AtomicInteger numDelete = new AtomicInteger();
+        AtomicInteger numFailure = new AtomicInteger();
+        AtomicInteger numDeleteAttempts = new AtomicInteger();
+        AtomicInteger numDeleteFailedAttempts = new AtomicInteger();
+        for (int i = 0; i < numThreads; i++) {
+            final int iter = i;
+            Thread t = new Thread(() -> {
+
+                if (iter % 2 == 0 || iter < 20) /*letting few updates to queue up before starting to fire deletes*/ {
+                    long expirationTimeMillis = System.currentTimeMillis() + timeValueDays(10).millis();
+                    persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
+                            expirationTimeMillis, null,
+                            new LatchedActionListener<>(ActionListener.wrap(
+                                    r -> {
+                                        if (r.getExpirationTimeMillis() != expirationTimeMillis
+                                                && r.getExpirationTimeMillis() != asyncSearchResponse.getExpirationTimeMillis()) {
+                                            numFailure.getAndIncrement();
+                                        }
+                                    }, e -> {
+                                        // only version conflict from a concurrent update or RNF due to a concurrent delete is acceptable.
+                                        // rest all failures are unexpected
+                                        if (!(e instanceof VersionConflictEngineException) && !(e instanceof ResourceNotFoundException)) {
+                                            numFailure.getAndIncrement();
+                                        }
+                                    }), latch));
+                } else {
+                    numDeleteAttempts.getAndIncrement();
+                    persistenceService.deleteResponse(asyncSearchResponse.getId(), null, new LatchedActionListener<>(ActionListener.wrap(
+                            r -> {
+                                if (r) {
+                                    numDelete.getAndIncrement();
+                                } else {
+                                    numFailure.getAndIncrement();
+                                }
+                            }, e -> {
+                                //only a failure due to concurrent delete causing RNF or concurrent update causing IllegalState is
+                                // acceptable. rest all failures are unexpected
+                                if (e instanceof ResourceNotFoundException || e instanceof IllegalStateException) {
+                                    numDeleteFailedAttempts.getAndIncrement();
+                                } else {
+                                    numFailure.getAndIncrement();
+                                }
+                            }), latch));
+                }
+            });
+            threads.add(t);
+        }
+        threads.forEach(Thread::start);
+        latch.await();
+        assertEquals(numFailure.get(), 0);
+        assertEquals(numDeleteAttempts.get() - 1, numDeleteFailedAttempts.get());
+        assertEquals(numDelete.get(), 1);
+        for (Thread t : threads) {
+            t.join();
+        }
+        expectThrows(ResourceNotFoundException.class, () -> executeDeleteAsyncSearch(client(),
+                new DeleteAsyncSearchRequest(asyncSearchResponse.getId())).actionGet());
     }
 
     private void createDoc(AsyncSearchPersistenceService persistenceService, AsyncSearchResponse asyncSearchResponse, User user)

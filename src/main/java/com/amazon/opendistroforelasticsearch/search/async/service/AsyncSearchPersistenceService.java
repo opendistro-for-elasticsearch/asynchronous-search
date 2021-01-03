@@ -87,6 +87,7 @@ public class AsyncSearchPersistenceService {
      */
     public static final BackoffPolicy STORE_BACKOFF_POLICY =
             BackoffPolicy.exponentialBackoff(timeValueMillis(250), 14);
+    public static final String BACKEND_ROLES = "backend_roles";
 
     private final Client client;
     private final ClusterService clusterService;
@@ -249,8 +250,8 @@ public class AsyncSearchPersistenceService {
                     "(params.backend_roles != null && params.backend_roles.containsAll(ctx._source.user.backend_roles))) " +
                     "{ ctx._source.expiration_time_millis = params.expiration_time_millis } else { ctx.op = 'none' }";
             Map<String, Object> params = new HashMap<>();
-            params.put("backend_roles", user.getBackendRoles());
-            params.put("expiration_time_millis", expirationTimeMillis);
+            params.put(BACKEND_ROLES, user.getBackendRoles());
+            params.put(EXPIRATION_TIME_MILLIS, expirationTimeMillis);
             Script conditionalUpdateScript = new Script(ScriptType.INLINE, "painless", scriptCode, params);
             updateRequest.script(conditionalUpdateScript);
         }

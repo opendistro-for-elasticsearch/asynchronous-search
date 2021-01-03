@@ -138,11 +138,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         Settings settings = clusterService.getSettings();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
         setKeepAlive(MAX_KEEP_ALIVE_SETTING.get(settings));
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_SEARCH_RUNNING_TIME_SETTING, this::setMaxSearchRunningTime);
-        setMaxSearchRunningTime(MAX_SEARCH_RUNNING_TIME_SETTING.get(settings));
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING,
                 this::setMaxWaitForCompletion);
         setMaxWaitForCompletion(MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.get(settings));
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_SEARCH_RUNNING_TIME_SETTING, this::setMaxSearchRunningTime);
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
@@ -346,11 +345,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         //Intent of the lock here is to disallow ongoing migration to system index
         // as if that is underway we might end up creating a new document post a DELETE was executed
         String cancelTaskReason = "Delete asynchronous search [" + asyncSearchContext.getAsyncSearchId()
-                + "] has been triggered. Attempting to cancel in-progress search task";
+                + "] has been triggered by user. Attempting to cancel in-progress search task";
         asyncSearchContext.acquireContextPermitIfRequired(wrap(
                 releasable -> {
                     releasableReference.set(releasable);
-                    //TODO fix the reason for cancellation by user
                     boolean response = freeActiveContext(asyncSearchContext);
                     if (asyncSearchContext.keepOnCompletion()) {
                         cancelTask(asyncSearchContext, cancelTaskReason, () -> groupedDeletionListener.onResponse(response));
@@ -393,11 +391,11 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
     /**
-     * Moves the context to DELETED state. Must be invoked when the context needs to be completely removed from the
-     * system and move the state machine to a terminal state
+     * Moves the context to CLOSED state. Must be invoked when the context needs to be completely removed from the
+     * memory and move the state machine to a terminal state
      *
      * @param asyncSearchContext the active async search context
-     * @return boolean indicating if the state machine moved the state to DELETED
+     * @return boolean indicating if the state machine moved the state to CLOSED
      */
     // TODO make this package private
     public boolean freeActiveContext(AsyncSearchActiveContext asyncSearchContext) {
@@ -412,8 +410,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
     /**
-     * Moves the context to DELETED state. Must be invoked when the context needs to be completely removed from the
-     * system and move the state machine to a terminal state
+     * Executed when an on-going async search is cancelled
      *
      * @param asyncSearchContext the active async search context
      * @return boolean indicating if the state machine moved the state to DELETED
