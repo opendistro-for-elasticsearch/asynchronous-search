@@ -45,6 +45,7 @@ import org.elasticsearch.common.UUIDs;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
+import org.elasticsearch.index.engine.VersionConflictEngineException;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.threadpool.TestThreadPool;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -53,12 +54,17 @@ import org.junit.After;
 import org.junit.Assert;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
 
 public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTestCase {
@@ -347,6 +353,89 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
             }
         }, deleteLatch), System.currentTimeMillis());
         deleteLatch.await();
+    }
+
+    public void testConcurrentDeletes() throws InterruptedException {
+        AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
+        AsyncSearchResponse asyncSearchResponse = submitAndGetPersistedAsyncSearchResponse();
+
+        int numThreads = 100;
+        List<Thread> threads = new ArrayList<>();
+        CountDownLatch latch = new CountDownLatch(numThreads);
+        AtomicInteger numSuccess = new AtomicInteger();
+        AtomicInteger numRnf = new AtomicInteger();
+        AtomicInteger numFailure = new AtomicInteger();
+        for (int i = 0; i < numThreads; i++) {
+            Thread t = new Thread(() -> {
+                persistenceService.deleteResponse(asyncSearchResponse.getId(), null, new LatchedActionListener<>(ActionListener.wrap(
+                        r -> {
+                            if (r) {
+                                numSuccess.getAndIncrement();
+                            } else {
+                                numFailure.getAndIncrement();
+                            }
+                        }, e -> {
+                            if (e instanceof ResourceNotFoundException) {
+                                numRnf.getAndIncrement();
+                            } else {
+                                numFailure.getAndIncrement();
+                            }
+                        }), latch));
+            });
+            threads.add(t);
+        }
+        threads.forEach(Thread::start);
+        latch.await();
+        assertEquals(numSuccess.get(), 1);
+        assertEquals(numFailure.get(), 0);
+        assertEquals(numRnf.get(), numThreads - 1);
+        for (Thread t : threads) {
+            t.join();
+        }
+    }
+
+    public void testConcurrentUpdates() throws InterruptedException {
+        AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
+        AsyncSearchResponse asyncSearchResponse = submitAndGetPersistedAsyncSearchResponse();
+        int numThreads = 100;
+        List<Thread> threads = new ArrayList<>();
+        CountDownLatch latch = new CountDownLatch(numThreads);
+        AtomicInteger numSuccess = new AtomicInteger();
+        AtomicInteger numNoOp = new AtomicInteger();
+        AtomicInteger numVersionConflictException = new AtomicInteger();
+        AtomicInteger numFailure = new AtomicInteger();
+        for (int i = 0; i < numThreads; i++) {
+            Thread t = new Thread(() -> {
+                long expirationTimeMillis = System.currentTimeMillis() + timeValueDays(10).millis();
+                persistenceService.updateExpirationTime(asyncSearchResponse.getId(),
+                        expirationTimeMillis, null,
+                        new LatchedActionListener<>(ActionListener.wrap(
+                                r -> {
+                                    if (r.getExpirationTimeMillis() == expirationTimeMillis) {
+                                        numSuccess.getAndIncrement();
+                                    } else if (r.getExpirationTimeMillis() == asyncSearchResponse.getExpirationTimeMillis()) {
+                                        numNoOp.getAndIncrement();
+                                    } else {
+                                        numFailure.getAndIncrement();
+                                    }
+                                }, e -> {
+                                    if (e instanceof VersionConflictEngineException) {
+                                        numVersionConflictException.getAndIncrement();
+                                    } else {
+                                        numFailure.getAndIncrement();
+                                    }
+                                }), latch));
+            });
+            threads.add(t);
+        }
+        threads.forEach(Thread::start);
+        latch.await();
+        assertEquals(numFailure.get(), 0);
+        assertThat(numVersionConflictException.get(), greaterThan(0));
+        assertEquals(numVersionConflictException.get() + numSuccess.get() + numNoOp.get(), numThreads);
+        for (Thread t : threads) {
+            t.join();
+        }
     }
 
     private void createDoc(AsyncSearchPersistenceService persistenceService, AsyncSearchResponse asyncSearchResponse, User user)
