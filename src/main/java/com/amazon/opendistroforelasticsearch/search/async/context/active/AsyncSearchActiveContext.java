@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContext;
 import com.amazon.opendistroforelasticsearch.search.async.context.AsyncSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.async.context.permits.AsyncSearchContextPermits;
+import com.amazon.opendistroforelasticsearch.search.async.context.permits.NoopAsyncSearchContextPermits;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.listener.AsyncSearchProgressListener;
@@ -79,9 +80,8 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
         this.asyncSearchId = new SetOnce<>();
         this.completed = new AtomicBoolean(false);
         this.closed = new AtomicBoolean(false);
-        if (keepOnCompletion) {
-            this.asyncSearchContextPermits = new AsyncSearchContextPermits(asyncSearchContextId, threadPool);
-        }
+        this.asyncSearchContextPermits = keepOnCompletion ? new AsyncSearchContextPermits(asyncSearchContextId, threadPool) :
+                new NoopAsyncSearchContextPermits(asyncSearchContextId, threadPool);
         this.user = user;
     }
 
@@ -173,20 +173,10 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     }
 
     public void acquireContextPermitIfRequired(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
-        if (asyncSearchContextPermits != null) {
-            asyncSearchContextPermits.asyncAcquirePermit(onPermitAcquired, timeout, reason);
-        } else if (isAlive()) {
-            onPermitAcquired.onResponse(() -> {
-            });
-        } else {
-            onPermitAcquired.onFailure(new AsyncSearchContextClosedException(getContextId()));
-        }
+        asyncSearchContextPermits.asyncAcquirePermit(onPermitAcquired, timeout, reason);
     }
 
     public void acquireAllContextPermits(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
-        if (asyncSearchContextPermits == null) {
-            throw new IllegalStateException("Acquiring all permits is not allowed for asynchronous search id" + asyncSearchId.get());
-        }
         asyncSearchContextPermits.asyncAcquireAllPermits(onPermitAcquired, timeout, reason);
     }
 
