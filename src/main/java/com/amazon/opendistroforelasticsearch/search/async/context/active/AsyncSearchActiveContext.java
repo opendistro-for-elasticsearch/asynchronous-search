@@ -123,7 +123,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
 
     @Override
     public SearchResponse getSearchResponse() {
-        if (completed.get()) {
+        if (searchResponse.get() != null) {
             return searchResponse.get();
         } else {
             return asyncSearchProgressListener.partialResponse();
