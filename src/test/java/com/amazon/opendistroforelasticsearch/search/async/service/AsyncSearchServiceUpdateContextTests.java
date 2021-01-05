@@ -324,13 +324,14 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
 
             asyncSearchService.updateKeepAliveAndGetContext(context.getAsyncSearchId(), timeValueDays(9), context.getContextId(),
                     user1, new LatchedActionListener<>(wrap(r -> {
-                        if(keepOnCompletion) {
-                            assertTrue(r instanceof AsyncSearchPersistenceContext);
-                        } else {
-                            fail("expected resource not found exception, got result.");
-                        }},
+                                if (keepOnCompletion) {
+                                    assertTrue(r instanceof AsyncSearchPersistenceContext);
+                                } else {
+                                    fail("expected resource not found exception, got result.");
+                                }
+                            },
                             e -> {
-                                if(keepOnCompletion) {
+                                if (keepOnCompletion) {
                                     fail("expected resource not found exception, got result");
                                 } else {
                                     assertTrue(e instanceof ResourceNotFoundException);
