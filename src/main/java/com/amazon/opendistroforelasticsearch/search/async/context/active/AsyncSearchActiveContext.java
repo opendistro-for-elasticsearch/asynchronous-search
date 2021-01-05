@@ -175,8 +175,11 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     public void acquireContextPermitIfRequired(final ActionListener<Releasable> onPermitAcquired, TimeValue timeout, String reason) {
         if (asyncSearchContextPermits != null) {
             asyncSearchContextPermits.asyncAcquirePermit(onPermitAcquired, timeout, reason);
+        } else if (isAlive()) {
+            onPermitAcquired.onResponse(() -> {
+            });
         } else {
-            onPermitAcquired.onResponse(() -> {});
+            onPermitAcquired.onFailure(new AsyncSearchContextClosedException(getContextId()));
         }
     }
 

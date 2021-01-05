@@ -245,7 +245,7 @@ public class AsyncSearchPersistenceService {
             source.put(EXPIRATION_TIME_MILLIS, expirationTimeMillis);
             updateRequest.doc(source, XContentType.JSON);
         } else {
-            //TODO- Remove hardcoded strings
+            //TODO - Remove hardcoded strings
             String scriptCode = "if (ctx._source.user == null || ctx._source.user.backend_roles == null || " +
                     "(params.backend_roles != null && params.backend_roles.containsAll(ctx._source.user.backend_roles))) " +
                     "{ ctx._source.expiration_time_millis = params.expiration_time_millis } else { ctx.op = 'none' }";

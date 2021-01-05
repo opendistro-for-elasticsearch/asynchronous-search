@@ -109,7 +109,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             Setting.positiveTimeSetting("opendistro_asynchronous_search.max_keep_alive", timeValueDays(10),
                     Setting.Property.NodeScope, Setting.Property.Dynamic);
     public static final Setting<TimeValue> MAX_SEARCH_RUNNING_TIME_SETTING =
-            Setting.positiveTimeSetting("opendistro_asynchronous_search.max_search_running_time_setting", timeValueHours(12),
+            Setting.positiveTimeSetting("opendistro_asynchronous_search.max_search_running_time", timeValueHours(12),
                     Setting.Property.NodeScope, Setting.Property.Dynamic);
     public static final Setting<TimeValue> MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING = Setting.positiveTimeSetting(
             "opendistro_asynchronous_search.max_wait_for_completion_timeout", timeValueMinutes(1), Setting.Property.NodeScope,
@@ -356,12 +356,12 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         persistenceService.deleteResponse(asyncSearchContext.getAsyncSearchId(), user, translatedListener);
                     } else {
                         cancelTask(asyncSearchContext, cancelTaskReason, () -> {
-                                    if (response) {
-                                        releasableListener.onResponse(true);
-                                    } else {
-                                        releasableListener.onFailure(new ResourceNotFoundException(asyncSearchContext.getAsyncSearchId()));
-                                    }
-                                });
+                            if (response) {
+                                releasableListener.onResponse(true);
+                            } else {
+                                releasableListener.onFailure(new ResourceNotFoundException(asyncSearchContext.getAsyncSearchId()));
+                            }
+                        });
                     }
                 }, exception -> {
                     Throwable cause = ExceptionsHelper.unwrapCause(exception);
@@ -454,15 +454,15 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                                                     actionResponse, currentTimeSupplier, namedWriteableRegistry)),
                                     releasableActionListener::onFailure));
                         } else {
-                            if (isUserValid(user, asyncSearchActiveContext.getUser()) == false) {
-                                releasableActionListener.onFailure(
-                                        new ElasticsearchSecurityException("User doesn't have necessary roles to access the " +
-                                                "async search with id " + id, RestStatus.FORBIDDEN));
-                            } else {
+                            if (isUserValid(user, asyncSearchActiveContext.getUser())) {
                                 logger.debug("Updating persistence store: NO as state is NOT PERSISTED yet async search id [{}] " +
                                         "for updating context", asyncSearchActiveContext.getAsyncSearchId());
                                 asyncSearchActiveContext.setExpirationTimeMillis(requestedExpirationTime);
                                 releasableActionListener.onResponse(asyncSearchActiveContext);
+                            } else {
+                                releasableActionListener.onFailure(
+                                        new ElasticsearchSecurityException("User doesn't have necessary roles to access the " +
+                                                "async search with id " + id, RestStatus.FORBIDDEN));
                             }
                         }
                     },
