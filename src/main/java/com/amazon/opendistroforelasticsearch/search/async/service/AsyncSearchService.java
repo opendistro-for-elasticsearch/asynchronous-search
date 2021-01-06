@@ -142,6 +142,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                 this::setMaxWaitForCompletionTimeout);
         setMaxWaitForCompletionTimeout(MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.get(settings));
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_SEARCH_RUNNING_TIME_SETTING, this::setMaxSearchRunningTime);
+        setMaxSearchRunningTime(MAX_SEARCH_RUNNING_TIME_SETTING.get(settings));
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.persistenceService = asyncSearchPersistenceService;
