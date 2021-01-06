@@ -271,66 +271,68 @@ public class AsyncSearchServiceFreeContextTests extends ESTestCase {
         }
     }
 
-//    public void testFreeContextRunningWithUser() throws InterruptedException {
-//        DiscoveryNode discoveryNode = new DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), emptyMap(),
-//                DiscoveryNodeRole.BUILT_IN_ROLES, Version.CURRENT);
-//        ThreadPool testThreadPool = null;
-//        try {
-//            testThreadPool = new TestThreadPool(OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, executorBuilder);
-//            ClusterService mockClusterService = getClusterService(discoveryNode, testThreadPool);
-//            MockClient mockClient = new MockClient(testThreadPool);
-//            AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(mockClient, mockClusterService,
-//                    testThreadPool);
-//            AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService,
-//                    new AsyncSearchActiveStore(mockClusterService), mockClient,
-//                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
-//
-//            TimeValue keepAlive = timeValueDays(9);
-//            boolean keepOnCompletion = true;
-//            User user1 = randomBoolean() ? randomUser() : null;
-//            SearchRequest searchRequest = new SearchRequest();
-//            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
-//            submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
-//            submitAsyncSearchRequest.keepAlive(keepAlive);
-//            AsyncSearchProgressListener asyncSearchProgressListener = mockAsyncSearchProgressListener(testThreadPool);
-//            AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUID.randomUUID().toString(), randomNonNegativeLong());
-//            AsyncSearchActiveContext asyncSearchActiveContext = new AsyncSearchActiveContext(asyncSearchContextId, discoveryNode.getId(),
-//                    keepAlive, true, testThreadPool, testThreadPool::absoluteTimeInMillis, asyncSearchProgressListener, user1);
-//            //bootstrap search
-//            AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
-//                    emptyMap(), asyncSearchActiveContext, null, (c) -> {
-//            });
-//
-//            asyncSearchActiveContext.setTask(task);
-//            asyncSearchActiveContext.setState(AsyncSearchState.RUNNING);
-//            persisted = false;
-//            boolean userMatches = randomBoolean();
-//            CountDownLatch latch = new CountDownLatch(1);
-//            asyncSearchService.freeContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(),
-//                    userMatches ? asyncSearchActiveContext.getUser() : randomUser(), new LatchedActionListener<>(ActionListener.wrap(
-//                            r -> {
-//                                if (userMatches) {
-//                                    assertTrue(r);
-//                                } else {
-//                                    fail("expected security exception but got delete ack " + r);
-//                                }
-//                            },
-//                            e -> {
-//                                if (userMatches) {
-//                                    fail("expected successful delete ack");
-//                                } else {
-//                                    assertTrue(e instanceof ElasticsearchSecurityException);
-//                                }
-//                            }
-//                    ), latch));
-//            latch.await();
-//            mockClusterService.stop();
-//
-//
-//        } finally {
-//            ThreadPool.terminate(testThreadPool, 30, TimeUnit.SECONDS);
-//        }
-//    }
+    public void testFreeContextRunningWithUser() throws InterruptedException {
+        DiscoveryNode discoveryNode = new DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), emptyMap(),
+                DiscoveryNodeRole.BUILT_IN_ROLES, Version.CURRENT);
+        ThreadPool testThreadPool = null;
+        try {
+            testThreadPool = new TestThreadPool(OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, executorBuilder);
+            ClusterService mockClusterService = getClusterService(discoveryNode, testThreadPool);
+            MockClient mockClient = new MockClient(testThreadPool);
+            AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(mockClient, mockClusterService,
+                    testThreadPool);
+            AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService,
+                    new AsyncSearchActiveStore(mockClusterService), mockClient,
+                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
+
+            TimeValue keepAlive = timeValueDays(9);
+            boolean keepOnCompletion = true;
+            User user1 =    randomUser();
+            SearchRequest searchRequest = new SearchRequest();
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
+            submitAsyncSearchRequest.keepAlive(keepAlive);
+            AsyncSearchActiveContext context = (AsyncSearchActiveContext) asyncSearchService.createAndStoreContext(submitAsyncSearchRequest,
+                    System.currentTimeMillis(),
+                    () -> null,
+                    user1);
+
+            //bootstrap search
+            AsyncSearchTask task = new AsyncSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID,
+                    emptyMap(), context, null, (c) -> {
+            });
+
+            asyncSearchService.bootstrapSearch(task, context.getContextId());
+            persisted = false;
+            boolean userMatches = randomBoolean();
+            CountDownLatch latch = new CountDownLatch(1);
+            User user2 = randomUser();
+            asyncSearchService.freeContext(context.getAsyncSearchId(), context.getContextId(),
+                    userMatches ? context.getUser() : user2, new LatchedActionListener<>(ActionListener.wrap(
+                            r -> {
+                                if (userMatches) {
+                                    assertTrue(r);
+                                } else {
+                                    fail("expected security exception but got delete ack " + r + " search creator " + user1 + " " +
+                                            "accessing user " + user2);
+                                }
+                            },
+                            e -> {
+                                if (userMatches) {
+                                    fail("expected successful delete ack");
+                                } else {
+                                    assertTrue(e.getClass().getName(), e instanceof ElasticsearchSecurityException);
+                                }
+                            }
+                    ), latch));
+            latch.await();
+            mockClusterService.stop();
+
+
+        } finally {
+            ThreadPool.terminate(testThreadPool, 30, TimeUnit.SECONDS);
+        }
+    }
 
     private static class MockClient extends NoOpClient {
 
