@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedR
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.LatchedActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -132,58 +133,49 @@ public class AsyncSearchRequestRoutingIT extends AsyncSearchIntegTestCase {
         request.waitForCompletionTimeout(TimeValue.timeValueMillis(0));
         CountDownLatch latch = new CountDownLatch(1);
 
-        client().execute(SubmitAsyncSearchAction.INSTANCE, request, new ActionListener<AsyncSearchResponse>() {
+        client().execute(SubmitAsyncSearchAction.INSTANCE, request, new LatchedActionListener<>(new ActionListener<AsyncSearchResponse>() {
             @Override
             public void onResponse(AsyncSearchResponse submitResponse) {
-                try {
-                    String id = submitResponse.getId();
-                    assertNotNull(id);
-                    assertEquals(AsyncSearchState.RUNNING, submitResponse.getState());
-                    AsyncSearchId asyncSearchId = AsyncSearchIdConverter.parseAsyncId(id);
-                    ClusterService clusterService = internalCluster().getInstance(ClusterService.class);
-                    assertEquals(clusterService.state().nodes().getDataNodes().size(), 5);
-                    List<String> nonCoordinatorNodeNames = new LinkedList<>();
-                    clusterService.state().nodes().iterator().forEachRemaining(node -> {
-                        if (asyncSearchId.getNode().equals(node.getId()) == false)
-                            nonCoordinatorNodeNames.add(node.getName());
-                    });
-                    nonCoordinatorNodeNames.forEach(n -> {
-                        try {
-                            AsyncSearchResponse getResponse = client(n).execute(GetAsyncSearchAction.INSTANCE,
-                                    new GetAsyncSearchRequest(id)).get();
-                            assertEquals(getResponse.getState(), AsyncSearchState.RUNNING);
-                        } catch (InterruptedException | ExecutionException e) {
-                            fail("Get async search request should not have failed");
-                        }
-                    });
-                    String randomNonCoordinatorNode = nonCoordinatorNodeNames.get(randomInt(nonCoordinatorNodeNames.size() - 1));
+                String id = submitResponse.getId();
+                assertNotNull(id);
+                assertEquals(AsyncSearchState.RUNNING, submitResponse.getState());
+                AsyncSearchId asyncSearchId = AsyncSearchIdConverter.parseAsyncId(id);
+                ClusterService clusterService = internalCluster().getInstance(ClusterService.class);
+                assertEquals(clusterService.state().nodes().getDataNodes().size(), 5);
+                List<String> nonCoordinatorNodeNames = new LinkedList<>();
+                clusterService.state().nodes().iterator().forEachRemaining(node -> {
+                    if (asyncSearchId.getNode().equals(node.getId()) == false)
+                        nonCoordinatorNodeNames.add(node.getName());
+                });
+                nonCoordinatorNodeNames.forEach(n -> {
                     try {
-                        AcknowledgedResponse acknowledgedResponse =
-                                client(randomNonCoordinatorNode).execute(DeleteAsyncSearchAction.INSTANCE,
-                                        new DeleteAsyncSearchRequest(id)).get();
-                        assertTrue(acknowledgedResponse.isAcknowledged());
-                        ExecutionException executionException = expectThrows(ExecutionException.class,
-                                () -> client().execute(GetAsyncSearchAction.INSTANCE, new GetAsyncSearchRequest(id)).get());
-                        assertThat(executionException.getMessage(), containsString("ResourceNotFoundException"));
+                        AsyncSearchResponse getResponse = client(n).execute(GetAsyncSearchAction.INSTANCE,
+                                new GetAsyncSearchRequest(id)).get();
+                        assertEquals(getResponse.getState(), AsyncSearchState.RUNNING);
                     } catch (InterruptedException | ExecutionException e) {
-                        fail("Delete async search request from random non-coordinator node should have succeeded.");
+                        fail("Get async search request should not have failed");
                     }
-
-                } finally {
-                    latch.countDown();
+                });
+                String randomNonCoordinatorNode = nonCoordinatorNodeNames.get(randomInt(nonCoordinatorNodeNames.size() - 1));
+                try {
+                    AcknowledgedResponse acknowledgedResponse =
+                            client(randomNonCoordinatorNode).execute(DeleteAsyncSearchAction.INSTANCE,
+                                    new DeleteAsyncSearchRequest(id)).get();
+                    assertTrue(acknowledgedResponse.isAcknowledged());
+                    ExecutionException executionException = expectThrows(ExecutionException.class,
+                            () -> client().execute(GetAsyncSearchAction.INSTANCE, new GetAsyncSearchRequest(id)).get());
+                    assertThat(executionException.getMessage(), containsString("ResourceNotFoundException"));
+                } catch (InterruptedException | ExecutionException e) {
+                    fail("Delete async search request from random non-coordinator node should have succeeded.");
                 }
+
             }
 
             @Override
             public void onFailure(Exception e) {
-                try {
-                    fail(e.getMessage());
-                } finally {
-
-                    latch.countDown();
-                }
+                fail(e.getMessage());
             }
-        });
+        }, latch));
         latch.await();
         disableBlocks(plugins);
     }
