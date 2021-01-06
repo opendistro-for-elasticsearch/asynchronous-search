@@ -40,7 +40,7 @@ public class TransportDeleteAsyncSearchAction extends TransportAsyncSearchRoutin
     @Inject
     public TransportDeleteAsyncSearchAction(ThreadPool threadPool, TransportService transportService, ClusterService clusterService,
                                             ActionFilters actionFilters, AsyncSearchService asyncSearchService, Client client) {
-        super(transportService, clusterService, threadPool, client, DeleteAsyncSearchAction.NAME, actionFilters,
+        super(transportService, clusterService, threadPool, client, DeleteAsyncSearchAction.NAME, actionFilters, asyncSearchService,
                 DeleteAsyncSearchRequest::new, AcknowledgedResponse::new);
         this.asyncSearchService = asyncSearchService;
     }

@@ -116,7 +116,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
             Setting.Property.Dynamic);
 
     private volatile long maxKeepAlive;
-    private volatile long maxWaitForCompletion;
+    private volatile long maxWaitForCompletionTimeout;
     private volatile long maxSearchRunningTime;
     private final AtomicLong idGenerator = new AtomicLong();
     private final Client client;
@@ -139,8 +139,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_KEEP_ALIVE_SETTING, this::setKeepAlive);
         setKeepAlive(MAX_KEEP_ALIVE_SETTING.get(settings));
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING,
-                this::setMaxWaitForCompletion);
-        setMaxWaitForCompletion(MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.get(settings));
+                this::setMaxWaitForCompletionTimeout);
+        setMaxWaitForCompletionTimeout(MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.get(settings));
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_SEARCH_RUNNING_TIME_SETTING, this::setMaxSearchRunningTime);
         this.threadPool = threadPool;
         this.clusterService = clusterService;
@@ -157,8 +157,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         this.maxSearchRunningTime = maxSearchRunningTime.millis();
     }
 
-    private void setMaxWaitForCompletion(TimeValue maxWaitForCompletion) {
-        this.maxWaitForCompletion = maxWaitForCompletion.millis();
+    private void setMaxWaitForCompletionTimeout(TimeValue maxWaitForCompletionTimeout) {
+        this.maxWaitForCompletionTimeout = maxWaitForCompletionTimeout.millis();
     }
 
     private void setKeepAlive(TimeValue maxKeepAlive) {
@@ -587,6 +587,9 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         return ((InternalAsyncSearchStats) contextEventListener).stats(clusterService.localNode());
     }
 
+    public long getMaxWaitForCompletionTimeout() {
+        return maxWaitForCompletionTimeout;
+    }
 
     private void validateRequest(SubmitAsyncSearchRequest request) {
         TimeValue keepAlive = request.getKeepAlive();
@@ -596,10 +599,10 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     }
 
     private void validateWaitForCompletionTimeout(TimeValue waitForCompletionTimeout) {
-        if (waitForCompletionTimeout.getMillis() > maxWaitForCompletion) {
+        if (waitForCompletionTimeout.getMillis() > maxWaitForCompletionTimeout) {
             throw new IllegalArgumentException(
                     "Wait for completion timeout for async search (" + waitForCompletionTimeout.getMillis()
-                            + ") is too large. It must be less than (" + TimeValue.timeValueMillis(maxWaitForCompletion)
+                            + ") is too large. It must be less than (" + TimeValue.timeValueMillis(maxWaitForCompletionTimeout)
                             + ").This limit can be set by changing the [" + MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.getKey()
                             + "] cluster level setting.");
         }

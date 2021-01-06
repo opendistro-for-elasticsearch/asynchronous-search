@@ -26,5 +26,4 @@ public class ExceptionUtils {
     public static String getRnfMessageForGet(String id) {
         return String.format(Locale.ROOT, "Unable to find asynchronous search [%s]", id);
     }
-
 }

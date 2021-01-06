@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchRoutingRequest;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
 import com.amazon.opendistroforelasticsearch.search.async.utils.ExceptionUtils;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.ResourceNotFoundException;
@@ -35,6 +36,7 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.common.io.stream.Writeable;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.AbstractRunnable;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.node.NodeClosedException;
@@ -60,10 +62,12 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
     private final String actionName;
     private final ThreadPool threadPool;
     private final Client client;
+    private final AsyncSearchService asyncSearchService;
 
     public TransportAsyncSearchRoutingAction(TransportService transportService, ClusterService clusterService, ThreadPool threadPool,
                                              Client client, String actionName, ActionFilters actionFilters,
-                                             Writeable.Reader<Request> requestReader, Writeable.Reader<Response> responseReader) {
+                                             AsyncSearchService asyncSearchService, Writeable.Reader<Request> requestReader,
+                                             Writeable.Reader<Response> responseReader) {
         super(actionName, transportService, actionFilters, requestReader);
         this.transportService = transportService;
         this.clusterService = clusterService;
@@ -71,6 +75,7 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
         this.actionName = actionName;
         this.threadPool = threadPool;
         this.client = client;
+        this.asyncSearchService = asyncSearchService;
     }
 
     @Override
@@ -98,7 +103,8 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
 
                 this.request = request;
                 this.listener = listener;
-                this.observer = new ClusterStateObserver(clusterService.state(), clusterService, request.connectionTimeout(),
+                this.observer = new ClusterStateObserver(clusterService.state(), clusterService,
+                        TimeValue.timeValueMillis(asyncSearchService.getMaxWaitForCompletionTimeout()),
                         logger, threadPool.getThreadContext());
                 this.targetNode = clusterService.state().nodes().get(asyncSearchId.getNode());
             } catch (IllegalArgumentException e) { // failure in parsing async search
@@ -120,7 +126,8 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
             ClusterState state = observer.setAndGetObservedState();
             // forward request only if the local node isn't the node coordinating the search and the node coordinating
             // the search exists in the cluster
-            TransportRequestOptions requestOptions = TransportRequestOptions.builder().withTimeout(request.connectionTimeout()).build();
+            TransportRequestOptions requestOptions = TransportRequestOptions.builder().withTimeout(
+                    asyncSearchService.getMaxWaitForCompletionTimeout()).build();
             if (state.nodes().getLocalNode().equals(targetNode) == false && state.nodes().nodeExists(targetNode)) {
                 logger.debug("Forwarding async search id [{}] request to target node [{}]", request.getId(), targetNode);
                 transportService.sendRequest(targetNode, actionName, request, requestOptions,
