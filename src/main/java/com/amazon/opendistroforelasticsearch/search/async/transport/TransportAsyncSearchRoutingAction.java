@@ -21,9 +21,10 @@ import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchId;
 import com.amazon.opendistroforelasticsearch.search.async.id.AsyncSearchIdConverter;
 import com.amazon.opendistroforelasticsearch.search.async.request.AsyncSearchRoutingRequest;
 import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchService;
-import com.amazon.opendistroforelasticsearch.search.async.utils.ExceptionUtils;
+import com.amazon.opendistroforelasticsearch.search.async.utils.AsyncSearchExceptionUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionListenerResponseHandler;
 import org.elasticsearch.action.ActionResponse;
@@ -55,6 +56,8 @@ import org.elasticsearch.transport.TransportService;
  */
 public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSearchRoutingRequest<Request>, Response extends ActionResponse>
         extends HandledTransportAction<Request, Response> {
+
+    private static final Logger logger = LogManager.getLogger(TransportAsyncSearchRoutingAction.class);
 
     private final TransportService transportService;
     private final ClusterService clusterService;
@@ -109,7 +112,7 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
                 this.targetNode = clusterService.state().nodes().get(asyncSearchId.getNode());
             } catch (IllegalArgumentException e) { // failure in parsing async search
                 logger.error(() -> new ParameterizedMessage("Failed to parse async search ID [{}]", request.getId()), e);
-                listener.onFailure(new ResourceNotFoundException(ExceptionUtils.getRnfMessageForGet(request.getId())));
+                listener.onFailure(AsyncSearchExceptionUtils.buildResourceNotFoundException(request.getId()));
                 throw e;
             }
         }

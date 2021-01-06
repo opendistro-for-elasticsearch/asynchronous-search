@@ -11,7 +11,6 @@ import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.stats.InternalAsyncSearchStats;
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import org.apache.lucene.search.TotalHits;
-import org.elasticsearch.ElasticsearchSecurityException;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.Version;
@@ -271,7 +270,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
                     differenteUser, new LatchedActionListener<>(wrap(r -> fail("expected security exception Users must be different, " +
                                     "actual user " + user1 + " random user " + differenteUser),
                             e -> {
-                                assertTrue(e instanceof ElasticsearchSecurityException);
+                                assertTrue(e instanceof ResourceNotFoundException);
                             }), latch));
             latch.await();
             mockClusterService.stop();

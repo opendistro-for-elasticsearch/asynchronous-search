@@ -15,15 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.search.async.utils;
 
+import org.elasticsearch.ResourceNotFoundException;
+
 import java.util.Locale;
 
-public class ExceptionUtils {
+public class AsyncSearchExceptionUtils {
 
-    public static String getRnfMessageForDelete(String id) {
-        return String.format(Locale.ROOT, "Attempting to delete non-existent asynchronous search [%s]", id);
-    }
-
-    public static String getRnfMessageForGet(String id) {
-        return String.format(Locale.ROOT, "Unable to find asynchronous search [%s]", id);
+    public static ResourceNotFoundException buildResourceNotFoundException(String id) {
+        return new ResourceNotFoundException(String.format(
+                Locale.ROOT, "Either the resource [%s] does not exist or you do not have access", id));
     }
 }

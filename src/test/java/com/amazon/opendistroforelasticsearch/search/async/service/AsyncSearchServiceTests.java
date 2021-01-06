@@ -28,7 +28,6 @@ import com.amazon.opendistroforelasticsearch.search.async.stats.InternalAsyncSea
 import com.amazon.opendistroforelasticsearch.search.async.task.AsyncSearchTask;
 import com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils;
 import org.apache.lucene.search.TotalHits;
-import org.elasticsearch.ElasticsearchSecurityException;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
@@ -156,7 +155,7 @@ public class AsyncSearchServiceTests extends ESTestCase {
                         assertEquals(r, context);
                     }, e -> fail("Find context shouldn't have failed. " + e.getMessage())), findContextLatch);
             ActionListener<AsyncSearchContext> expectedSecurityException = new LatchedActionListener<>(wrap(
-                    r -> fail("Expecting security exception"), e -> assertTrue(e instanceof ElasticsearchSecurityException)
+                    r -> fail("Expecting security exception"), e -> assertTrue(e instanceof ResourceNotFoundException)
             ), findContextLatch);
             asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(),
                     asyncSearchActiveContext.getContextId(), user1, expectedSuccessfulActive);
