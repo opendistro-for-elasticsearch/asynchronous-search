@@ -59,7 +59,6 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     private final SetOnce<Exception> error;
     private final SetOnce<SearchResponse> searchResponse;
     private final AtomicBoolean closed;
-    @Nullable
     private AsyncSearchContextPermits asyncSearchContextPermits;
     @Nullable
     private final User user;
@@ -191,9 +190,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            if (asyncSearchContextPermits != null) {
-                asyncSearchContextPermits.close();
-            }
+            asyncSearchContextPermits.close();
         }
     }
 }

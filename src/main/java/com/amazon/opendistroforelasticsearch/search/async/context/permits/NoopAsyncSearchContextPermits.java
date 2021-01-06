@@ -23,7 +23,7 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.threadpool.ThreadPool;
 
 /**
- * NOOP context permit that responds with a NOOP permit to release
+ * NOOP context permit that responds with a NOOP {@linkplain Releasable} to release
  */
 public class NoopAsyncSearchContextPermits extends AsyncSearchContextPermits {
 
