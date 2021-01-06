@@ -319,8 +319,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private void cancelAndFreeActiveAndPersistedContext(AsyncSearchActiveContext asyncSearchContext,
                                                         ActionListener<Boolean> listener, User user) {
         // if there are no context found to be cleaned up we throw a ResourceNotFoundException
-        AtomicReference<Releasable> releasableReference = new AtomicReference<>(() -> {
-        });
+        AtomicReference<Releasable> releasableReference = new AtomicReference<>(() -> {});
         ActionListener<Boolean> releasableListener = runAfter(listener, releasableReference.get()::close);
         GroupedActionListener<Boolean> groupedDeletionListener = new GroupedActionListener<>(
                 wrap((responses) -> {
@@ -348,7 +347,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         //Intent of the lock here is to disallow ongoing migration to system index
         // as if that is underway we might end up creating a new document post a DELETE was executed
         String cancelTaskReason = "Delete asynchronous search [" + asyncSearchContext.getAsyncSearchId()
-                + "] has been triggered by user. Attempting to cancel in-progress search task";
+                + "] has been triggered. Attempting to cancel in-progress search task";
         asyncSearchContext.acquireContextPermitIfRequired(wrap(
                 releasable -> {
                     releasableReference.set(releasable);
@@ -532,19 +531,23 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         stateMachine.registerTransition(new AsyncSearchTransition<>(SUCCEEDED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> {}, BeginPersistEvent.class));
+                (contextId, listener) -> {
+                }, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> {}, BeginPersistEvent.class));
+                (contextId, listener) -> {
+                }, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSIST_SUCCEEDED,
-                (s, e) -> {},
+                (s, e) -> {
+                },
                 (contextId, listener) -> listener.onContextPersisted(contextId), SearchResponsePersistedEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSIST_FAILED,
-                (s, e) -> {},
+                (s, e) -> {
+                },
                 (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, CLOSED,
