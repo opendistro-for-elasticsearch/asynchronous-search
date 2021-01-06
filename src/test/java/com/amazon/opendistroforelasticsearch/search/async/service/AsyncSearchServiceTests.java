@@ -32,10 +32,10 @@ import org.elasticsearch.ElasticsearchSecurityException;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.LatchedActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.ActionType;
+import org.elasticsearch.action.LatchedActionListener;
 import org.elasticsearch.action.index.IndexAction;
 import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchRequest;
@@ -152,8 +152,8 @@ public class AsyncSearchServiceTests extends ESTestCase {
             CountDownLatch findContextLatch = new CountDownLatch(3);
             ActionListener<AsyncSearchContext> expectedSuccessfulActive = new LatchedActionListener<>(wrap(
                     r -> {
-                            assertTrue(r instanceof AsyncSearchActiveContext);
-                            assertEquals(r, context);
+                        assertTrue(r instanceof AsyncSearchActiveContext);
+                        assertEquals(r, context);
                     }, e -> fail("Find context shouldn't have failed. " + e.getMessage())), findContextLatch);
             ActionListener<AsyncSearchContext> expectedSecurityException = new LatchedActionListener<>(wrap(
                     r -> fail("Expecting security exception"), e -> assertTrue(e instanceof ElasticsearchSecurityException)
@@ -232,18 +232,18 @@ public class AsyncSearchServiceTests extends ESTestCase {
             CountDownLatch findContextLatch = new CountDownLatch(1);
             asyncSearchService.findContext(asyncSearchActiveContext.getAsyncSearchId(), asyncSearchActiveContext.getContextId(), null,
                     new LatchedActionListener<>(wrap(
-                    r -> {
-                        assertTrue(r instanceof AsyncSearchActiveContext);
-                        assertEquals(r, context);
-                    }, e -> fail("Find context shouldn't have failed")
-            ), findContextLatch));
+                            r -> {
+                                assertTrue(r instanceof AsyncSearchActiveContext);
+                                assertEquals(r, context);
+                            }, e -> fail("Find context shouldn't have failed")
+                    ), findContextLatch));
             findContextLatch.await();
             CountDownLatch updateLatch = new CountDownLatch(1);
             TimeValue newKeepAlive = timeValueDays(10);
             asyncSearchService.updateKeepAliveAndGetContext(asyncSearchActiveContext.getAsyncSearchId(), newKeepAlive,
                     asyncSearchActiveContext.getContextId(), null, new LatchedActionListener<>(wrap(r -> {
-                            assertTrue(r instanceof AsyncSearchActiveContext);
-                            assertThat(r.getExpirationTimeMillis(), greaterThan(originalExpirationTimeMillis));
+                        assertTrue(r instanceof AsyncSearchActiveContext);
+                        assertThat(r.getExpirationTimeMillis(), greaterThan(originalExpirationTimeMillis));
                     }, e -> fail()), updateLatch));
             updateLatch.await();
         } finally {
@@ -421,6 +421,41 @@ public class AsyncSearchServiceTests extends ESTestCase {
             latch.await();
         } finally {
             ThreadPool.terminate(testThreadPool, 200, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    public void testFindContextsToReap() {
+        DiscoveryNode discoveryNode = new DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), emptyMap(),
+                DiscoveryNodeRole.BUILT_IN_ROLES, Version.CURRENT);
+        ThreadPool testThreadPool = null;
+        try {
+            testThreadPool = new TestThreadPool(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, executorBuilder) {
+                @Override
+                public long absoluteTimeInMillis() { // simulate search has over run)
+                    return System.currentTimeMillis() - 24 * 3600 * 1000;
+                }
+            };
+
+            ClusterService mockClusterService = ClusterServiceUtils.createClusterService(testThreadPool, discoveryNode, clusterSettings);
+            FakeClient fakeClient = new FakeClient(testThreadPool);
+            AsyncSearchActiveStore asyncSearchActiveStore = new AsyncSearchActiveStore(mockClusterService);
+            AsyncSearchPersistenceService persistenceService = new AsyncSearchPersistenceService(fakeClient, mockClusterService,
+                    testThreadPool);
+            AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, fakeClient,
+                    mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
+
+            TimeValue keepAlive = timeValueDays(9);
+            boolean keepOnCompletion = randomBoolean();
+            User user1 = TestClientUtils.randomUser();
+            SearchRequest searchRequest = new SearchRequest();
+            SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
+            submitAsyncSearchRequest.keepOnCompletion(keepOnCompletion);
+            submitAsyncSearchRequest.keepAlive(keepAlive);
+            AsyncSearchContext context = asyncSearchService.createAndStoreContext(submitAsyncSearchRequest, System.currentTimeMillis(),
+                    () -> null, user1);
+            assertTrue(asyncSearchService.getContextsToReap().contains(context));
+        } finally {
+            ThreadPool.terminate(testThreadPool, 30, TimeUnit.SECONDS);
         }
     }
 

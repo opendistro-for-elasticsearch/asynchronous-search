@@ -617,14 +617,13 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         }
     }
 
-
     /**
      * @param asyncSearchActiveContext the active context
      * @return Where the search has been running beyond the max search running time.
      */
     private boolean isOverRunning(AsyncSearchActiveContext asyncSearchActiveContext) {
-        return EnumSet.of(RUNNING, INIT).equals(asyncSearchActiveContext.getAsyncSearchState()) &&
-                asyncSearchActiveContext.getStartTimeMillis() + maxSearchRunningTime < currentTimeSupplier.getAsLong();
+        return EnumSet.of(RUNNING, INIT).contains(asyncSearchActiveContext.getAsyncSearchState()) &&
+                asyncSearchActiveContext.getStartTimeMillis() + maxSearchRunningTime < threadPool.absoluteTimeInMillis();
     }
 
 }
