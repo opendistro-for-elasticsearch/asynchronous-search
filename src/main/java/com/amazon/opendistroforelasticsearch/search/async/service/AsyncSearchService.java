@@ -538,17 +538,14 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         stateMachine.registerTransition(new AsyncSearchTransition<>(FAILED, PERSISTING,
                 (s, e) -> asyncSearchPostProcessor.persistResponse((AsyncSearchActiveContext) e.asyncSearchContext(),
                         e.getAsyncSearchPersistenceModel()),
-                (contextId, listener) -> {
-                }, BeginPersistEvent.class));
+                (contextId, listener) -> {}, BeginPersistEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSIST_SUCCEEDED,
-                (s, e) -> {
-                },
+                (s, e) -> {},
                 (contextId, listener) -> listener.onContextPersisted(contextId), SearchResponsePersistedEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(PERSISTING, PERSIST_FAILED,
-                (s, e) -> {
-                },
+                (s, e) -> {},
                 (contextId, listener) -> listener.onContextPersistFailed(contextId), SearchResponsePersistFailedEvent.class));
 
         stateMachine.registerTransition(new AsyncSearchTransition<>(RUNNING, CLOSED,
