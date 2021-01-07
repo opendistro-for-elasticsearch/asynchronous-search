@@ -129,7 +129,7 @@ public class AsyncSearchPersistenceService {
             listener.onFailure(new ResourceNotFoundException(id));
             return;
         }
-        GetRequest request = new GetRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
+        GetRequest request = new GetRequest(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS, id);
         client.get(request, ActionListener.wrap(getResponse ->
                 {
                     if (getResponse.isExists()) {
@@ -170,7 +170,7 @@ public class AsyncSearchPersistenceService {
 
     public void deleteResponse(String id, User user, ActionListener<Boolean> listener) {
         if (indexExists() == false) {
-            logger.debug("Async search index [{}] doesn't exists", ASYNC_SEARCH_RESPONSE_INDEX);
+            logger.debug("Async search index [{}] doesn't exists", ASYNC_SEARCH_RESPONSE_INDEX_ALIAS);
             listener.onFailure(new ResourceNotFoundException(id));
             return;
         }
@@ -185,7 +185,7 @@ public class AsyncSearchPersistenceService {
             }
         };
         if (user == null) {
-            client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX, id), ActionListener.wrap(deleteResponse -> {
+            client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS, id), ActionListener.wrap(deleteResponse -> {
                 if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED) {
                     logger.debug("Delete async search {} successful. Returned result {}", id, deleteResponse.getResult());
                     listener.onResponse(true);
@@ -195,7 +195,7 @@ public class AsyncSearchPersistenceService {
                 }
             }, onFailure));
         } else {
-            UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
+            UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS, id);
             String scriptCode = "if (ctx._source.user == null || ctx._source.user.backend_roles == null || " +
                     "( params.backend_roles!=null && params.backend_roles.containsAll(ctx._source.user.backend_roles))) " +
                     "{ ctx.op = 'delete' } else { ctx.op = 'none' }";
@@ -238,7 +238,7 @@ public class AsyncSearchPersistenceService {
             listener.onFailure(new ResourceNotFoundException(id));
             return;
         }
-        UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
+        UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS, id);
         updateRequest.retryOnConflict(5);
         if (user == null) {
             Map<String, Object> source = new HashMap<>();
@@ -308,7 +308,7 @@ public class AsyncSearchPersistenceService {
             logger.debug("Async search index not yet created! Nothing to delete.");
             listener.onResponse(new AcknowledgedResponse(true));
         } else {
-            DeleteByQueryRequest request = new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX)
+            DeleteByQueryRequest request = new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS)
                     .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS).lte(expirationTimeInMillis));
             client.execute(DeleteByQueryAction.INSTANCE, request,
                     ActionListener.wrap(
@@ -361,7 +361,7 @@ public class AsyncSearchPersistenceService {
         source.put(EXPIRATION_TIME_MILLIS, model.getExpirationTimeMillis());
         source.put(START_TIME_MILLIS, model.getStartTimeMillis());
         source.put(USER, model.getUser());
-        IndexRequestBuilder indexRequestBuilder = client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX, MAPPING_TYPE,
+        IndexRequestBuilder indexRequestBuilder = client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS, MAPPING_TYPE,
                 id).setSource(source, XContentType.JSON);
         doStoreResult(STORE_BACKOFF_POLICY.iterator(), indexRequestBuilder, listener);
     }

@@ -76,7 +76,6 @@ import java.util.stream.Stream;
 
 import static com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSearchTestCase.mockAsyncSearchProgressListener;
 import static com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME;
-import static com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX;
 import static com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils.randomUser;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -355,7 +354,7 @@ public class AsyncSearchServiceFreeContextTests extends ESTestCase {
                 listener.onResponse(null);
             } else if (action instanceof UpdateAction) { //even delete is being done by UpdateAction
                 deleteCount++;
-                ShardId shardId = new ShardId(new Index(ASYNC_SEARCH_RESPONSE_INDEX,
+                ShardId shardId = new ShardId(new Index(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS,
                         UUID.randomUUID().toString()), 1);
                 UpdateResponse updateResponse = new UpdateResponse(shardId, "testType", "testId", 1L, 1L, 1L,
                         persisted ? (userMatches ? DocWriteResponse.Result.DELETED : DocWriteResponse.Result.NOOP)
@@ -364,7 +363,7 @@ public class AsyncSearchServiceFreeContextTests extends ESTestCase {
 
             } else if (action instanceof DeleteAction) {
                 deleteCount++;
-                ShardId shardId = new ShardId(new Index(ASYNC_SEARCH_RESPONSE_INDEX,
+                ShardId shardId = new ShardId(new Index(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS,
                         UUID.randomUUID().toString()), 1);
                 DeleteResponse deleteResponse = new DeleteResponse(shardId, "testType", "testId",
                         1L, 1L, 1L, persisted);
@@ -444,7 +443,7 @@ public class AsyncSearchServiceFreeContextTests extends ESTestCase {
     private ClusterService getClusterService(DiscoveryNode discoveryNode, ThreadPool testThreadPool) {
         ClusterService clusterService = ClusterServiceUtils.createClusterService(testThreadPool, discoveryNode, clusterSettings);
         ClusterServiceUtils.setState(clusterService,
-                ClusterStateCreationUtils.stateWithActivePrimary(ASYNC_SEARCH_RESPONSE_INDEX,
+                ClusterStateCreationUtils.stateWithActivePrimary(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX,
                         true, randomInt(5)));
         return clusterService;
     }

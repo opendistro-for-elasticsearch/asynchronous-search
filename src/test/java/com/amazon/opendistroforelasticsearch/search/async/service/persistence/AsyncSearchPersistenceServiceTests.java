@@ -290,7 +290,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         AsyncSearchResponse mockResponse = new AsyncSearchResponse(id,
                 AsyncSearchState.STORE_RESIDENT, randomNonNegativeLong(), randomNonNegativeLong(), getMockSearchResponse(), null);
         createDoc(getInstanceFromNode(AsyncSearchPersistenceService.class), mockResponse, null);
-        client().admin().indices().prepareUpdateSettings(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX)
+        client().admin().indices().prepareUpdateSettings(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS)
                 .setSettings(Settings.builder().put(IndexMetadata.SETTING_READ_ONLY_ALLOW_DELETE, true).build()).execute().actionGet();
         SearchRequest searchRequest = new SearchRequest().indices("index").source(new SearchSourceBuilder());
         SubmitAsyncSearchRequest request = new SubmitAsyncSearchRequest(searchRequest);
@@ -300,7 +300,7 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         waitUntil(() -> assertRnf(() -> TestClientUtils.blockingGetAsyncSearchResponse(client(),
                 new GetAsyncSearchRequest(asyncSearchResponse.getId()))));
         assertRnf(() -> TestClientUtils.blockingGetAsyncSearchResponse(client(), new GetAsyncSearchRequest(id)));
-        client().admin().indices().prepareUpdateSettings(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX)
+        client().admin().indices().prepareUpdateSettings(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS)
                 .setSettings(Settings.builder().putNull(IndexMetadata.SETTING_READ_ONLY_ALLOW_DELETE).build()).execute().actionGet();
     }
 

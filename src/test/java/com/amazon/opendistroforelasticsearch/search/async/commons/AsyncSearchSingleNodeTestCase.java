@@ -67,7 +67,7 @@ import java.util.function.Function;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 
 public abstract class AsyncSearchSingleNodeTestCase extends ESSingleNodeTestCase {
-    protected static final String INDEX = AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX;
+    protected static final String INDEX = AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS;
     protected static final String TEST_INDEX = "index";
 
     @Override

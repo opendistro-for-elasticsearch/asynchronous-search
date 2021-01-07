@@ -180,7 +180,7 @@ public abstract class AsyncSearchRestTestCase extends ESRestTestCase {
     }
 
     public void deleteIndexIfExists() throws IOException {
-        assertNotNull("index name is null", AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX);
+        assertNotNull("index name is null", AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS);
         assertNotNull("client is null", client());
         if (indexExists(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX)) {
             deleteIndex(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX);

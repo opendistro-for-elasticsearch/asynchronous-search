@@ -82,7 +82,6 @@ import static com.amazon.opendistroforelasticsearch.search.async.context.state.A
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.INIT;
 import static com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState.RUNNING;
 import static com.amazon.opendistroforelasticsearch.search.async.plugin.AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME;
-import static com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX;
 import static com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService.EXPIRATION_TIME_MILLIS;
 import static com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService.START_TIME_MILLIS;
 import static com.amazon.opendistroforelasticsearch.search.async.utils.TestClientUtils.randomUser;
@@ -364,7 +363,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
                 listener.onResponse(null);
             } else if (action instanceof UpdateAction) {
                 updateCount++;
-                ShardId shardId = new ShardId(new Index(ASYNC_SEARCH_RESPONSE_INDEX,
+                ShardId shardId = new ShardId(new Index(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS,
                         UUID.randomUUID().toString()), 1);
 
                 UpdateResponse updateResponse = new UpdateResponse(shardId, "testType", "testId", 1L, 1L, 1L,
@@ -376,7 +375,8 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
                     XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
                     builder.map(sourceMap);
                     BytesReference source = BytesReference.bytes(builder);
-                    updateResponse.setGetResult(new GetResult(ASYNC_SEARCH_RESPONSE_INDEX, "testType", "testId", 1L, 1L, 1L,
+                    updateResponse.setGetResult(new GetResult(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS,
+                            "testType", "testId", 1L, 1L, 1L,
                             true, source, emptyMap(), null));
                     listener.onResponse((Response) updateResponse);
                 } catch (IOException e) {
@@ -430,7 +430,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
     private ClusterService getClusterService(DiscoveryNode discoveryNode, ThreadPool testThreadPool) {
         ClusterService clusterService = ClusterServiceUtils.createClusterService(testThreadPool, discoveryNode, clusterSettings);
         ClusterServiceUtils.setState(clusterService,
-                ClusterStateCreationUtils.stateWithActivePrimary(ASYNC_SEARCH_RESPONSE_INDEX,
+                ClusterStateCreationUtils.stateWithActivePrimary(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX,
                         true, randomInt(5)));
         return clusterService;
     }

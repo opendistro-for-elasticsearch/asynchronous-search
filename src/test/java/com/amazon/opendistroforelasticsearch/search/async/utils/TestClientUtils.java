@@ -19,13 +19,13 @@ import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.search.async.action.DeleteAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.GetAsyncSearchAction;
 import com.amazon.opendistroforelasticsearch.search.async.action.SubmitAsyncSearchAction;
-import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.async.context.state.AsyncSearchState;
 import com.amazon.opendistroforelasticsearch.search.async.request.DeleteAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.GetAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.request.SubmitAsyncSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.async.response.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.async.response.AsyncSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.async.service.AsyncSearchPersistenceService;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.bulk.BackoffPolicy;
@@ -44,7 +44,7 @@ import java.util.concurrent.CountDownLatch;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
 public class TestClientUtils {
-    static final String INDEX = AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX;
+    static final String INDEX = AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS;
     static final BackoffPolicy STORE_BACKOFF_POLICY =
             BackoffPolicy.exponentialBackoff(timeValueMillis(100), 20);
 
@@ -140,6 +140,6 @@ public class TestClientUtils {
     }
 
     public static User randomUserOrNull() {
-        return Randomness.get().nextBoolean()? randomUser() : null;
+        return Randomness.get().nextBoolean() ? randomUser() : null;
     }
 }
