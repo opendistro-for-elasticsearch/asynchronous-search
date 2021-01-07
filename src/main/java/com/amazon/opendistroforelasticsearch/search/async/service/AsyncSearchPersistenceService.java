@@ -27,6 +27,7 @@ import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.DocWriteResponse;
+import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.get.GetRequest;
@@ -78,6 +79,7 @@ public class AsyncSearchPersistenceService {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceService.class);
     public static final String ASYNC_SEARCH_RESPONSE_INDEX = ".opendistro-asynchronous-search-response";
+    public static final String ASYNC_SEARCH_RESPONSE_INDEX_ALIAS = ".opendistro-asynchronous-search-response-alias";
     private static final String MAPPING_TYPE = "_doc";
     /**
      * The backoff policy to use when saving a async search response fails. The total wait
@@ -334,8 +336,10 @@ public class AsyncSearchPersistenceService {
 
     private void createIndexAndDoStoreResult(String id, AsyncSearchPersistenceModel persistenceModel,
                                              ActionListener<IndexResponse> listener) {
-        client.admin().indices().prepareCreate(ASYNC_SEARCH_RESPONSE_INDEX).addMapping(MAPPING_TYPE, mapping()).
-                setSettings(indexSettings()).execute(ActionListener.wrap(createIndexResponse -> doStoreResult(id, persistenceModel,
+        client.admin().indices().prepareCreate(ASYNC_SEARCH_RESPONSE_INDEX).addMapping(MAPPING_TYPE, mapping())
+                .addAlias(new Alias(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS).isHidden(true))
+
+                .setSettings(indexSettings()).execute(ActionListener.wrap(createIndexResponse -> doStoreResult(id, persistenceModel,
                 listener), exception -> {
             if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
                 try {
