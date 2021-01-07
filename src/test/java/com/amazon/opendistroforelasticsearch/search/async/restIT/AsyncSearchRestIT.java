@@ -141,7 +141,7 @@ public class AsyncSearchRestIT extends AsyncSearchRestTestCase {
     public void testGetWithKeepAliveUpdate() throws IOException {
         try {
             SearchRequest searchRequest = new SearchRequest("test");
-            TimeValue keepAlive = TimeValue.timeValueDays(5);
+            TimeValue keepAlive = TimeValue.timeValueHours(5);
             searchRequest.source(new SearchSourceBuilder());
             SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(true);
