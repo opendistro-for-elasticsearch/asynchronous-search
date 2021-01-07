@@ -190,7 +190,6 @@ public class AsyncSearchServiceFreeContextTests extends ESTestCase {
             asyncSearchService.freeContext(AsyncSearchIdConverter.buildAsyncId(asyncSearchId), asyncSearchContextId, randomUser(),
                     new LatchedActionListener<>(ActionListener.wrap(
                             r -> {
-
                                 if (userMatches) {
                                     if (persisted) {
                                         assertTrue(r);

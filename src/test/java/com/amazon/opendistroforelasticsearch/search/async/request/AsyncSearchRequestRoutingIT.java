@@ -80,7 +80,8 @@ public class AsyncSearchRequestRoutingIT extends AsyncSearchIntegTestCase {
         AsyncSearchResponse submitResponse = client().execute(SubmitAsyncSearchAction.INSTANCE, request).get();
         AsyncSearchId asyncSearchId = AsyncSearchIdConverter.parseAsyncId(submitResponse.getId());
         assertNotNull(submitResponse.getId());
-        TestClientUtils.assertResponsePersistence(client(), submitResponse.getId());
+        waitUntil(() -> TestClientUtils.blockingGetAsyncSearchResponse(client(), new GetAsyncSearchRequest(submitResponse.getId()))
+                .getState().equals(AsyncSearchState.STORE_RESIDENT));
         assertNotNull(submitResponse.getSearchResponse());
         ClusterService clusterService = internalCluster().getInstance(ClusterService.class);
         assertEquals(clusterService.state().nodes().getDataNodes().size(), 5);
