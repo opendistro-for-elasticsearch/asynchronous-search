@@ -319,8 +319,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private void cancelAndFreeActiveAndPersistedContext(AsyncSearchActiveContext asyncSearchContext,
                                                         ActionListener<Boolean> listener, User user) {
         // if there are no context found to be cleaned up we throw a ResourceNotFoundException
-        AtomicReference<Releasable> releasableReference = new AtomicReference<>(() -> {
-        });
+        AtomicReference<Releasable> releasableReference = new AtomicReference<>(() -> {});
         ActionListener<Boolean> releasableListener = runAfter(listener, releasableReference.get()::close);
         GroupedActionListener<Boolean> groupedDeletionListener = new GroupedActionListener<>(
                 wrap((responses) -> {
