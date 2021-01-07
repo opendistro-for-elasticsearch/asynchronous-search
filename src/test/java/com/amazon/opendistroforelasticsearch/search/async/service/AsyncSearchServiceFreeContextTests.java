@@ -82,6 +82,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static org.elasticsearch.action.ActionListener.wrap;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
+import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -284,7 +285,7 @@ public class AsyncSearchServiceFreeContextTests extends ESTestCase {
                     new AsyncSearchActiveStore(mockClusterService), mockClient,
                     mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
 
-            TimeValue keepAlive = timeValueDays(9);
+            TimeValue keepAlive = timeValueHours(9);
             boolean keepOnCompletion = true;
             User user1 = randomUser();
             SearchRequest searchRequest = new SearchRequest();

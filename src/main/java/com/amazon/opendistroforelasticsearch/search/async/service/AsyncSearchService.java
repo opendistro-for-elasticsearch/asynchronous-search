@@ -106,7 +106,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private static final Logger logger = LogManager.getLogger(AsyncSearchService.class);
 
     public static final Setting<TimeValue> MAX_KEEP_ALIVE_SETTING =
-            Setting.positiveTimeSetting("opendistro_asynchronous_search.max_keep_alive", timeValueDays(10),
+            Setting.positiveTimeSetting("opendistro_asynchronous_search.max_keep_alive", timeValueDays(1),
                     Setting.Property.NodeScope, Setting.Property.Dynamic);
     public static final Setting<TimeValue> MAX_SEARCH_RUNNING_TIME_SETTING =
             Setting.positiveTimeSetting("opendistro_asynchronous_search.max_search_running_time", timeValueHours(12),

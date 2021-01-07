@@ -89,7 +89,7 @@ import static com.amazon.opendistroforelasticsearch.search.async.utils.TestClien
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static org.elasticsearch.action.ActionListener.wrap;
-import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
+import static org.elasticsearch.common.unit.TimeValue.timeValueHours;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -135,7 +135,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, mockStore, mockClient,
                     mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
 
-            TimeValue keepAlive = timeValueDays(9);
+            TimeValue keepAlive = timeValueHours(9);
             boolean keepOnCompletion = true;
             User user1 = randomBoolean() ? randomUser() : null;
             SearchRequest searchRequest = new SearchRequest();
@@ -193,7 +193,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, mockStore, mockClient,
                     mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
 
-            TimeValue keepAlive = timeValueDays(9);
+            TimeValue keepAlive = timeValueHours(9);
             boolean keepOnCompletion = true;
             User user1 = randomBoolean() ? randomUser() : null;
             SearchRequest searchRequest = new SearchRequest();
@@ -215,7 +215,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
             simulateTimedOut = true;
             when(mockStore.getContext(asyncSearchContextId)).thenReturn(Optional.of(asyncSearchActiveContext));
             CountDownLatch latch = new CountDownLatch(1);
-            asyncSearchService.updateKeepAliveAndGetContext(asyncSearchActiveContext.getAsyncSearchId(), timeValueDays(9),
+            asyncSearchService.updateKeepAliveAndGetContext(asyncSearchActiveContext.getAsyncSearchId(), timeValueHours(9),
                     asyncSearchActiveContext.getContextId(), randomUser(), new LatchedActionListener<>(
                             wrap(r -> fail("expected timedout exception"),
                                     e -> assertTrue(e instanceof ElasticsearchTimeoutException)), latch));
@@ -240,7 +240,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, mockClient,
                     mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
 
-            TimeValue keepAlive = timeValueDays(9);
+            TimeValue keepAlive = timeValueHours(9);
             boolean keepOnCompletion = true;
             User user1 = randomUser();
             SearchRequest searchRequest = new SearchRequest();
@@ -266,7 +266,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
             assertEquals(activeContext.getAsyncSearchState(), RUNNING);
             CountDownLatch latch = new CountDownLatch(1);
             User differenteUser = randomUser();
-            asyncSearchService.updateKeepAliveAndGetContext(context.getAsyncSearchId(), timeValueDays(9), context.getContextId(),
+            asyncSearchService.updateKeepAliveAndGetContext(context.getAsyncSearchId(), timeValueHours(9), context.getContextId(),
                     differenteUser, new LatchedActionListener<>(wrap(r -> fail("expected security exception Users must be different, " +
                                     "actual user " + user1 + " random user " + differenteUser),
                             e -> {
@@ -293,7 +293,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
             AsyncSearchService asyncSearchService = new AsyncSearchService(persistenceService, asyncSearchActiveStore, mockClient,
                     mockClusterService, testThreadPool, new InternalAsyncSearchStats(), new NamedWriteableRegistry(emptyList()));
 
-            TimeValue keepAlive = timeValueDays(9);
+            TimeValue keepAlive = timeValueHours(9);
             boolean keepOnCompletion = randomBoolean();
             User user1 = randomUser();
             SearchRequest searchRequest = new SearchRequest();
@@ -321,7 +321,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
             ((AsyncSearchActiveContext) context).close();
             CountDownLatch latch = new CountDownLatch(1);
 
-            asyncSearchService.updateKeepAliveAndGetContext(context.getAsyncSearchId(), timeValueDays(9), context.getContextId(),
+            asyncSearchService.updateKeepAliveAndGetContext(context.getAsyncSearchId(), timeValueHours(9), context.getContextId(),
                     user1, new LatchedActionListener<>(wrap(r -> {
                                 if (keepOnCompletion) {
                                     assertTrue(r instanceof AsyncSearchPersistenceContext);

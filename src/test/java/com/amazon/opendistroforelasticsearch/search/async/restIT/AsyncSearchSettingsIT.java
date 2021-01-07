@@ -37,16 +37,16 @@ public class AsyncSearchSettingsIT extends AsyncSearchRestTestCase {
     public void testMaxKeepAliveSetting() throws Exception {
         try {
             SubmitAsyncSearchRequest validRequest = new SubmitAsyncSearchRequest(new SearchRequest());
-            validRequest.keepAlive(TimeValue.timeValueDays(2));
+            validRequest.keepAlive(TimeValue.timeValueHours(7));
             AsyncSearchResponse asyncSearchResponse = executeSubmitAsyncSearch(validRequest);
             assertNotNull(asyncSearchResponse.getSearchResponse());
-            updateClusterSettings(AsyncSearchService.MAX_KEEP_ALIVE_SETTING.getKey(), TimeValue.timeValueDays(1));
+            updateClusterSettings(AsyncSearchService.MAX_KEEP_ALIVE_SETTING.getKey(), TimeValue.timeValueHours(6));
             SubmitAsyncSearchRequest invalidRequest = new SubmitAsyncSearchRequest(new SearchRequest());
-            invalidRequest.keepAlive(TimeValue.timeValueDays(2));
+            invalidRequest.keepAlive(TimeValue.timeValueHours(7));
             ResponseException responseException = expectThrows(ResponseException.class, () -> executeSubmitAsyncSearch(invalidRequest));
             assertThat(responseException.getMessage(), containsString("Keep alive for async search (" +
                     invalidRequest.getKeepAlive().getMillis() + ") is too large"));
-            updateClusterSettings(AsyncSearchService.MAX_KEEP_ALIVE_SETTING.getKey(), TimeValue.timeValueDays(10));
+            updateClusterSettings(AsyncSearchService.MAX_KEEP_ALIVE_SETTING.getKey(), TimeValue.timeValueHours(24));
         } finally {
             deleteIndexIfExists();
         }
@@ -80,7 +80,7 @@ public class AsyncSearchSettingsIT extends AsyncSearchRestTestCase {
                 threadsList.add(new Thread(() -> {
                     try {
                         SubmitAsyncSearchRequest validRequest = new SubmitAsyncSearchRequest(new SearchRequest());
-                        validRequest.keepAlive(TimeValue.timeValueDays(1));
+                        validRequest.keepAlive(TimeValue.timeValueHours(1));
                         AsyncSearchResponse asyncSearchResponse = executeSubmitAsyncSearch(validRequest);
                         assertNotNull(asyncSearchResponse.getSearchResponse());
                     } catch (IOException e) {

@@ -64,8 +64,8 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
             List<AsyncSearchState> legalStates = Arrays.asList(AsyncSearchState.SUCCEEDED, AsyncSearchState.CLOSED);
             assertTrue(legalStates.contains(submitResponse.getState()));
-            assertTrue((submitResponse.getExpirationTimeMillis() > System.currentTimeMillis() + TimeValue.timeValueDays(4).getMillis()) &&
-                    (submitResponse.getExpirationTimeMillis() < System.currentTimeMillis() + +TimeValue.timeValueDays(5).getMillis()));
+            assertTrue((submitResponse.getExpirationTimeMillis() > System.currentTimeMillis() + TimeValue.timeValueHours(11).getMillis()) &&
+                    (submitResponse.getExpirationTimeMillis() < System.currentTimeMillis() + +TimeValue.timeValueHours(12).getMillis()));
             assertHitCount(submitResponse.getSearchResponse(), 5);
         } finally {
             deleteIndexIfExists();
@@ -117,11 +117,9 @@ public class ApiParamsValidationIT extends AsyncSearchRestTestCase {
     public void testGetWithInvalidKeepAliveUpdate() throws IOException {
         try {
             SearchRequest searchRequest = new SearchRequest("test");
-            TimeValue keepAlive = TimeValue.timeValueDays(5);
             searchRequest.source(new SearchSourceBuilder());
             SubmitAsyncSearchRequest submitAsyncSearchRequest = new SubmitAsyncSearchRequest(searchRequest);
             submitAsyncSearchRequest.keepOnCompletion(true);
-            submitAsyncSearchRequest.keepAlive(keepAlive);
             AsyncSearchResponse submitResponse = executeSubmitAsyncSearch(submitAsyncSearchRequest);
             GetAsyncSearchRequest getAsyncSearchRequest = new GetAsyncSearchRequest(submitResponse.getId());
             getAsyncSearchRequest.setKeepAlive(TimeValue.timeValueDays(100));
