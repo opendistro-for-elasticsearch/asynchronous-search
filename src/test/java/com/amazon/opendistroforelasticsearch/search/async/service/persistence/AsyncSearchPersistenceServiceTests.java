@@ -65,7 +65,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.core.IsInstanceOf.instanceOf;
 
 public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTestCase {
 
@@ -76,7 +75,9 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         super.setUp();
         threadPool = new TestThreadPool("persistenceServiceTests");
     }
-
+    public void setThreadPool(ThreadPool threadPool) {
+        this.threadPool = threadPool;
+    }
     public void testCreateAndGetAndDelete() throws IOException, InterruptedException {
         AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
         TransportService transportService = getInstanceFromNode(TransportService.class);
@@ -279,7 +280,8 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         assertEquals(600000L, total);
     }
 
-    public void testAsyncSearchExpirationUpdateOnBlockedPersistence() throws Exception {
+    //TODO write test where retry occurs, now that we don't retry on cluster block
+    public void testCreateResponseFailureOnClusterBlock() throws Exception {
         AsyncSearchPersistenceService persistenceService = getInstanceFromNode(AsyncSearchPersistenceService.class);
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), randomInt(100));
         AsyncSearchId newAsyncSearchId = new AsyncSearchId(getInstanceFromNode(TransportService.class).getLocalNode().getId(), 1,
@@ -295,24 +297,11 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         request.keepOnCompletion(true);
         request.waitForCompletionTimeout(TimeValue.timeValueMillis(5000));
         AsyncSearchResponse asyncSearchResponse = TestClientUtils.blockingSubmitAsyncSearch(client(), request);
-        waitUntil(() -> verifyAsyncSearchState(client(), asyncSearchResponse.getId(), AsyncSearchState.PERSISTING));
-        // This is needed to ensure we are able to acquire a permit for post processing before we try a GET operation
-        waitUntil(() -> getRequestTimesOut(asyncSearchResponse.getId(), AsyncSearchState.PERSISTING));
-        DeleteAsyncSearchRequest deleteAsyncSearchRequest = new DeleteAsyncSearchRequest(asyncSearchResponse.getId());
-        try {
-            executeDeleteAsyncSearch(client(), deleteAsyncSearchRequest).actionGet();
-            fail("Expected timeout");
-        } catch (Exception e) {
-            assertThat(e, instanceOf(ElasticsearchTimeoutException.class));
-        }
+        waitUntil(() -> assertRnf(() -> TestClientUtils.blockingGetAsyncSearchResponse(client(),
+                new GetAsyncSearchRequest(asyncSearchResponse.getId()))));
+        assertRnf(() -> TestClientUtils.blockingGetAsyncSearchResponse(client(), new GetAsyncSearchRequest(id)));
         client().admin().indices().prepareUpdateSettings(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX)
                 .setSettings(Settings.builder().putNull(IndexMetadata.SETTING_READ_ONLY_ALLOW_DELETE).build()).execute().actionGet();
-        waitUntil(() -> verifyAsyncSearchState(client(), asyncSearchResponse.getId(), AsyncSearchState.STORE_RESIDENT));
-        CountDownLatch deleteLatch = new CountDownLatch(1);
-        persistenceService.deleteResponse(asyncSearchResponse.getId(), null,
-                new LatchedActionListener<>(ActionListener.wrap(Assert::assertTrue, e -> fail("Unexpected failure " + e.getMessage()))
-                        , deleteLatch));
-        deleteLatch.await();
     }
 
     public void testDeleteExpiredResponse() throws InterruptedException, IOException {
@@ -528,6 +517,16 @@ public class AsyncSearchPersistenceServiceTests extends AsyncSearchSingleNodeTes
         return TestClientUtils.blockingGetAsyncSearchResponse(client(), new GetAsyncSearchRequest(asyncSearchResponse.getId()));
     }
 
+    private boolean assertRnf(Runnable runnable) {
+        try {
+            runnable.run();
+            return false;
+        } catch (ResourceNotFoundException e) {
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
     private AsyncSearchId generateNewAsyncSearchId(TransportService transportService) {
         AsyncSearchContextId asyncSearchContextId = new AsyncSearchContextId(UUIDs.base64UUID(), randomInt(100));
         return new AsyncSearchId(transportService.getLocalNode().getId(), randomInt(100), asyncSearchContextId);

@@ -32,10 +32,8 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.support.TransportActions;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.block.ClusterBlockException;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
@@ -63,6 +61,7 @@ import java.util.function.Consumer;
 
 import static com.amazon.opendistroforelasticsearch.search.async.utils.UserAuthUtils.isUserValid;
 import static com.amazon.opendistroforelasticsearch.search.async.utils.UserAuthUtils.parseUser;
+import static org.elasticsearch.action.support.TransportActions.isShardNotAvailableException;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
 /**
@@ -374,8 +373,7 @@ public class AsyncSearchPersistenceService {
             @Override
             public void onFailure(Exception e) {
                 final Throwable cause = ExceptionsHelper.unwrapCause(e);
-                if (((cause instanceof EsRejectedExecutionException || cause instanceof ClusterBlockException
-                        || TransportActions.isShardNotAvailableException(e))) && backoff.hasNext()) {
+                if (((cause instanceof EsRejectedExecutionException || isShardNotAvailableException(e))) && backoff.hasNext()) {
                     TimeValue wait = backoff.next();
                     logger.warn(() -> new ParameterizedMessage("failed to store async search response [{}], retrying in [{}]",
                             indexRequestBuilder.request().id(), wait), e);
