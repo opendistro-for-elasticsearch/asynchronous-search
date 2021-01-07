@@ -319,7 +319,8 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
     private void cancelAndFreeActiveAndPersistedContext(AsyncSearchActiveContext asyncSearchContext,
                                                         ActionListener<Boolean> listener, User user) {
         // if there are no context found to be cleaned up we throw a ResourceNotFoundException
-        AtomicReference<Releasable> releasableReference = new AtomicReference<>(() -> {});
+        AtomicReference<Releasable> releasableReference = new AtomicReference<>(() -> {
+        });
         ActionListener<Boolean> releasableListener = runAfter(listener, releasableReference.get()::close);
         GroupedActionListener<Boolean> groupedDeletionListener = new GroupedActionListener<>(
                 wrap((responses) -> {
@@ -344,10 +345,11 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
                         groupedDeletionListener.onFailure(ex);
                     }
                 });
+        String triggeredBy = user != null ? (" by user [" + user + "]") : "";
+        String cancelTaskReason = "Delete asynchronous search [" + asyncSearchContext.getAsyncSearchId()
+                + "] has been triggered" + triggeredBy + ". Attempting to cancel in-progress search task";
         //Intent of the lock here is to disallow ongoing migration to system index
         // as if that is underway we might end up creating a new document post a DELETE was executed
-        String cancelTaskReason = "Delete asynchronous search [" + asyncSearchContext.getAsyncSearchId()
-                + "] has been triggered. Attempting to cancel in-progress search task";
         asyncSearchContext.acquireContextPermitIfRequired(wrap(
                 releasable -> {
                     releasableReference.set(releasable);
