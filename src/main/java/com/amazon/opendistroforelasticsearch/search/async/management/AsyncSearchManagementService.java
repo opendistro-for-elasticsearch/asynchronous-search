@@ -113,15 +113,14 @@ public class AsyncSearchManagementService extends AbstractLifecycleComponent imp
 
         @Override
         public void messageReceived(AsyncSearchCleanUpRequest request, TransportChannel channel, Task task) {
-            asyncCleanUpOperation(request, task,
-                    ActionListener.wrap(channel::sendResponse, e -> {
-                        try {
-                            channel.sendResponse(e);
-                        } catch (IOException ex) {
-                            logger.warn(() -> new ParameterizedMessage(
-                                    "Failed to send cleanup error response for request [{}]", request), ex);
-                        }
-                    }));
+            asyncCleanUpOperation(request, task, ActionListener.wrap(channel::sendResponse, e -> {
+                try {
+                    channel.sendResponse(e);
+                } catch (IOException ex) {
+                    logger.warn(() -> new ParameterizedMessage(
+                            "Failed to send cleanup error response for request [{}]", request), ex);
+                }
+            }));
         }
     }
 

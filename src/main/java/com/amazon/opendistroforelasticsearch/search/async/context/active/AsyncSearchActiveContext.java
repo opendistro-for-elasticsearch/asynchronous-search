@@ -80,7 +80,7 @@ public class AsyncSearchActiveContext extends AsyncSearchContext implements Clos
         this.completed = new AtomicBoolean(false);
         this.closed = new AtomicBoolean(false);
         this.asyncSearchContextPermits = keepOnCompletion ? new AsyncSearchContextPermits(asyncSearchContextId, threadPool) :
-                new NoopAsyncSearchContextPermits(asyncSearchContextId, threadPool);
+                new NoopAsyncSearchContextPermits(asyncSearchContextId);
         this.user = user;
     }
 

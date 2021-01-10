@@ -27,7 +27,6 @@ import org.elasticsearch.ResourceAlreadyExistsException;
 import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.DocWriteResponse;
-import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.get.GetRequest;
@@ -79,7 +78,6 @@ public class AsyncSearchPersistenceService {
 
     private static final Logger logger = LogManager.getLogger(AsyncSearchPersistenceService.class);
     public static final String ASYNC_SEARCH_RESPONSE_INDEX = ".opendistro-asynchronous-search-response";
-    public static final String ASYNC_SEARCH_RESPONSE_INDEX_ALIAS = ".opendistro-asynchronous-search-response-alias";
     private static final String MAPPING_TYPE = "_doc";
     /**
      * The backoff policy to use when saving a async search response fails. The total wait
@@ -129,7 +127,7 @@ public class AsyncSearchPersistenceService {
             listener.onFailure(new ResourceNotFoundException(id));
             return;
         }
-        GetRequest request = new GetRequest(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS, id);
+        GetRequest request = new GetRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
         client.get(request, ActionListener.wrap(getResponse ->
                 {
                     if (getResponse.isExists()) {
@@ -170,7 +168,7 @@ public class AsyncSearchPersistenceService {
 
     public void deleteResponse(String id, User user, ActionListener<Boolean> listener) {
         if (indexExists() == false) {
-            logger.debug("Async search index [{}] doesn't exists", ASYNC_SEARCH_RESPONSE_INDEX_ALIAS);
+            logger.debug("Async search index [{}] doesn't exists", ASYNC_SEARCH_RESPONSE_INDEX);
             listener.onFailure(new ResourceNotFoundException(id));
             return;
         }
@@ -185,7 +183,7 @@ public class AsyncSearchPersistenceService {
             }
         };
         if (user == null) {
-            client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS, id), ActionListener.wrap(deleteResponse -> {
+            client.delete(new DeleteRequest(ASYNC_SEARCH_RESPONSE_INDEX, id), ActionListener.wrap(deleteResponse -> {
                 if (deleteResponse.getResult() == DocWriteResponse.Result.DELETED) {
                     logger.debug("Delete async search {} successful. Returned result {}", id, deleteResponse.getResult());
                     listener.onResponse(true);
@@ -195,7 +193,7 @@ public class AsyncSearchPersistenceService {
                 }
             }, onFailure));
         } else {
-            UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS, id);
+            UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
             String scriptCode = "if (ctx._source.user == null || ctx._source.user.backend_roles == null || " +
                     "( params.backend_roles!=null && params.backend_roles.containsAll(ctx._source.user.backend_roles))) " +
                     "{ ctx.op = 'delete' } else { ctx.op = 'none' }";
@@ -238,7 +236,7 @@ public class AsyncSearchPersistenceService {
             listener.onFailure(new ResourceNotFoundException(id));
             return;
         }
-        UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS, id);
+        UpdateRequest updateRequest = new UpdateRequest(ASYNC_SEARCH_RESPONSE_INDEX, id);
         updateRequest.retryOnConflict(5);
         if (user == null) {
             Map<String, Object> source = new HashMap<>();
@@ -308,37 +306,35 @@ public class AsyncSearchPersistenceService {
             logger.debug("Async search index not yet created! Nothing to delete.");
             listener.onResponse(new AcknowledgedResponse(true));
         } else {
-            DeleteByQueryRequest request = new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS)
+            DeleteByQueryRequest request = new DeleteByQueryRequest(ASYNC_SEARCH_RESPONSE_INDEX)
                     .setQuery(QueryBuilders.rangeQuery(EXPIRATION_TIME_MILLIS).lte(expirationTimeInMillis));
-            client.execute(DeleteByQueryAction.INSTANCE, request,
-                    ActionListener.wrap(
-                            deleteResponse -> {
-                                if ((deleteResponse.getBulkFailures() != null && deleteResponse.getBulkFailures().size() > 0) ||
-                                        (deleteResponse.getSearchFailures() != null && deleteResponse.getSearchFailures().size() > 0)) {
-                                    logger.error("Failed to delete expired async search responses with bulk failures[{}] / search " +
-                                            "failures [{}]", deleteResponse.getBulkFailures(), deleteResponse.getSearchFailures());
-                                    listener.onResponse(new AcknowledgedResponse(false));
+            client.execute(DeleteByQueryAction.INSTANCE, request, ActionListener.wrap(
+                deleteResponse -> {
+                    if ((deleteResponse.getBulkFailures() != null && deleteResponse.getBulkFailures().size() > 0) ||
+                            (deleteResponse.getSearchFailures() != null && deleteResponse.getSearchFailures().size() > 0)) {
+                        logger.error("Failed to delete expired async search responses with bulk failures[{}] / search " +
+                                "failures [{}]", deleteResponse.getBulkFailures(), deleteResponse.getSearchFailures());
+                        listener.onResponse(new AcknowledgedResponse(false));
 
-                                } else {
-                                    logger.debug("Successfully deleted expired responses");
-                                    listener.onResponse(new AcknowledgedResponse(true));
-                                }
-                            },
-                            (e) -> {
-                                logger.error(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}",
-                                        expirationTimeInMillis), e);
-                                final Throwable cause = ExceptionsHelper.unwrapCause(e);
-                                listener.onFailure(cause instanceof Exception ? (Exception) cause :
-                                        new NotSerializableExceptionWrapper(cause));
-                            }));
+                    } else {
+                        logger.debug("Successfully deleted expired responses");
+                        listener.onResponse(new AcknowledgedResponse(true));
+                    }
+                },
+                (e) -> {
+                    logger.error(() -> new ParameterizedMessage("Failed to delete expired response for expiration time {}",
+                            expirationTimeInMillis), e);
+                    final Throwable cause = ExceptionsHelper.unwrapCause(e);
+                    listener.onFailure(cause instanceof Exception ? (Exception) cause :
+                            new NotSerializableExceptionWrapper(cause));
+                })
+            );
         }
     }
 
     private void createIndexAndDoStoreResult(String id, AsyncSearchPersistenceModel persistenceModel,
                                              ActionListener<IndexResponse> listener) {
         client.admin().indices().prepareCreate(ASYNC_SEARCH_RESPONSE_INDEX).addMapping(MAPPING_TYPE, mapping())
-                .addAlias(new Alias(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS).isHidden(true))
-
                 .setSettings(indexSettings()).execute(ActionListener.wrap(createIndexResponse -> doStoreResult(id, persistenceModel,
                 listener), exception -> {
             if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
@@ -361,7 +357,7 @@ public class AsyncSearchPersistenceService {
         source.put(EXPIRATION_TIME_MILLIS, model.getExpirationTimeMillis());
         source.put(START_TIME_MILLIS, model.getStartTimeMillis());
         source.put(USER, model.getUser());
-        IndexRequestBuilder indexRequestBuilder = client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX_ALIAS, MAPPING_TYPE,
+        IndexRequestBuilder indexRequestBuilder = client.prepareIndex(ASYNC_SEARCH_RESPONSE_INDEX, MAPPING_TYPE,
                 id).setSource(source, XContentType.JSON);
         doStoreResult(STORE_BACKOFF_POLICY.iterator(), indexRequestBuilder, listener);
     }
@@ -396,6 +392,7 @@ public class AsyncSearchPersistenceService {
                 .put(IndexMetadata.INDEX_NUMBER_OF_SHARDS_SETTING.getKey(), 5)
                 .put(IndexMetadata.INDEX_AUTO_EXPAND_REPLICAS_SETTING.getKey(), "0-1")
                 .put(IndexMetadata.SETTING_PRIORITY, Integer.MAX_VALUE)
+                .put(IndexMetadata.SETTING_INDEX_HIDDEN, true)
                 .build();
     }
 

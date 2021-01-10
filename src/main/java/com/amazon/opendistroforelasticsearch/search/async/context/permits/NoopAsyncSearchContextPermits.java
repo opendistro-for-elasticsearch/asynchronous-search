@@ -20,15 +20,14 @@ import com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSe
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.lease.Releasable;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.threadpool.ThreadPool;
 
 /**
  * NOOP context permit that responds with a NOOP {@linkplain Releasable} to release
  */
 public class NoopAsyncSearchContextPermits extends AsyncSearchContextPermits {
 
-    public NoopAsyncSearchContextPermits(AsyncSearchContextId asyncSearchContextId, ThreadPool threadPool) {
-        super(asyncSearchContextId, threadPool);
+    public NoopAsyncSearchContextPermits(AsyncSearchContextId asyncSearchContextId) {
+        super(asyncSearchContextId, null, null);
     }
 
     @Override

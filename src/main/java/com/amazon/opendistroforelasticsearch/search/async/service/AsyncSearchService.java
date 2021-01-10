@@ -335,7 +335,7 @@ public class AsyncSearchService extends AbstractLifecycleComponent implements Cl
         //We get a true or a ResourceNotFound from persistence layer. We want to translate it to either a true/false or any other exception
         //that should be surfaced up
         ActionListener<Boolean> translatedListener = wrap(
-                (resp) -> groupedDeletionListener.onResponse(resp), (ex) -> {
+                groupedDeletionListener::onResponse, (ex) -> {
                     if (ex instanceof ResourceNotFoundException) {
                         groupedDeletionListener.onResponse(false);
                     } else {
