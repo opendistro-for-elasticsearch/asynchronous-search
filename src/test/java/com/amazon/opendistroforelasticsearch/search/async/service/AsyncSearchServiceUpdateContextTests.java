@@ -104,11 +104,11 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
         Settings settings = Settings.builder()
                 .put("node.name", "test")
                 .put("cluster.name", "ClusterServiceTests")
-                .put(AsyncSearchActiveStore.MAX_RUNNING_CONTEXT.getKey(), 10)
+                .put(AsyncSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING.getKey(), 10)
                 .build();
         final Set<Setting<?>> settingsSet =
                 Stream.concat(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(), Stream.of(
-                        AsyncSearchActiveStore.MAX_RUNNING_CONTEXT,
+                        AsyncSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING,
                         AsyncSearchService.MAX_KEEP_ALIVE_SETTING,
                         AsyncSearchService.MAX_SEARCH_RUNNING_TIME_SETTING,
                         AsyncSearchService.MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING)).collect(Collectors.toSet());

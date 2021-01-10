@@ -59,7 +59,7 @@ public class AsyncSearchStatsIT extends AsyncSearchIntegTestCase {
         logger.info("Using lowLevelCancellation: {}", lowLevelCancellation);
         return Settings.builder()
                 .put(super.nodeSettings(nodeOrdinal))
-                .put(AsyncSearchActiveStore.MAX_RUNNING_CONTEXT.getKey(), asyncSearchConcurrentLimit)
+                .put(AsyncSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING.getKey(), asyncSearchConcurrentLimit)
                 .build();
     }
 

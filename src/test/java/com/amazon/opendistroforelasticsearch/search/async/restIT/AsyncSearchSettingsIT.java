@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore.DEFAULT_MAX_RUNNING_CONTEXTS;
+import static com.amazon.opendistroforelasticsearch.search.async.context.active.AsyncSearchActiveStore.DEFAULT_MAX_RUNNING_SEARCHES;
 import static org.hamcrest.Matchers.containsString;
 
 public class AsyncSearchSettingsIT extends AsyncSearchRestTestCase {
@@ -101,7 +101,7 @@ public class AsyncSearchSettingsIT extends AsyncSearchRestTestCase {
                 thread.join();
             }
 
-            updateClusterSettings(AsyncSearchActiveStore.MAX_RUNNING_CONTEXT.getKey(), 0);
+            updateClusterSettings(AsyncSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING.getKey(), 0);
             threadsList.clear();
             AtomicInteger numFailures = new AtomicInteger();
             for (int i = 0; i < numThreads; i++) {
@@ -131,7 +131,7 @@ public class AsyncSearchSettingsIT extends AsyncSearchRestTestCase {
                 thread.join();
             }
             assertEquals(numFailures.get(), 50);
-            updateClusterSettings(AsyncSearchActiveStore.MAX_RUNNING_CONTEXT.getKey(), DEFAULT_MAX_RUNNING_CONTEXTS);
+            updateClusterSettings(AsyncSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING.getKey(), DEFAULT_MAX_RUNNING_SEARCHES);
         } finally {
             deleteIndexIfExists();
         }

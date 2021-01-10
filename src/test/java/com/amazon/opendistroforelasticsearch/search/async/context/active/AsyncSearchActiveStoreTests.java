@@ -57,18 +57,18 @@ import static com.amazon.opendistroforelasticsearch.search.async.commons.AsyncSe
 public class AsyncSearchActiveStoreTests extends ESTestCase {
     private ClusterSettings clusterSettings;
     private ExecutorBuilder<?> executorBuilder;
-    private int maxRunningContexts = 50;
+    private int maxRunningContexts = 20;
 
     @Before
     public void createObjects() {
         Settings settings = Settings.builder()
                 .put("node.name", "test")
                 .put("cluster.name", "ClusterServiceTests")
-                .put(AsyncSearchActiveStore.MAX_RUNNING_CONTEXT.getKey(), maxRunningContexts) //TODO setting not working fix this
+                .put(AsyncSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING.getKey(), maxRunningContexts) //TODO setting not working fix this
                 .build();
         final Set<Setting<?>> settingsSet =
                 Stream.concat(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(), Stream.of(
-                        AsyncSearchActiveStore.MAX_RUNNING_CONTEXT)).collect(Collectors.toSet());
+                        AsyncSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING)).collect(Collectors.toSet());
         final int availableProcessors = EsExecutors.allocatedProcessors(settings);
         List<ExecutorBuilder<?>> executorBuilders = new ArrayList<>();
         executorBuilders.add(new ScalingExecutorBuilder(AsyncSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME, 1,
