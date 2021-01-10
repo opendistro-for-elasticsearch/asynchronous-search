@@ -44,7 +44,7 @@ public class AsyncSearchContextPermits implements Closeable {
 
     private static final int TOTAL_PERMITS = Integer.MAX_VALUE;
 
-    private final Semaphore semaphore;
+    final Semaphore semaphore;
     protected final AsyncSearchContextId asyncSearchContextId;
     private volatile String lockDetails;
     private final ThreadPool threadPool;

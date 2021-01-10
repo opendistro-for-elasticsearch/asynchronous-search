@@ -353,7 +353,7 @@ public class AsyncSearchServiceFreeContextTests extends ESTestCase {
                 listener.onResponse(null);
             } else if (action instanceof UpdateAction) { //even delete is being done by UpdateAction
                 deleteCount++;
-                ShardId shardId = new ShardId(new Index(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS,
+                ShardId shardId = new ShardId(new Index(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX,
                         UUID.randomUUID().toString()), 1);
                 UpdateResponse updateResponse = new UpdateResponse(shardId, "testType", "testId", 1L, 1L, 1L,
                         persisted ? (userMatches ? DocWriteResponse.Result.DELETED : DocWriteResponse.Result.NOOP)
@@ -362,7 +362,7 @@ public class AsyncSearchServiceFreeContextTests extends ESTestCase {
 
             } else if (action instanceof DeleteAction) {
                 deleteCount++;
-                ShardId shardId = new ShardId(new Index(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS,
+                ShardId shardId = new ShardId(new Index(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX,
                         UUID.randomUUID().toString()), 1);
                 DeleteResponse deleteResponse = new DeleteResponse(shardId, "testType", "testId",
                         1L, 1L, 1L, persisted);

@@ -139,7 +139,7 @@ public abstract class AsyncSearchIntegTestCase extends ESIntegTestCase {
 
     protected boolean verifyResponsePersisted(String id) {
         try {
-            boolean isExists = client().get(new GetRequest(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS)
+            boolean isExists = client().get(new GetRequest(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX)
                     .refresh(true).id(id))
                     .actionGet().isExists();
             return isExists;

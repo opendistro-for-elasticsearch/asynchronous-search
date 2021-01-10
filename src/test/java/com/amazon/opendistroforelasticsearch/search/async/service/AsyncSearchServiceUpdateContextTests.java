@@ -363,7 +363,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
                 listener.onResponse(null);
             } else if (action instanceof UpdateAction) {
                 updateCount++;
-                ShardId shardId = new ShardId(new Index(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS,
+                ShardId shardId = new ShardId(new Index(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX,
                         UUID.randomUUID().toString()), 1);
 
                 UpdateResponse updateResponse = new UpdateResponse(shardId, "testType", "testId", 1L, 1L, 1L,
@@ -375,7 +375,7 @@ public class AsyncSearchServiceUpdateContextTests extends ESTestCase {
                     XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
                     builder.map(sourceMap);
                     BytesReference source = BytesReference.bytes(builder);
-                    updateResponse.setGetResult(new GetResult(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX_ALIAS,
+                    updateResponse.setGetResult(new GetResult(AsyncSearchPersistenceService.ASYNC_SEARCH_RESPONSE_INDEX,
                             "testType", "testId", 1L, 1L, 1L,
                             true, source, emptyMap(), null));
                     listener.onResponse((Response) updateResponse);
