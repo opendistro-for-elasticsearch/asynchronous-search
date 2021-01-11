@@ -32,12 +32,10 @@ import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.HandledTransportAction;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.ClusterState;
-import org.elasticsearch.cluster.ClusterStateObserver;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.elasticsearch.common.io.stream.Writeable;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.AbstractRunnable;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.node.NodeClosedException;
@@ -96,7 +94,6 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
 
         private final ActionListener<Response> listener;
         private final Request request;
-        private volatile ClusterStateObserver observer;
         private DiscoveryNode targetNode;
         private AsyncSearchId asyncSearchId;
 
@@ -106,9 +103,6 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
 
                 this.request = request;
                 this.listener = listener;
-                this.observer = new ClusterStateObserver(clusterService.state(), clusterService,
-                        TimeValue.timeValueMillis(asyncSearchService.getMaxWaitForCompletionTimeout()),
-                        logger, threadPool.getThreadContext());
                 this.targetNode = clusterService.state().nodes().get(asyncSearchId.getNode());
             } catch (IllegalArgumentException e) { // failure in parsing async search
                 logger.error(() -> new ParameterizedMessage("Failed to parse async search ID [{}]", request.getId()), e);
@@ -126,12 +120,12 @@ public abstract class TransportAsyncSearchRoutingAction<Request extends AsyncSea
 
         @Override
         protected void doRun() {
-            ClusterState state = observer.setAndGetObservedState();
+            ClusterState state = clusterService.state();
             // forward request only if the local node isn't the node coordinating the search and the node coordinating
             // the search exists in the cluster
             TransportRequestOptions requestOptions = TransportRequestOptions.builder().withTimeout(
                     asyncSearchService.getMaxWaitForCompletionTimeout()).build();
-            if (state.nodes().getLocalNode().equals(targetNode) == false && state.nodes().nodeExists(targetNode)) {
+            if (targetNode != null && state.nodes().getLocalNode().equals(targetNode) == false && state.nodes().nodeExists(targetNode)) {
                 logger.debug("Forwarding async search id [{}] request to target node [{}]", request.getId(), targetNode);
                 transportService.sendRequest(targetNode, actionName, request, requestOptions,
                         new ActionListenerResponseHandler<Response>(listener, responseReader) {
