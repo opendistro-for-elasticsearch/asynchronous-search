@@ -8,7 +8,7 @@ The asynchronous search plugin supports the below operations
 
 **1. Submit asynchronous search**
 ```
-POST /_opendistro/_asynchronous_search?wait_for_completion_timeout=500ms&keep_on_completion=true
+POST /_opendistro/_asynchronous_search?wait_for_completion_timeout=500ms&keep_on_completion=true&keep_alive=3d
 {  "aggs": {
     "city": {
       "terms": {
@@ -22,7 +22,7 @@ POST /_opendistro/_asynchronous_search?wait_for_completion_timeout=500ms&keep_on
 
 **2. Retrieve asynchronous search results**
 ```
-GET /_opendistro/_asynchronous_search/FjdITFhYbC1zVFdHVVV1MUd3UkxkMFEFMjQ1MzYUWHRrZjhuWUJXdFhxMmlCSW5HTE8BMQ==
+GET /_opendistro/_asynchronous_search/FjdITFhYbC1zVFdHVVV1MUd3UkxkMFEFMjQ1MzYUWHRrZjhuWUJXdFhxMmlCSW5HTE8BMQ==?keep_alive=3d
 ```
 
 **3. Delete an asynchronous search**
