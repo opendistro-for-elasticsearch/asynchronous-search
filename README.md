@@ -38,10 +38,10 @@ GET /_opendistro/_asynchronous_search/_stats
 ```
 
 **Tunable Settings**
-1. Maximum running time for the search beyond which the search would be terminated
-2. Concurrent searches running per coordinator node
-3. Maximum keep alive for search which dictates how long the search is allowed to be present in the cluster
-4. Maximum keep on completion to block for the search response
+1. `opendistro_asynchronous_search.max_search_running_time` : Maximum running time for the search beyond which the search would be terminated
+2. `opendistro_asynchronous_search.max_running_searches` : Concurrent searches running per coordinator node
+3. `opendistro_asynchronous_search.max_keep_alive` : Maximum keep alive for search which dictates how long the search is allowed to be present in the cluster
+4. `opendistro_asynchronous_search.max_wait_for_completion_timeout` : Maximum keep on completion to block for the search response
 
 ## Security
 
