@@ -120,14 +120,17 @@ public class AsynchronousSearchActiveContextTests extends AsynchronousSearchTest
             AsynchronousSearchActiveContext context = new AsynchronousSearchActiveContext(asContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
                     threadPool::absoluteTimeInMillis, asProgressListener, user);
+            SubmitAsynchronousSearchRequest request = new SubmitAsynchronousSearchRequest(new SearchRequest("test"));
+            request.keepAlive(keepAlive);
             AsynchronousSearchTask task = new AsynchronousSearchTask(randomNonNegativeLong(), "transport",
-                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, new SubmitAsynchronousSearchRequest(new SearchRequest()),
-                    (c) -> {});
+                    SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, request, (c) -> {});
             context.setTask(task);
             assertEquals(task, context.getTask());
             assertEquals(task.getStartTime(), context.getStartTimeMillis());
             assertEquals(task.getStartTime() + keepAlive.getMillis(), context.getExpirationTimeMillis());
-            assertThat(task.getDescription(),containsString("[asynchronous search]"));
+            assertThat(task.getDescription(), containsString("[asynchronous search]"));
+            assertThat(task.getDescription(), containsString("indices[test]"));
+            assertThat(task.getDescription(), containsString("keep_alive[" + keepAlive + "]"));
             assertTrue(context.isAlive());
             assertFalse(context.isExpired());
             expectThrows(SetOnce.AlreadySetException.class, () -> context.setTask(task));
