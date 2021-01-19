@@ -45,16 +45,6 @@ task dummyIntegTest(type: Test) {
     enabled = false
     workingDir = file("/") // Force absolute path to jacoco agent jar
     jacoco {
-        destinationFile = file("${jacocoDir}/integTest.exec")
-        destinationFile.parentFile.mkdirs()
-        jmx = true
-    }
-}
-
-task dummyIntegTestRunner(type: Test) {
-    enabled = false
-    workingDir = file("/") // Force absolute path to jacoco agent jar
-    jacoco {
         destinationFile = file("${jacocoDir}/integTestRunner.exec")
         destinationFile.parentFile.mkdirs()
         jmx = true
@@ -67,7 +57,7 @@ integTest.runner {
 
 jacocoTestReport {
     dependsOn integTest, test
-    executionData dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile, dummyIntegTestRunner.jacoco.destinationFile
+    executionData dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile
     sourceDirectories.from = "src/main/java"
     classDirectories.from = sourceSets.main.output
     reports {

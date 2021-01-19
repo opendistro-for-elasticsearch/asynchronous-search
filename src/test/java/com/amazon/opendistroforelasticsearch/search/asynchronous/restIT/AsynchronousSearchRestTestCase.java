@@ -156,7 +156,7 @@ public abstract class AsynchronousSearchRestTestCase extends ESRestTestCase {
                     connector.getMBeanServerConnection(), new ObjectName("org.jacoco:type=Runtime"), IProxy.class,
                     false);
 
-            Path path = org.elasticsearch.common.io.PathUtils.get(jacocoBuildPath + "/integTest.exec");
+            Path path = org.elasticsearch.common.io.PathUtils.get(jacocoBuildPath + "/integTestRunner.exec");
             Files.write(path, proxy.getExecutionData(false));
         } catch (Exception ex) {
             throw new RuntimeException("Failed to dump coverage: " + ex);
