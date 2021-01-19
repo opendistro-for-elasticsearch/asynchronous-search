@@ -76,6 +76,7 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
 
 
     public void testSimulatedSearchRejectionLoad() throws Throwable {
+        fail();
         for (int i = 0; i < 10; i++) {
             client().prepareIndex("test", "type", Integer.toString(i)).setSource("field", "1").get();
         }
