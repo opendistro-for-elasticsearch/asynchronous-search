@@ -61,7 +61,6 @@ import java.util.function.Consumer;
 
 import static com.amazon.opendistroforelasticsearch.search.asynchronous.utils.UserAuthUtils.isUserValid;
 import static com.amazon.opendistroforelasticsearch.search.asynchronous.utils.UserAuthUtils.parseUser;
-import static org.elasticsearch.action.support.TransportActions.isShardNotAvailableException;
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
 /**
