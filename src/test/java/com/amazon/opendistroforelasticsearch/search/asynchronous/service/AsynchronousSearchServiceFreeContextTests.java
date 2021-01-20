@@ -218,8 +218,12 @@ public class AsynchronousSearchServiceFreeContextTests extends ESTestCase {
             //bootstrap search
             AsynchronousSearchTask task = new AsynchronousSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME,
                     TaskId.EMPTY_TASK_ID,
-                    emptyMap(), asActiveContext, null, (c) -> {
-            });
+                    emptyMap(), asActiveContext, null, (c) -> {}) {
+                @Override
+                public boolean isCancelled() {
+                    return true;
+                }
+            };
             asActiveContext.setTask(task);
             asActiveContext.setState(AsynchronousSearchState.RUNNING);
             when(mockStore.getContext(any())).thenReturn(Optional.of(asActiveContext));
@@ -273,8 +277,12 @@ public class AsynchronousSearchServiceFreeContextTests extends ESTestCase {
             //bootstrap search
             AsynchronousSearchTask task = new AsynchronousSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME,
                     TaskId.EMPTY_TASK_ID,
-                    emptyMap(), asActiveContext, null, (c) -> {
-            });
+                    emptyMap(), asActiveContext, null, (c) -> {}) {
+                @Override
+                public boolean isCancelled() {
+                    return true;
+                }
+            };
             asActiveContext.setTask(task);
             asActiveContext.setState(AsynchronousSearchState.RUNNING);
             when(mockStore.getContext(any())).thenReturn(Optional.of(asActiveContext));
@@ -594,7 +602,12 @@ public class AsynchronousSearchServiceFreeContextTests extends ESTestCase {
             //bootstrap search
             AsynchronousSearchTask task = new AsynchronousSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME,
                     TaskId.EMPTY_TASK_ID,
-                    emptyMap(), asActiveContext, null, (c) -> {});
+                    emptyMap(), asActiveContext, null, (c) -> {}) {
+                @Override
+                public boolean isCancelled() {
+                    return true;
+                }
+            };
             asActiveContext.setTask(task);
             asActiveContext.setState(AsynchronousSearchState.RUNNING);
             when(mockStore.getContext(any())).thenReturn(Optional.of(asActiveContext));

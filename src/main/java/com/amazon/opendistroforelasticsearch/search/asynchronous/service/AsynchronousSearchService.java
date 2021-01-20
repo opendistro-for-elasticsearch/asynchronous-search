@@ -422,10 +422,11 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
      * @param asynchronousSearchContext the active asynchronous search context
      * @return boolean indicating if the state machine moved the state to CLOSED
      */
-    // TODO make this package private
-    public boolean freeActiveContext(AsynchronousSearchActiveContext asynchronousSearchContext) {
+    boolean freeActiveContext(AsynchronousSearchActiveContext asynchronousSearchContext) {
         try {
-            //TODO add asserts to ensure task is cancelled/completed/removed so that we don't leave orphan tasks
+            // asserts that task is cancelled/completed/removed so that we don't leave orphan tasks
+            assert asynchronousSearchContext.getTask() == null || asynchronousSearchContext.getTask().isCancelled() ||
+                    asynchronousSearchContext.getSearchError() != null || asynchronousSearchContext.getSearchResponse() != null;
             asynchronousSearchStateMachine.trigger(new SearchDeletedEvent(asynchronousSearchContext));
             return true;
         } catch (AsynchronousSearchStateMachineClosedException ex) {
@@ -599,7 +600,6 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
     @Override
     protected void doStop() {
         for (final AsynchronousSearchContext context : asynchronousSearchActiveStore.getAllContexts().values()) {
-            //TODO assert if tasks get cancelled on doStop
             freeActiveContext((AsynchronousSearchActiveContext) context);
         }
     }

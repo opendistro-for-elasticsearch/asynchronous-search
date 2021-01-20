@@ -66,7 +66,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
 import static org.hamcrest.Matchers.greaterThan;
 
-public class AsynchronousSearchPersistenceServiceTests extends AsynchronousSearchSingleNodeTestCase {
+public class AsynchronousSearchPersistenceServiceIT extends AsynchronousSearchSingleNodeTestCase {
 
     private ThreadPool threadPool;
 
@@ -291,7 +291,7 @@ public class AsynchronousSearchPersistenceServiceTests extends AsynchronousSearc
         assertEquals(600000L, total);
     }
 
-    //TODO write test where retry occurs, now that we don't retry on cluster block
+
     public void testCreateResponseFailureOnClusterBlock() throws Exception {
         AsynchronousSearchPersistenceService persistenceService = getInstanceFromNode(AsynchronousSearchPersistenceService.class);
         AsynchronousSearchContextId asContextId = new AsynchronousSearchContextId(UUIDs.base64UUID(), randomInt(100));
