@@ -557,7 +557,7 @@ public class AsynchronousSearchServiceTests extends ESTestCase {
                 if (blockPersistence) {
                     try {
                         block = true;
-                        waitUntil(() -> block == false);
+                        waitUntil(() -> block == false, 1, TimeUnit.MINUTES);
                     } catch (InterruptedException e) {
                         logger.error("block failed due to " + e.getMessage());
                     }
@@ -566,7 +566,7 @@ public class AsynchronousSearchServiceTests extends ESTestCase {
             listener.onResponse(null);
         }
         public void awaitBlock() throws InterruptedException {
-            waitUntil(() -> block);
+            waitUntil(() -> block,1 , TimeUnit.MINUTES);
         }
 
         public void releaseBlock() {
