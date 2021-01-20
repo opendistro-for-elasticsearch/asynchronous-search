@@ -375,7 +375,7 @@ public class AsynchronousSearchPersistenceService {
             @Override
             public void onFailure(Exception e) {
                 final Throwable cause = ExceptionsHelper.unwrapCause(e);
-                if (((cause instanceof EsRejectedExecutionException || isShardNotAvailableException(e))) && backoff.hasNext()) {
+                if (((cause instanceof EsRejectedExecutionException)) && backoff.hasNext()) {
                     TimeValue wait = backoff.next();
                     logger.warn(() -> new ParameterizedMessage("failed to store asynchronous search response [{}], retrying in [{}]",
                             indexRequestBuilder.request().id(), wait), e);

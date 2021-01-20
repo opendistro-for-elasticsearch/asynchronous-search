@@ -426,7 +426,7 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
         try {
             // asserts that task is cancelled/completed/removed so that we don't leave orphan tasks
             assert asynchronousSearchContext.getTask() == null || asynchronousSearchContext.getTask().isCancelled() ||
-                    asynchronousSearchContext.getSearchError() != null || asynchronousSearchContext.getSearchResponse() != null;
+                    asynchronousSearchContext.isCompleted();
             asynchronousSearchStateMachine.trigger(new SearchDeletedEvent(asynchronousSearchContext));
             return true;
         } catch (AsynchronousSearchStateMachineClosedException ex) {

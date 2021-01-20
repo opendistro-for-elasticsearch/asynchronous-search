@@ -104,7 +104,7 @@ public class AsynchronousSearchActiveStore {
     private static boolean calledFromAsynchronousSearchStateMachine() {
         return Stream.of(Thread.currentThread().getStackTrace()).
                 skip(1). //skip getStackTrace
-                limit(15). //limit depth of analysis to 10 frames, it should be enough
+                limit(10). //limit depth of analysis to 10 frames, it should be enough
                 anyMatch(f ->
                 {
                     try {
