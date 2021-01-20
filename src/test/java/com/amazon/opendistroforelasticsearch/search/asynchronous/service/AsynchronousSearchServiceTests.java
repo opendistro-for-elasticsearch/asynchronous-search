@@ -242,7 +242,7 @@ public class AsynchronousSearchServiceTests extends ESTestCase {
             context.getAsynchronousSearchProgressListener().onResponse(getMockSearchResponse());
             CountDownLatch updateLatch = new CountDownLatch(1);
             TimeValue newKeepAlive = timeValueHours(10);
-            waitUntil(() -> context.getAsynchronousSearchState().equals(AsynchronousSearchState.SUCCEEDED));
+            waitUntil(() -> context.getAsynchronousSearchState().equals(AsynchronousSearchState.PERSISTING));
             fakeClient.awaitBlock();
             asService.updateKeepAliveAndGetContext(asActiveContext.getAsynchronousSearchId(), newKeepAlive,
                     asActiveContext.getContextId(), null, new LatchedActionListener<>(wrap(r -> fail("expected update req to timeout"),
