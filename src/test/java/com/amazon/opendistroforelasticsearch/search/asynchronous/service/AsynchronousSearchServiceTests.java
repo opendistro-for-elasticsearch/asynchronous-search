@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.context.Asynchr
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.AsynchronousSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.AsynchronousSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.AsynchronousSearchActiveStore;
-import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.listener.AsynchronousSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.plugin.AsynchronousSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.request.SubmitAsynchronousSearchRequest;
@@ -242,7 +241,6 @@ public class AsynchronousSearchServiceTests extends ESTestCase {
             context.getAsynchronousSearchProgressListener().onResponse(getMockSearchResponse());
             CountDownLatch updateLatch = new CountDownLatch(1);
             TimeValue newKeepAlive = timeValueHours(10);
-            waitUntil(() -> context.getAsynchronousSearchState().equals(AsynchronousSearchState.PERSISTING));
             fakeClient.awaitBlock();
             asService.updateKeepAliveAndGetContext(asActiveContext.getAsynchronousSearchId(), newKeepAlive,
                     asActiveContext.getContextId(), null, new LatchedActionListener<>(wrap(r -> fail("expected update req to timeout"),
@@ -250,7 +248,6 @@ public class AsynchronousSearchServiceTests extends ESTestCase {
                             updateLatch));
             updateLatch.await();
             fakeClient.releaseBlock();
-            waitUntil(() -> fakeClient.persistenceCount == 1);
         } finally {
             ThreadPool.terminate(testThreadPool, 200, TimeUnit.MILLISECONDS);
         }
