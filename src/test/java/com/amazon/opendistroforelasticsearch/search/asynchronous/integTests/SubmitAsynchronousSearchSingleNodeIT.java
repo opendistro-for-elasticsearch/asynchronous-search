@@ -76,7 +76,7 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
             assertEquals(0, numFailedAsynchronousSearch.get());
             assertEquals(0, numErrorResponseAsynchronousSearch.get());
         }, concurrentRuns);
-        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty());
+        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty(),30, TimeUnit.SECONDS);
     }
 
     public void testSubmitAsynchronousSearchWithRetainedResponse() throws InterruptedException {
@@ -94,7 +94,7 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
             assertEquals(0, numFailedAsynchronousSearch.get());
             assertEquals(0, numErrorResponseAsynchronousSearch.get());
         }, concurrentRuns);
-        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty());
+        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty(),30, TimeUnit.SECONDS);
     }
 
     public void testSubmitAsynchronousSearchWithNoRetainedResponseBlocking() throws Exception {
@@ -105,7 +105,7 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
             assertEquals(concurrentRuns - asConcurrentLimit, numFailedAsynchronousSearch.get());
             assertEquals(concurrentRuns - asConcurrentLimit, numRejectedAsynchronousSearch.get());
         }, concurrentRuns);
-        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty());
+        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty(),30, TimeUnit.SECONDS);
     }
 
     private void assertConcurrentSubmitsForBlockedSearch(TriConsumer<AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer,
@@ -129,7 +129,7 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
                             Collections.emptyMap())));
                     SubmitAsynchronousSearchRequest submitAsynchronousSearchRequest = new SubmitAsynchronousSearchRequest(searchRequest);
                     submitAsynchronousSearchRequest.keepOnCompletion(false);
-                    submitAsynchronousSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(5000));
+                    submitAsynchronousSearchRequest.waitForCompletionTimeout(TimeValue.timeValueMillis(100));
                     executeSubmitAsynchronousSearch(client(), submitAsynchronousSearchRequest,
                             new ActionListener<AsynchronousSearchResponse>() {
                         @Override
