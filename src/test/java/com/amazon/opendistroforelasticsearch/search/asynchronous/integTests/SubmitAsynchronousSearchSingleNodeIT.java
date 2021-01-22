@@ -60,7 +60,8 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
         return Settings.builder().put(AsynchronousSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING.getKey(), asConcurrentLimit).build();
     }
 
-    public void testSubmitAsynchronousSearchWithoutRetainedResponse() throws InterruptedException {
+    public void
+    testSubmitAsynchronousSearchWithoutRetainedResponse() throws InterruptedException {
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.indices("index");
         searchRequest.source(new SearchSourceBuilder().query(new MatchQueryBuilder("field", "value0")));
@@ -75,6 +76,7 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
             assertEquals(0, numFailedAsynchronousSearch.get());
             assertEquals(0, numErrorResponseAsynchronousSearch.get());
         }, concurrentRuns);
+        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty());
     }
 
     public void testSubmitAsynchronousSearchWithRetainedResponse() throws InterruptedException {
@@ -92,6 +94,7 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
             assertEquals(0, numFailedAsynchronousSearch.get());
             assertEquals(0, numErrorResponseAsynchronousSearch.get());
         }, concurrentRuns);
+        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty());
     }
 
     public void testSubmitAsynchronousSearchWithNoRetainedResponseBlocking() throws Exception {
