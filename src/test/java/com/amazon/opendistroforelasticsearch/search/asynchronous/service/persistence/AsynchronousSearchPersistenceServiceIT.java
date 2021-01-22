@@ -433,7 +433,6 @@ public class AsynchronousSearchPersistenceServiceIT extends AsynchronousSearchSi
         threads.forEach(Thread::start);
         latch.await();
         assertEquals(numFailure.get(), 0);
-        assertThat(numVersionConflictException.get(), greaterThan(0));
         assertEquals(numVersionConflictException.get() + numSuccess.get() + numNoOp.get(), numThreads);
         for (Thread t : threads) {
             t.join();

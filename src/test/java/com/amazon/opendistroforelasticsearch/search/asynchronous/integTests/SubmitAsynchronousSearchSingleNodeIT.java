@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.search.asynchronous.integTests;
 
+import com.amazon.opendistroforelasticsearch.search.asynchronous.service.AsynchronousSearchService;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.utils.AsynchronousSearchAssertions;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.commons.AsynchronousSearchSingleNodeTestCase;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.AsynchronousSearchActiveStore;
@@ -101,6 +102,7 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
             assertEquals(concurrentRuns - asConcurrentLimit, numFailedAsynchronousSearch.get());
             assertEquals(concurrentRuns - asConcurrentLimit, numRejectedAsynchronousSearch.get());
         }, concurrentRuns);
+        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty());
     }
 
     private void assertConcurrentSubmitsForBlockedSearch(TriConsumer<AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer,
