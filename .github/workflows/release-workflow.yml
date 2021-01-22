@@ -35,12 +35,14 @@ jobs:
       - name: Create Artifact Path
         run: |
           mkdir -p asynchronous-search-artifacts
-          cp asynchronous-search/build/distributions/*.zip asynchronous-search-artifacts
-          cp asynchronous-search/build/distributions/*.zip asynchronous-search-artifacts_zip
+          ls
+          ls asynchronous-search/build/distributions
           cp asynchronous-search/build/distributions/*.deb asynchronous-search-artifacts
           cp asynchronous-search/build/distributions/*.deb asynchronous-search-artifacts_deb
           cp asynchronous-search/build/distributions/*.rpm asynchronous-search-artifacts
           cp asynchronous-search/build/distributions/*.rpm asynchronous-search-artifacts_rpm
+          cp asynchronous-search/build/distributions/*.zip asynchronous-search-artifacts
+          cp asynchronous-search/build/distributions/*.zip asynchronous-search-artifacts_zip
           echo "TAG_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
       # AWS authentication
       - name: Configure AWS Credentials
