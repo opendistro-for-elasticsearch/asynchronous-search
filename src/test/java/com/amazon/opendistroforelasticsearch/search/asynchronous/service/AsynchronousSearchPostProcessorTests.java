@@ -13,7 +13,7 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.search.asynchronous.processor;
+package com.amazon.opendistroforelasticsearch.search.asynchronous.service;
 
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.AsynchronousSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.AsynchronousSearchActiveStore;
@@ -23,10 +23,9 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.A
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.SearchDeletedEvent;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.SearchStartedEvent;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.plugin.AsynchronousSearchPlugin;
+import com.amazon.opendistroforelasticsearch.search.asynchronous.processor.AsynchronousSearchPostProcessor;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.request.SubmitAsynchronousSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.response.AsynchronousSearchResponse;
-import com.amazon.opendistroforelasticsearch.search.asynchronous.service.AsynchronousSearchPersistenceService;
-import com.amazon.opendistroforelasticsearch.search.asynchronous.service.AsynchronousSearchService;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.stats.InternalAsynchronousSearchStats;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.utils.AsynchronousSearchAssertions;
 import org.apache.lucene.search.TotalHits;

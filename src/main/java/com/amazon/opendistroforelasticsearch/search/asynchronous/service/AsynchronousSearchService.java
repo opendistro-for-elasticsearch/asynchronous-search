@@ -563,8 +563,7 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
         }
     }
 
-    //TOD0 make this package private
-    public AsynchronousSearchStateMachine getStateMachine() {
+    AsynchronousSearchStateMachine getStateMachine() {
         return asynchronousSearchStateMachine;
     }
 

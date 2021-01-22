@@ -77,7 +77,8 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
             assertEquals(0, numFailedAsynchronousSearch.get());
             assertEquals(0, numErrorResponseAsynchronousSearch.get());
         }, concurrentRuns);
-        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty(),30, TimeUnit.SECONDS);
+        AsynchronousSearchService asynchronousSearchService = getInstanceFromNode(AsynchronousSearchService.class);
+        waitUntil(asynchronousSearchService.getAllActiveContexts()::isEmpty,30, TimeUnit.SECONDS);
     }
 
     public void testSubmitAsynchronousSearchWithRetainedResponse() throws InterruptedException {
@@ -95,7 +96,8 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
             assertEquals(0, numFailedAsynchronousSearch.get());
             assertEquals(0, numErrorResponseAsynchronousSearch.get());
         }, concurrentRuns);
-        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty(),30, TimeUnit.SECONDS);
+        AsynchronousSearchService asynchronousSearchService = getInstanceFromNode(AsynchronousSearchService.class);
+        waitUntil(asynchronousSearchService.getAllActiveContexts()::isEmpty,30, TimeUnit.SECONDS);
     }
 
     public void testSubmitAsynchronousSearchWithNoRetainedResponseBlocking() throws Exception {
@@ -106,7 +108,8 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
             assertEquals(concurrentRuns - asConcurrentLimit, numFailedAsynchronousSearch.get());
             assertEquals(concurrentRuns - asConcurrentLimit, numRejectedAsynchronousSearch.get());
         }, concurrentRuns);
-        waitUntil(() -> getInstanceFromNode(AsynchronousSearchService.class).getAllActiveContexts().isEmpty(),30, TimeUnit.SECONDS);
+        AsynchronousSearchService asynchronousSearchService = getInstanceFromNode(AsynchronousSearchService.class);
+        waitUntil(asynchronousSearchService.getAllActiveContexts()::isEmpty,30, TimeUnit.SECONDS);
     }
 
     private void assertConcurrentSubmitsForBlockedSearch(TriConsumer<AtomicInteger, AtomicInteger, AtomicInteger> assertionConsumer,
