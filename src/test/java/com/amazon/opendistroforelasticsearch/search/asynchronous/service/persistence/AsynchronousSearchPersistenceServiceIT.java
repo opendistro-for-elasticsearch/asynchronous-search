@@ -64,7 +64,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueDays;
-import static org.hamcrest.Matchers.greaterThan;
 
 public class AsynchronousSearchPersistenceServiceIT extends AsynchronousSearchSingleNodeTestCase {
 
