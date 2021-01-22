@@ -168,3 +168,5 @@ run {
         }
     }
 }
+
+apply from: 'build-tools/pkgbuild.gradle'
