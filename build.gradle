@@ -20,6 +20,10 @@ buildscript {
 // Build configurations
 //****************************************************************************/
 
+plugins {
+    id 'nebula.ospackage' version "8.3.0"
+}
+
 apply plugin: 'java'
 apply plugin: 'jacoco'
 apply plugin: 'elasticsearch.testclusters'
@@ -39,6 +43,7 @@ ext {
     projectSubstitutions = [:]
     licenseFile = rootProject.file('LICENSE.txt')
     noticeFile = rootProject.file('NOTICE.txt')
+    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
 group 'com.amazon.opendistroforelasticsearch'
