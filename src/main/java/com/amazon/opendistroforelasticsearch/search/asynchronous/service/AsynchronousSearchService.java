@@ -315,7 +315,8 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
 
     private void cancelTask(AsynchronousSearchActiveContext asynchronousSearchContext, String reason,
                             ActionListener<CancelTasksResponse> listener, Runnable noCancellationRunnable) {
-        if (asynchronousSearchContext.getTask() != null && asynchronousSearchContext.getTask().isCancelled() == false) {
+        if (asynchronousSearchContext.getTask() != null && asynchronousSearchContext.getTask().isCancelled() == false
+                && asynchronousSearchContext.isCompleted() ==  false) {
             CancelTasksRequest cancelTasksRequest = new CancelTasksRequest()
                     .setTaskId(new TaskId(clusterService.localNode().getId(), asynchronousSearchContext.getTask().getId()))
                     .setReason(reason);

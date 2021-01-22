@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.request.SubmitA
 import com.amazon.opendistroforelasticsearch.search.asynchronous.response.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.response.AsynchronousSearchResponse;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.LatchedActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.cluster.ClusterState;
@@ -206,20 +207,18 @@ public class SubmitAsynchronousSearchSingleNodeIT extends AsynchronousSearchSing
                             if (submitAsynchronousSearchRequest.getKeepOnCompletion()) {
                                 DeleteAsynchronousSearchRequest deleteAsynchronousSearchRequest = new DeleteAsynchronousSearchRequest(
                                         asResponse.getId());
-                                executeDeleteAsynchronousSearch(client(), deleteAsynchronousSearchRequest,
+                                executeDeleteAsynchronousSearch(client(), deleteAsynchronousSearchRequest,new LatchedActionListener<>(
                                         new ActionListener<AcknowledgedResponse>() {
                                     @Override
                                     public void onResponse(AcknowledgedResponse acknowledgedResponse) {
                                         assertTrue(acknowledgedResponse.isAcknowledged());
-                                        finalCountDownLatch.countDown();
                                     }
 
                                     @Override
                                     public void onFailure(Exception e) {
-                                        fail("Search deletion failed for asynchronous search id " + asResponse.getId());
-                                        finalCountDownLatch.countDown();
+                                        fail("Search deletion failed for asynchronous search id " + e.getMessage());
                                     }
-                                });
+                                }, finalCountDownLatch));
                             }
                             ;
                         }
