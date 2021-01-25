@@ -108,7 +108,7 @@ public class AsynchronousSearchActiveStore {
                 anyMatch(f ->
                 {
                     try {
-                        boolean isTestMethodInvocation = f.getClassName().endsWith("Tests");
+                        boolean isTestMethodInvocation = f.getClassName().contains("AsynchronousSearchActiveStoreTests");
                         boolean isStateMachineTriggerMethodInvocation = AsynchronousSearchStateMachine.class
                                 .isAssignableFrom(Class.forName(f.getClassName())) && f.getMethodName().equals("trigger");
                         return isTestMethodInvocation || isStateMachineTriggerMethodInvocation;

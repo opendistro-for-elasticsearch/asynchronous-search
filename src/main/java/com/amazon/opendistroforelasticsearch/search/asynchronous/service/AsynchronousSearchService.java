@@ -367,6 +367,7 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
                 releasable -> {
                     releasableReference.set(releasable);
                     if (asynchronousSearchContext.keepOnCompletion()) {
+                        //TODO extract cancel task logic to a function to make it unit-testable
                         cancelTask(asynchronousSearchContext, cancelTaskReason, wrap(cancelTasksResponse -> {
                                     logger.debug("Successfully cancelled tasks [{}] with asynchronous search [{}] with response [{}]",
                                             asynchronousSearchContext.getTask(), asynchronousSearchContext.getAsynchronousSearchId(),
