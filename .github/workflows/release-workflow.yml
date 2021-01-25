@@ -51,23 +51,22 @@ jobs:
           aws-region: us-west-2
 
       # This step uses the upload-artifact Github action: https://github.com/actions/upload-artifact
-            # This step uses the upload-artifact Github action: https://github.com/actions/upload-artifact
-            - name: Upload Artifacts to S3
-              run: |
-                zip=`ls asynchronous-search-artifacts/*.zip`
-                rpm=`ls asynchronous-search-artifacts/*.rpm`
-                deb=`ls asynchronous-search-artifacts/*.deb`
-                # Inject the build number before the suffix
-                zip_outfile=`basename ${zip%.zip}-build-${GITHUB_RUN_NUMBER}.zip`
-                rpm_outfile=`basename ${rpm%.rpm}-build-${GITHUB_RUN_NUMBER}.rpm`
-                deb_outfile=`basename ${deb%.deb}-build-${GITHUB_RUN_NUMBER}.deb`
-                s3_prefix="s3://staging.artifacts.opendistroforelasticsearch.amazon.com/snapshots/elasticsearch-plugins/asynchronous-search/"
-                echo "Copying ${zip} to ${s3_prefix}${zip_outfile}"
-                aws s3 cp --quiet $zip ${s3_prefix}${zip_outfile}
-                echo "Copying ${rpm} to ${s3_prefix}${rpm_outfile}"
-                aws s3 cp --quiet $rpm ${s3_prefix}${rpm_outfile}
-                echo "Copying ${deb} to ${s3_prefix}${deb_outfile}"
-                aws s3 cp --quiet $deb ${s3_prefix}${deb_outfile}
+      - name: Upload Artifacts to S3
+        run: |
+          zip=`ls asynchronous-search-artifacts/*.zip`
+          rpm=`ls asynchronous-search-artifacts/*.rpm`
+          deb=`ls asynchronous-search-artifacts/*.deb`
+          # Inject the build number before the suffix
+          zip_outfile=`basename ${zip%.zip}-build-${GITHUB_RUN_NUMBER}.zip`
+          rpm_outfile=`basename ${rpm%.rpm}-build-${GITHUB_RUN_NUMBER}.rpm`
+          deb_outfile=`basename ${deb%.deb}-build-${GITHUB_RUN_NUMBER}.deb`
+          s3_prefix="s3://staging.artifacts.opendistroforelasticsearch.amazon.com/snapshots/elasticsearch-plugins/asynchronous-search/"
+          echo "Copying ${zip} to ${s3_prefix}${zip_outfile}"
+          aws s3 cp --quiet $zip ${s3_prefix}${zip_outfile}
+          echo "Copying ${rpm} to ${s3_prefix}${rpm_outfile}"
+          aws s3 cp --quiet $rpm ${s3_prefix}${rpm_outfile}
+          echo "Copying ${deb} to ${s3_prefix}${deb_outfile}"
+          aws s3 cp --quiet $deb ${s3_prefix}${deb_outfile}
 
       - name: Create Github Draft Release
         id: create_release
