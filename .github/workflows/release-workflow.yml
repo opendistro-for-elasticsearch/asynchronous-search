@@ -53,7 +53,7 @@ jobs:
       # This step uses the upload-artifact Github action: https://github.com/actions/upload-artifact
       - name: Upload Artifacts to S3
         run: |
-          s3_path=s3://artifacts.opendistroforelasticsearch.amazon.com/downloads
+          s3_path=s3://staging.artifacts.opendistroforelasticsearch.amazon.com/downloads
           aws s3 cp asynchronous-search-artifacts/*.zip $s3_path/elasticsearch-plugins/asynchronous-search/
           aws s3 cp asynchronous-search-artifacts/*.deb $s3_path/debs/opendistro-asynchronous-search/
           aws s3 cp asynchronous-search-artifacts/*.rpm $s3_path/rpms/opendistro-asynchronous-search/
