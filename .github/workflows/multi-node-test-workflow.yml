@@ -1,4 +1,5 @@
 name: Multi node test workflow
+
 # This workflow is triggered on pull requests to master
 on:
   pull_request:
