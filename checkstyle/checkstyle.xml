@@ -124,8 +124,6 @@
         </module>
 
         <!-- Forbid using '!' for logical negations in favour of checking against 'false' explicitly. -->
-        <!-- This is disabled for now because there are many violations, hence the rule is reporting at the "warning" severity. -->
-        <!--
         <module name="DescendantToken">
           <property name="id" value="BooleanNegation" />
           <property name="tokens" value="EXPR"/>
@@ -134,7 +132,6 @@
           <property name="maximumDepth" value="1"/>
           <message key="descendant.token.max" value="Do not negate boolean expressions with '!', but check explicitly with '== false' as it is more explicit"/>
         </module>
-        -->
 
     </module>
 </module>
