@@ -38,8 +38,8 @@ jobs:
       # Creating artifact path as well as individual folders for rpm, zip and deb assets
       - name: Create Artifact Path
         run: |
-          artifacts_dir=`asynchronous-search-artifacts`
-          build_dir=`./build/distributions`
+          artifacts_dir="asynchronous-search-artifacts"
+          build_dir="./build/distributions"
           mkdir -p ${artifacts_dir}
           cp ${build_dir}/*.deb ${artifacts_dir}
           cp ${build_dir}/*.deb ${artifacts_dir}_deb
