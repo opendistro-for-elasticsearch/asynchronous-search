@@ -1,4 +1,7 @@
 name: Multi node test workflow
+
+env:
+  JAVA_VERSION: 14
 # This workflow is triggered on pull requests to master
 on:
   pull_request:
@@ -22,7 +25,7 @@ jobs:
       - name: Set Up JDK 14
         uses: actions/setup-java@v1
         with:
-          java-version: 14
+          java-version: ${{ JAVA_VERSION }}
       - name: Run integration tests with multi node config
         run: ./gradlew integTest -PnumNodes=5
       - name: Upload failed logs
