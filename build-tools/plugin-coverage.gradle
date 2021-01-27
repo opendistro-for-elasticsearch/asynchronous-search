@@ -26,7 +26,6 @@
  *  cluster is stopped and dump it to a file. Luckily our current security policy seems to allow this. This will also probably
  *  break if there are multiple nodes in the integTestCluster. But for now... it sorta works.
  */
-apply plugin: 'jacoco'
 
 // Get gradle to generate the required jvm agent arg for us using a dummy tasks of type Test. Unfortunately Elastic's
 // testing tasks don't derive from Test so the jacoco plugin can't do this automatically.
@@ -51,7 +50,7 @@ task dummyIntegTest(type: Test) {
     }
 }
 
-integTest.runner {
+integTest {
     systemProperty 'jacoco.dir', "${jacocoDir}"
 }
 
@@ -70,7 +69,7 @@ jacocoTestReport {
 
 allprojects{
     afterEvaluate {
-        jacocoTestReport.dependsOn integTest.runner
+        jacocoTestReport.dependsOn integTest
 
         testClusters.integTest {
             jvmArgs " ${dummyIntegTest.jacoco.getAsJvmArg()}".replace('javaagent:','javaagent:/')
