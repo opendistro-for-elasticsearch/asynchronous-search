@@ -322,7 +322,8 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
 
     }
     private boolean shouldCancel(AsynchronousSearchActiveContext asynchronousSearchContext) {
-        return asynchronousSearchContext.getTask() != null && asynchronousSearchContext.getTask().isCancelled() == false;
+        return asynchronousSearchContext.getTask() != null && asynchronousSearchContext.getTask().isCancelled() == false
+                && asynchronousSearchContext.isCompleted() == false;
     }
 
     // We are skipping user check in this while deleting from the persisted layer
