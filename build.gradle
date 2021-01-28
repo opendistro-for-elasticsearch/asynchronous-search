@@ -78,10 +78,6 @@ compileTestJava {
     }
 }
 
-test {
-    enabled = true
-}
-
 check.dependsOn jacocoTestReport
 
 esplugin {
