@@ -322,8 +322,7 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
 
     }
     private boolean shouldCancel(AsynchronousSearchActiveContext asynchronousSearchContext) {
-        return asynchronousSearchContext.getTask() != null && asynchronousSearchContext.getTask().isCancelled() == false
-                && asynchronousSearchContext.isCompleted() ==  false;
+        return asynchronousSearchContext.getTask() != null && asynchronousSearchContext.getTask().isCancelled() == false;
     }
 
     // We are skipping user check in this while deleting from the persisted layer
@@ -458,8 +457,7 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
         if (freeActiveContext(context)) {
             listener.onResponse(true);
         } else {
-            listener.onFailure(new ResourceNotFoundException(
-                    context.getAsynchronousSearchId()));
+            listener.onFailure(new ResourceNotFoundException(context.getAsynchronousSearchId()));
         }
     }
 
