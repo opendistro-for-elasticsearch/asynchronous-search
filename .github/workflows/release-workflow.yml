@@ -6,8 +6,8 @@ env:
 # This workflow is triggered on creating tags to master or a opendistro release branch
 on:
   push:
-    branches:
-      - upgrade-7-10
+    tags:
+      - 'v*'
 
 jobs:
   build:
