@@ -367,54 +367,19 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
                 releasable -> {
                     releasableReference.set(releasable);
                     if (asynchronousSearchContext.keepOnCompletion()) {
-                        //TODO extract cancel task logic to a function to make it unit-testable
-                        if (shouldCancel(asynchronousSearchContext)) {
-                            cancelTask(asynchronousSearchContext, cancelTaskReason, wrap(cancelTasksResponse -> {
-                                        logger.debug("Successfully cancelled tasks [{}] with asynchronous search [{}] with response [{}]",
-                                                asynchronousSearchContext.getTask(), asynchronousSearchContext.getAsynchronousSearchId(),
-                                                cancelTasksResponse);
-                                    /* we don't free active context here as AsynchronousSearchTask#onCancelled() takes care
-                                       of that. This ensures that freeActiveContext() is invoked only after task is cancelled or
-                                       completed */
-                                        groupedDeletionListener.onResponse(true);
-                                    },
-                                    e -> {
-                                        logger.error(() -> new ParameterizedMessage(
-                                                "Failed to cancel task [{}] with asynchronous search [{}] with exception",
-                                                asynchronousSearchContext.getTask(), asynchronousSearchContext.getAsynchronousSearchId()),
-                                                e);
-                                        //no onCancelled hook due to failure, so we invoke free active context
-                                        groupedDeletionListener.onResponse(freeActiveContext(asynchronousSearchContext));
-                                    }));
-                        } else {
-                            groupedDeletionListener.onResponse(freeActiveContext(asynchronousSearchContext));
-                        }
-
+                        handleCancelTaskPermitAcquired(asynchronousSearchContext, groupedDeletionListener, cancelTaskReason);
                         logger.debug("Deleting asynchronous search id [{}] from system index ",
                                 asynchronousSearchContext.getAsynchronousSearchId());
                         persistenceService.deleteResponse(asynchronousSearchContext.getAsynchronousSearchId(), user, translatedListener);
                     } else { //keep on completion is false. simply cancel task and clean up active context
-                        if (shouldCancel(asynchronousSearchContext)) {
-                            cancelTask(asynchronousSearchContext, cancelTaskReason, wrap(cancelTasksResponse -> {
-                                        logger.debug("Successfully cancelled tasks [{}] with asynchronous search [{}] with response [{}]",
-                                                asynchronousSearchContext.getTask(), asynchronousSearchContext.getAsynchronousSearchId(),
-                                                cancelTasksResponse);
-                                    /* we don't free active context here as AsynchronousSearchTask#onCancelled() takes care
-                                       of that. This ensures that freeActiveContext() is invoked only after task is cancelled or
-                                       completed */
-                                        releasableListener.onResponse(true);
-                                    },
-                                    e -> {
-                                        logger.error(() -> new ParameterizedMessage(
-                                                "Failed to cancel task [{}] with asynchronous search [{}] with exception",
-                                                asynchronousSearchContext.getTask(), asynchronousSearchContext.getAsynchronousSearchId()),
-                                                e);
-                                        //no onCancelled hook due to failure, so we invoke free active context
-                                        freeContextAndNotifyListener(asynchronousSearchContext, releasableListener);
-                                    }));
-                        } else {
-                            freeContextAndNotifyListener(asynchronousSearchContext, releasableListener);
-                        }
+                        handleCancelTaskPermitAcquired(asynchronousSearchContext, wrap(r -> {
+                            if (r) {
+                                releasableListener.onResponse(true);
+                            } else {
+                                releasableListener.onFailure(
+                                        new ResourceNotFoundException(asynchronousSearchContext.getAsynchronousSearchId()));
+                            }
+                        }, releasableListener::onFailure), cancelTaskReason);
                     }
                 }, exception -> {
                     Throwable cause = ExceptionsHelper.unwrapCause(exception);
@@ -427,38 +392,56 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
                     } else {
                         // best effort clean up with acknowledged as false
                         if (asynchronousSearchContext.keepOnCompletion()) {
-                            logger.debug(() -> new ParameterizedMessage("Failed to acquire permits for asynchronous search id " +
-                                    "[{}] for freeing context", asynchronousSearchContext.getAsynchronousSearchId()), exception);
-                            if (shouldCancel(asynchronousSearchContext)) {
-                                cancelTask(asynchronousSearchContext, cancelTaskReason,
-                                        wrap(() -> groupedDeletionListener.onResponse(false)));
-                            } else {
-                                groupedDeletionListener.onResponse(false);
-                            }
 
+                            handleCancelTaskPermitAcquisitionFailed(asynchronousSearchContext, groupedDeletionListener, cancelTaskReason,
+                                    exception);
                             logger.debug("Deleting asynchronous search id [{}] from system index ",
                                     asynchronousSearchContext.getAsynchronousSearchId());
                             persistenceService.deleteResponse(asynchronousSearchContext.getAsynchronousSearchId(),
                                     user, translatedListener);
                         } else {
-                            logger.debug(() -> new ParameterizedMessage("Failed to acquire permits for asynchronous search id " +
-                                    "[{}] for freeing context", asynchronousSearchContext.getAsynchronousSearchId()), exception);
-                            if (shouldCancel(asynchronousSearchContext)) {
-                                cancelTask(asynchronousSearchContext, cancelTaskReason, wrap(() -> releasableListener.onResponse(false)));
-                            } else {
-                                releasableListener.onResponse(false);
-                            }
+                            handleCancelTaskPermitAcquisitionFailed(asynchronousSearchContext, releasableListener, cancelTaskReason,
+                                    exception);
                         }
                     }
                 }
         ), TimeValue.timeValueSeconds(5), "free context");
     }
-
-    private void freeContextAndNotifyListener(AsynchronousSearchActiveContext context, ActionListener<Boolean> listener) {
-        if (freeActiveContext(context)) {
-            listener.onResponse(true);
+    
+    private void handleCancelTaskPermitAcquisitionFailed(AsynchronousSearchActiveContext asynchronousSearchContext,
+                                                         ActionListener<Boolean> listener, String cancelTaskReason, Exception e) {
+        logger.debug(() -> new ParameterizedMessage("Failed to acquire permits for asynchronous search id " +
+                "[{}] for freeing context", asynchronousSearchContext.getAsynchronousSearchId()), e);
+        if (shouldCancel(asynchronousSearchContext)) {
+            cancelTask(asynchronousSearchContext, cancelTaskReason,
+                    wrap(() -> listener.onResponse(false)));
         } else {
-            listener.onFailure(new ResourceNotFoundException(context.getAsynchronousSearchId()));
+            listener.onResponse(false);
+        }
+    }
+
+    private void handleCancelTaskPermitAcquired(AsynchronousSearchActiveContext asynchronousSearchContext,
+                                                    ActionListener<Boolean> listener, String cancelTaskReason) {
+        if (shouldCancel(asynchronousSearchContext)) {
+            cancelTask(asynchronousSearchContext, cancelTaskReason, wrap(cancelTasksResponse -> {
+                        logger.debug("Successfully cancelled tasks [{}] with asynchronous search [{}] with response [{}]",
+                                asynchronousSearchContext.getTask(), asynchronousSearchContext.getAsynchronousSearchId(),
+                                cancelTasksResponse);
+                    /* we don't free active context here as AsynchronousSearchTask#onCancelled() takes care
+                       of that. This ensures that freeActiveContext() is invoked only after task is cancelled or
+                       completed */
+                        listener.onResponse(true);
+                    },
+                    e -> {
+                        logger.error(() -> new ParameterizedMessage(
+                                "Failed to cancel task [{}] with asynchronous search [{}] with exception",
+                                asynchronousSearchContext.getTask(), asynchronousSearchContext.getAsynchronousSearchId()),
+                                e);
+                        //no onCancelled hook due to failure, so we invoke free active context
+                        listener.onResponse(freeActiveContext(asynchronousSearchContext));
+                    }));
+        } else {
+            listener.onResponse(freeActiveContext(asynchronousSearchContext));
         }
     }
 
