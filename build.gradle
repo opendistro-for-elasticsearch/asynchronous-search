@@ -3,7 +3,7 @@ buildscript {
         es_version = '7.10.2'
         distribution = 'oss-zip'
         es_group = "org.elasticsearch"
-        opendistroVersion = '1.11.1.0'
+        opendistroVersion = '1.12.0.0'
     }
 
     repositories {
