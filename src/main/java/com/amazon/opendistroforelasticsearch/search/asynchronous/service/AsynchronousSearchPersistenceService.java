@@ -85,6 +85,8 @@ public class AsynchronousSearchPersistenceService {
     public static final BackoffPolicy STORE_BACKOFF_POLICY =
             BackoffPolicy.exponentialBackoff(timeValueMillis(250), 14);
     public static final String BACKEND_ROLES = "backend_roles";
+    public static final String SETTING_INDEX_CODEC = "index.codec";
+    public static final String BEST_COMPRESSION_CODEC = "best_compression";
 
     private final Client client;
     private final ClusterService clusterService;
@@ -394,6 +396,7 @@ public class AsynchronousSearchPersistenceService {
                 .put(IndexMetadata.INDEX_AUTO_EXPAND_REPLICAS_SETTING.getKey(), "0-1")
                 .put(IndexMetadata.SETTING_PRIORITY, Integer.MAX_VALUE)
                 .put(IndexMetadata.SETTING_INDEX_HIDDEN, true)
+                .put(SETTING_INDEX_CODEC, BEST_COMPRESSION_CODEC)
                 .build();
     }
 

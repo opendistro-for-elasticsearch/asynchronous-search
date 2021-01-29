@@ -407,14 +407,13 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
                 }
         ), TimeValue.timeValueSeconds(5), "free context");
     }
-    
+
     private void handleCancelTaskPermitAcquisitionFailed(AsynchronousSearchActiveContext asynchronousSearchContext,
                                                          ActionListener<Boolean> listener, String cancelTaskReason, Exception e) {
         logger.debug(() -> new ParameterizedMessage("Failed to acquire permits for asynchronous search id " +
                 "[{}] for freeing context", asynchronousSearchContext.getAsynchronousSearchId()), e);
         if (shouldCancel(asynchronousSearchContext)) {
-            cancelTask(asynchronousSearchContext, cancelTaskReason,
-                    wrap(() -> listener.onResponse(false)));
+            cancelTask(asynchronousSearchContext, cancelTaskReason, wrap(() -> listener.onResponse(false)));
         } else {
             listener.onResponse(false);
         }
@@ -427,9 +426,8 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
                         logger.debug("Successfully cancelled tasks [{}] with asynchronous search [{}] with response [{}]",
                                 asynchronousSearchContext.getTask(), asynchronousSearchContext.getAsynchronousSearchId(),
                                 cancelTasksResponse);
-                    /* we don't free active context here as AsynchronousSearchTask#onCancelled() takes care
-                       of that. This ensures that freeActiveContext() is invoked only after task is cancelled or
-                       completed */
+                    /* we don't free active context here as AsynchronousSearchTask#onCancelled() takes care of that. This ensures that
+                    freeActiveContext() is invoked only after task is cancelled or completed */
                         listener.onResponse(true);
                     },
                     e -> {
@@ -456,7 +454,8 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
         try {
             // asserts that task is cancelled/completed/removed so that we don't leave orphan tasks
             assert asynchronousSearchContext.getTask() == null || asynchronousSearchContext.getTask().isCancelled() ||
-                    asynchronousSearchContext.isCompleted() : "Either the async search task should have been cancelled or completed ";
+                    asynchronousSearchContext.isCompleted() : "Either the asynchronous search task should have been cancelled or " +
+                    "completed ";
             asynchronousSearchStateMachine.trigger(new SearchDeletedEvent(asynchronousSearchContext));
             return true;
         } catch (AsynchronousSearchStateMachineClosedException ex) {
