@@ -3,7 +3,7 @@ buildscript {
         es_version = '7.10.2'
         distribution = 'oss-zip'
         es_group = "org.elasticsearch"
-        opendistroVersion = '1.12.0'
+        opendistroVersion = '1.13.0'
     }
 
     repositories {
@@ -70,7 +70,7 @@ dependencies {
     testCompile "org.elasticsearch.test:framework:${es_version}"
     compileOnly "org.elasticsearch.plugin:transport-netty4-client:${es_version}"
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
-    compile "com.amazon.opendistroforelasticsearch:common-utils:${opendistroVersion}.2"
+    compile "com.amazon.opendistroforelasticsearch:common-utils:${opendistroVersion}.0"
     configurations.all {
         resolutionStrategy {
             force "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
