@@ -51,7 +51,7 @@ public class RestSubmitAsynchronousSearchAction extends BaseRestHandler {
 
     @Override
     public String getName() {
-        return "asynchronous_search_action";
+        return "submit_asynchronous_search_action";
     }
 
     @Override

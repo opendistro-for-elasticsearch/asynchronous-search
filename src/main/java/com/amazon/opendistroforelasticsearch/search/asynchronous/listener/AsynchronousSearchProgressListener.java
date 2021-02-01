@@ -106,14 +106,12 @@ public class AsynchronousSearchProgressListener extends SearchProgressActionList
 
     @Override
     protected void onFetchFailure(int shardIndex, SearchShardTarget shardTarget, Exception exc) {
-        //assert partialResultsHolder.hasFetchPhase.get() : "Fetch failure without fetch phase";
         assert shardIndex < partialResultsHolder.totalShards.get();
         onSearchFailure(shardIndex, shardTarget, exc);
     }
 
     @Override
     protected void onFetchResult(int shardIndex) {
-        //assert partialResultsHolder.hasFetchPhase.get() : "Fetch result without fetch phase";
         assert shardIndex < partialResultsHolder.totalShards.get();
         onShardResult(shardIndex);
     }
