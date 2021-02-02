@@ -172,52 +172,29 @@ public class AsynchronousSearchActiveContextTests extends AsynchronousSearchTest
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsynchronousSearchActiveContext context = new AsynchronousSearchActiveContext(asContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
-                    threadPool::absoluteTimeInMillis, asProgressListener, null);
-
-            int numThreads = 10;
-            AtomicInteger numSuccesses = new AtomicInteger();
-            AtomicInteger numFailures = new AtomicInteger();
-            List<Thread> threads = new ArrayList<>();
-            CountDownLatch countDownLatch = new CountDownLatch(numThreads);
-            for (int i = 0; i < numThreads; i++) {
-                Thread thread = new Thread(() -> {
-                    if (randomBoolean()) {
-                        SearchResponse mockSearchResponse = getMockSearchResponse();
-                        try {
-                            context.processSearchResponse(mockSearchResponse);
-                        } catch (SetOnce.AlreadySetException e) {
-                            numFailures.getAndIncrement();
-                        }
-                        if (mockSearchResponse.equals(context.getSearchResponse())) {
-                            numSuccesses.getAndIncrement();
-                            assertNull(context.getSearchError());
-                        }
-                    } else {
-                        RuntimeException e = new RuntimeException(UUID.randomUUID().toString());
-                        try {
-                            context.processSearchFailure(e);
-                        } catch (Exception ex) {
-                            numFailures.getAndIncrement();
-                        }
-                        if (e.equals(context.getSearchError())) {
-                            numSuccesses.getAndIncrement();
-                            assertNull(context.getSearchResponse());
-                        }
-                    }
-                    countDownLatch.countDown();
-                });
-                threads.add(thread);
-            }
-            for(Thread t : threads) {
-                t.start();
+            threadPool::absoluteTimeInMillis, asProgressListener, null);
+            if (randomBoolean()) {
+                SearchResponse mockSearchResponse = getMockSearchResponse();
+                try {
+                    context.processSearchResponse(mockSearchResponse);
+                } catch (Exception ex) {
+                    fail("Unexpected exception "+ ex);
+                }
+                if (mockSearchResponse.equals(context.getSearchResponse())) {
+                    assertNull(context.getSearchError());
+                }
+            } else {
+                RuntimeException e = new RuntimeException(UUID.randomUUID().toString());
+                try {
+                    context.processSearchFailure(e);
+                } catch (Exception ex) {
+                    fail("Unexpected exception "+ ex);
+                }
+                if (e.equals(context.getSearchError())) {
+                    assertNull(context.getSearchResponse());
+                }
             }
 
-            countDownLatch.await();
-            assertEquals(numSuccesses.get(), 1);
-            assertEquals(numFailures.get(), numThreads - 1);
-            for(Thread t : threads) {
-                t.join();
-            }
         } finally {
             ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
         }
