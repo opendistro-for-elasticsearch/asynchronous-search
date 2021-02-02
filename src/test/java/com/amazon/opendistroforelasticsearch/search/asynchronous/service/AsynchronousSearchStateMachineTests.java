@@ -25,15 +25,12 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.A
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchStateMachineClosedException;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.BeginPersistEvent;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.SearchDeletedEvent;
-import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.SearchFailureEvent;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.SearchStartedEvent;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.SearchSuccessfulEvent;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.listener.AsynchronousSearchContextEventListener;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.listener.AsynchronousSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.plugin.AsynchronousSearchPlugin;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.processor.AsynchronousSearchPostProcessor;
-import com.amazon.opendistroforelasticsearch.search.asynchronous.service.AsynchronousSearchPersistenceService;
-import com.amazon.opendistroforelasticsearch.search.asynchronous.service.AsynchronousSearchService;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.task.AsynchronousSearchTask;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.ElasticsearchException;
@@ -85,7 +82,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState.CLOSED;
-import static com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState.INIT;
 import static com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState.PERSISTING;
 import static com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState.RUNNING;
@@ -157,15 +153,9 @@ public class AsynchronousSearchStateMachineTests extends AsynchronousSearchTestC
                 doConcurrentStateMachineTrigger(stateMachine, new SearchDeletedEvent(context), CLOSED,
                         AsynchronousSearchStateMachineClosedException.class, Optional.empty());
             } else {
-                if (randomBoolean()) {//success or failure
-                    doConcurrentStateMachineTrigger(stateMachine, new SearchSuccessfulEvent(context, getMockSearchResponse()), SUCCEEDED,
-                            IllegalStateException.class, Optional.empty());
-                    numCompleted.getAndIncrement();
-                } else {
-                    doConcurrentStateMachineTrigger(stateMachine, new SearchFailureEvent(context, new RuntimeException("test")), FAILED,
-                            IllegalStateException.class, Optional.empty());
-                    numFailure.getAndIncrement();
-                }
+                doConcurrentStateMachineTrigger(stateMachine, new SearchSuccessfulEvent(context, getMockSearchResponse()), SUCCEEDED,
+                        IllegalStateException.class, Optional.empty());
+                numCompleted.getAndIncrement();
                 doConcurrentStateMachineTrigger(stateMachine, new BeginPersistEvent(context), PERSISTING,
                         IllegalStateException.class, Optional.of(AsynchronousSearchStateMachineClosedException.class));
                 waitUntil(() -> context.getAsynchronousSearchState().equals(CLOSED), 1, TimeUnit.MINUTES);
