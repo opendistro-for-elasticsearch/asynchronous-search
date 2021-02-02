@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.AsynchronousSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.listener.AsynchronousSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.plugin.AsynchronousSearchPlugin;
+import com.amazon.opendistroforelasticsearch.search.asynchronous.processor.AsynchronousSearchPostProcessor;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.request.SubmitAsynchronousSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.stats.InternalAsynchronousSearchStats;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.task.AsynchronousSearchTask;
@@ -96,11 +97,13 @@ public class AsynchronousSearchServiceTests extends ESTestCase {
                 .put("node.name", "test")
                 .put("cluster.name", "ClusterServiceTests")
                 .put(AsynchronousSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING.getKey(), 10)
+                .put(AsynchronousSearchPostProcessor.STORE_SEARCH_FAILURES_SETTING.getKey(), true)
                 .build();
         final Set<Setting<?>> settingsSet =
                 Stream.concat(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(), Stream.of(
                         AsynchronousSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING,
                         AsynchronousSearchService.MAX_KEEP_ALIVE_SETTING,
+                        AsynchronousSearchPostProcessor.STORE_SEARCH_FAILURES_SETTING,
                         AsynchronousSearchService.MAX_SEARCH_RUNNING_TIME_SETTING,
                         AsynchronousSearchService.MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING)).collect(Collectors.toSet());
         final int availableProcessors = EsExecutors.allocatedProcessors(settings);
@@ -172,12 +175,7 @@ public class AsynchronousSearchServiceTests extends ESTestCase {
             findContextLatch.await();
 
             AsynchronousSearchProgressListener asProgressListener = asActiveContext.getAsynchronousSearchProgressListener();
-            boolean success = randomBoolean();
-            if (success) { //successful search response
-                asProgressListener.onResponse(getMockSearchResponse());
-            } else { // exception occurred in search
-                asProgressListener.onFailure(new RuntimeException("test"));
-            }
+            asProgressListener.onResponse(getMockSearchResponse());
             waitUntil(() -> asService.getAllActiveContexts().isEmpty());
             if (keepOnCompletion) { //persist to disk
                 assertEquals(1, fakeClient.persistenceCount.intValue());

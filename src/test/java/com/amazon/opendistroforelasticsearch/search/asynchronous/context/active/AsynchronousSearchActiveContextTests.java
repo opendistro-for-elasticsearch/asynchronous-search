@@ -176,34 +176,48 @@ public class AsynchronousSearchActiveContextTests extends AsynchronousSearchTest
 
             int numThreads = 10;
             AtomicInteger numSuccesses = new AtomicInteger();
-            List<Runnable> runnables = new ArrayList<>();
+            AtomicInteger numFailures = new AtomicInteger();
+            List<Thread> threads = new ArrayList<>();
             CountDownLatch countDownLatch = new CountDownLatch(numThreads);
             for (int i = 0; i < numThreads; i++) {
-                Runnable runnable = () -> {
+                Thread thread = new Thread(() -> {
                     if (randomBoolean()) {
                         SearchResponse mockSearchResponse = getMockSearchResponse();
-                        context.processSearchResponse(mockSearchResponse);
+                        try {
+                            context.processSearchResponse(mockSearchResponse);
+                        } catch (SetOnce.AlreadySetException e) {
+                            numFailures.getAndIncrement();
+                        }
                         if (mockSearchResponse.equals(context.getSearchResponse())) {
                             numSuccesses.getAndIncrement();
                             assertNull(context.getSearchError());
                         }
                     } else {
                         RuntimeException e = new RuntimeException(UUID.randomUUID().toString());
-                        context.processSearchFailure(e);
+                        try {
+                            context.processSearchFailure(e);
+                        } catch (Exception ex) {
+                            numFailures.getAndIncrement();
+                        }
                         if (e.equals(context.getSearchError())) {
                             numSuccesses.getAndIncrement();
                             assertNull(context.getSearchResponse());
                         }
                     }
                     countDownLatch.countDown();
-                };
-                runnables.add(runnable);
+                });
+                threads.add(thread);
             }
-            for (Runnable r : runnables) {
-                threadPool.executor(AsynchronousSearchPlugin.OPEN_DISTRO_ASYNC_SEARCH_GENERIC_THREAD_POOL_NAME).execute(r);
+            for(Thread t : threads) {
+                t.start();
             }
+
             countDownLatch.await();
             assertEquals(numSuccesses.get(), 1);
+            assertEquals(numFailures.get(), numThreads - 1);
+            for(Thread t : threads) {
+                t.join();
+            }
         } finally {
             ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
         }

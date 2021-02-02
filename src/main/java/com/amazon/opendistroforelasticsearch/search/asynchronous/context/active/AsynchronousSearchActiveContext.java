@@ -97,34 +97,32 @@ public class AsynchronousSearchActiveContext extends AsynchronousSearchContext i
                 getContextId())));
     }
 
-    public void processSearchFailure(Exception e) {
+    public synchronized void processSearchFailure(Exception e) {
         assert isAlive();
-        if (completed.compareAndSet(false, true)) {
-            // we don't want to process stack traces
-            if (e.getCause() != null) {
-                e.getCause().setStackTrace(new StackTraceElement[0]);
-            }
-            error.set(e);
+        // we don't want to process stack traces
+        if (e.getCause() != null) {
+            e.getCause().setStackTrace(new StackTraceElement[0]);
         }
+        this.error.set(e);
+        this.completed.set(true);
     }
 
-    public void processSearchResponse(SearchResponse response) {
+    public synchronized void processSearchResponse(SearchResponse response) {
         assert isAlive();
-        if (completed.compareAndSet(false, true)) {
-            ShardSearchFailure [] shardSearchFailures = response.getShardFailures();
-            for(ShardSearchFailure shardSearchFailure : shardSearchFailures) {
-                // we don't want to process stack traces
-                if (shardSearchFailure.getCause() != null) {
-                    shardSearchFailure.getCause().setStackTrace(new StackTraceElement[0]);
-                }
+        ShardSearchFailure[] shardSearchFailures = response.getShardFailures();
+        for (ShardSearchFailure shardSearchFailure : shardSearchFailures) {
+            // we don't want to process stack traces
+            if (shardSearchFailure.getCause() != null) {
+                shardSearchFailure.getCause().setStackTrace(new StackTraceElement[0]);
             }
-            this.searchResponse.set(response);
         }
+        this.searchResponse.set(response);
+        this.completed.set(true);
     }
 
     @Override
     public SearchResponse getSearchResponse() {
-        if (searchResponse.get() != null) {
+        if (completed.get()) {
             return searchResponse.get();
         } else {
             return asynchronousSearchProgressListener.partialResponse();

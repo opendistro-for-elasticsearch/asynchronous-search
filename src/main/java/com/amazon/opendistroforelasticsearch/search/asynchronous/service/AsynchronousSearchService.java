@@ -153,8 +153,7 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
         this.asynchronousSearchActiveStore = asynchronousSearchActiveStore;
         this.asynchronousSearchStateMachine = initStateMachine();
         this.asynchronousSearchPostProcessor = new AsynchronousSearchPostProcessor(persistenceService, asynchronousSearchActiveStore,
-                asynchronousSearchStateMachine,
-                this::freeActiveContext, threadPool);
+                asynchronousSearchStateMachine, this::freeActiveContext, threadPool, clusterService);
         this.namedWriteableRegistry = namedWriteableRegistry;
     }
 

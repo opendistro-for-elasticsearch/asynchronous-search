@@ -37,6 +37,8 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
 import org.elasticsearch.threadpool.ThreadPool;
@@ -52,24 +54,29 @@ import java.util.function.Consumer;
 public class AsynchronousSearchPostProcessor {
 
     private static final Logger logger = LogManager.getLogger(AsynchronousSearchPostProcessor.class);
+    public static final Setting<Boolean> STORE_SEARCH_FAILURES_SETTING =
+            Setting.boolSetting("opendistro_asynchronous_search.store_search_failures", false,
+                    Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     private final AsynchronousSearchPersistenceService asynchronousSearchPersistenceService;
     private final AsynchronousSearchActiveStore asynchronousSearchActiveStore;
     private final AsynchronousSearchStateMachine asynchronousSearchStateMachine;
     private final Consumer<AsynchronousSearchActiveContext> freeActiveContextConsumer;
     private final ThreadPool threadPool;
+    private volatile boolean storeSearchFailure;
 
     public AsynchronousSearchPostProcessor(AsynchronousSearchPersistenceService asynchronousSearchPersistenceService,
                                            AsynchronousSearchActiveStore asynchronousSearchActiveStore,
                                            AsynchronousSearchStateMachine stateMachine,
                                            Consumer<AsynchronousSearchActiveContext> freeActiveContextConsumer,
-                                           ThreadPool threadPool) {
+                                           ThreadPool threadPool, ClusterService clusterService) {
         this.asynchronousSearchActiveStore = asynchronousSearchActiveStore;
         this.asynchronousSearchPersistenceService = asynchronousSearchPersistenceService;
         this.asynchronousSearchStateMachine = stateMachine;
         this.freeActiveContextConsumer = freeActiveContextConsumer;
         this.threadPool = threadPool;
-
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(STORE_SEARCH_FAILURES_SETTING, this::setStoreSearchFailure);
+        setStoreSearchFailure(STORE_SEARCH_FAILURES_SETTING.get(clusterService.getSettings()));
     }
 
     public AsynchronousSearchResponse processSearchFailure(Exception exception, AsynchronousSearchContextId asynchronousSearchContextId) {
@@ -184,7 +191,8 @@ public class AsynchronousSearchPostProcessor {
     }
 
     private void handlePersist(AsynchronousSearchActiveContext asynchronousSearchContext) {
-        if (asynchronousSearchContext.shouldPersist()) {
+        if (asynchronousSearchContext.shouldPersist() && (asynchronousSearchContext.getSearchResponse() != null ||
+                (asynchronousSearchContext.getSearchError() != null && storeSearchFailure))) {
             try {
                 asynchronousSearchStateMachine.trigger(new BeginPersistEvent(asynchronousSearchContext));
             } catch (AsynchronousSearchStateMachineClosedException e) {
@@ -195,5 +203,9 @@ public class AsynchronousSearchPostProcessor {
         } else {
             freeActiveContextConsumer.accept(asynchronousSearchContext);
         }
+    }
+
+    private void setStoreSearchFailure(boolean storeSearchFailure) {
+        this.storeSearchFailure = storeSearchFailure;
     }
 }

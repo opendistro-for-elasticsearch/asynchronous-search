@@ -31,6 +31,7 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.e
 import com.amazon.opendistroforelasticsearch.search.asynchronous.listener.AsynchronousSearchContextEventListener;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.listener.AsynchronousSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.plugin.AsynchronousSearchPlugin;
+import com.amazon.opendistroforelasticsearch.search.asynchronous.processor.AsynchronousSearchPostProcessor;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.service.AsynchronousSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.service.AsynchronousSearchService;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.task.AsynchronousSearchTask;
@@ -108,6 +109,7 @@ public class AsynchronousSearchStateMachineTests extends AsynchronousSearchTestC
                 Stream.concat(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(), Stream.of(
                         AsynchronousSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING,
                         AsynchronousSearchService.MAX_SEARCH_RUNNING_TIME_SETTING,
+                        AsynchronousSearchPostProcessor.STORE_SEARCH_FAILURES_SETTING,
                         AsynchronousSearchService.MAX_KEEP_ALIVE_SETTING,
                         AsynchronousSearchService.MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING)).collect(Collectors.toSet());
         final int availableProcessors = EsExecutors.allocatedProcessors(settings);
