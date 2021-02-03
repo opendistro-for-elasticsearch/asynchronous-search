@@ -61,7 +61,7 @@ public class AsynchronousSearchStatsIT extends AsynchronousSearchIntegTestCase {
         return Settings.builder()
                 .put(super.nodeSettings(nodeOrdinal))
                 .put(AsynchronousSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING.getKey(), asConcurrentLimit)
-                .put(AsynchronousSearchService.STORE_SEARCH_FAILURES_SETTING.getKey(), true)
+                .put(AsynchronousSearchService.PERSIST_SEARCH_FAILURES_SETTING.getKey(), true)
                 .build();
     }
 

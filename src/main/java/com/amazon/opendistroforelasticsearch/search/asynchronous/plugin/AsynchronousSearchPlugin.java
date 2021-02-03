@@ -135,7 +135,7 @@ public class AsynchronousSearchPlugin extends Plugin implements ActionPlugin, Sy
                 AsynchronousSearchService.MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING,
                 AsynchronousSearchManagementService.PERSISTED_RESPONSE_CLEAN_UP_INTERVAL_SETTING,
                 AsynchronousSearchManagementService.ACTIVE_CONTEXT_REAPER_INTERVAL_SETTING,
-                AsynchronousSearchService.STORE_SEARCH_FAILURES_SETTING
+                AsynchronousSearchService.PERSIST_SEARCH_FAILURES_SETTING
         );
     }
 

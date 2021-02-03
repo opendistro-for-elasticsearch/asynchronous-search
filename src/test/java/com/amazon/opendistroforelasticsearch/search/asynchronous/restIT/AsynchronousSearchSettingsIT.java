@@ -145,7 +145,7 @@ public class AsynchronousSearchSettingsIT extends AsynchronousSearchRestTestCase
                 return e.getMessage().contains("resource_not_found");
             }
         });
-        updateClusterSettings(AsynchronousSearchService.STORE_SEARCH_FAILURES_SETTING.getKey(),
+        updateClusterSettings(AsynchronousSearchService.PERSIST_SEARCH_FAILURES_SETTING.getKey(),
                 true);
         AsynchronousSearchResponse submitResponse = executeSubmitAsynchronousSearch(request);
         waitUntil(() -> {
@@ -158,7 +158,7 @@ public class AsynchronousSearchSettingsIT extends AsynchronousSearchRestTestCase
         });
         assertEquals(executeGetAsynchronousSearch(new GetAsynchronousSearchRequest(submitResponse.getId())).getState(),
                 AsynchronousSearchState.STORE_RESIDENT);
-        updateClusterSettings(AsynchronousSearchService.STORE_SEARCH_FAILURES_SETTING.getKey(),
+        updateClusterSettings(AsynchronousSearchService.PERSIST_SEARCH_FAILURES_SETTING.getKey(),
                 false);
     }
 }

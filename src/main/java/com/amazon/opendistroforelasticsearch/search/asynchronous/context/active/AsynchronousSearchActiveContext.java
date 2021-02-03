@@ -60,16 +60,17 @@ public class AsynchronousSearchActiveContext extends AsynchronousSearchContext i
     private final SetOnce<Exception> error;
     private final SetOnce<SearchResponse> searchResponse;
     private final AtomicBoolean closed;
-    private final Supplier<Boolean> storeSearchFailureSupplier;
-    private AsynchronousSearchContextPermits asynchronousSearchContextPermits;
-    private Supplier<SearchResponse> partialResponseSupplier;
+    private final Supplier<Boolean> persistSearchFailureSupplier;
+    private final AsynchronousSearchContextPermits asynchronousSearchContextPermits;
+    private final Supplier<SearchResponse> partialResponseSupplier;
     @Nullable
     private final User user;
 
     public AsynchronousSearchActiveContext(AsynchronousSearchContextId asynchronousSearchContextId, String nodeId,
-                                    TimeValue keepAlive, boolean keepOnCompletion, ThreadPool threadPool, LongSupplier currentTimeSupplier,
-                                    AsynchronousSearchProgressListener asynchronousSearchProgressListener, @Nullable User user,
-                                           Supplier<Boolean> storeSearchFailureSupplier) {
+                                           TimeValue keepAlive, boolean keepOnCompletion, ThreadPool threadPool,
+                                           LongSupplier currentTimeSupplier,
+                                           AsynchronousSearchProgressListener asynchronousSearchProgressListener, @Nullable User user,
+                                           Supplier<Boolean> persistSearchFailureSupplier) {
         super(asynchronousSearchContextId, currentTimeSupplier);
         this.keepOnCompletion = keepOnCompletion;
         this.error = new SetOnce<>();
@@ -85,7 +86,7 @@ public class AsynchronousSearchActiveContext extends AsynchronousSearchContext i
         this.asynchronousSearchContextPermits = keepOnCompletion ? new AsynchronousSearchContextPermits(asynchronousSearchContextId,
                 threadPool) : new NoopAsynchronousSearchContextPermits(asynchronousSearchContextId);
         this.user = user;
-        this.storeSearchFailureSupplier = storeSearchFailureSupplier;
+        this.persistSearchFailureSupplier = persistSearchFailureSupplier;
     }
 
     public void setTask(SearchTask searchTask) {
@@ -142,7 +143,7 @@ public class AsynchronousSearchActiveContext extends AsynchronousSearchContext i
     }
 
     public boolean shouldPersist() {
-        return keepOnCompletion && isExpired() == false && isAlive() && (error.get() == null || storeSearchFailureSupplier.get());
+        return keepOnCompletion && isExpired() == false && isAlive() && (error.get() == null || persistSearchFailureSupplier.get());
     }
 
     public boolean keepOnCompletion() {

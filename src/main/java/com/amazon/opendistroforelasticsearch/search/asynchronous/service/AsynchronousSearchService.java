@@ -116,8 +116,8 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
             "opendistro_asynchronous_search.max_wait_for_completion_timeout", timeValueMinutes(1), Setting.Property.NodeScope,
             Setting.Property.Dynamic);
 
-    public static final Setting<Boolean> STORE_SEARCH_FAILURES_SETTING =
-            Setting.boolSetting("opendistro_asynchronous_search.store_search_failures", false,
+    public static final Setting<Boolean> PERSIST_SEARCH_FAILURES_SETTING =
+            Setting.boolSetting("opendistro_asynchronous_search.persist_search_failures", false,
                     Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     private volatile long maxKeepAlive;
@@ -134,7 +134,7 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
     private final AsynchronousSearchStateMachine asynchronousSearchStateMachine;
     private final NamedWriteableRegistry namedWriteableRegistry;
     private final AsynchronousSearchContextEventListener contextEventListener;
-    private volatile boolean storeSearchFailure;
+    private volatile boolean persistSearchFailure;
 
     public AsynchronousSearchService(AsynchronousSearchPersistenceService asynchronousSearchPersistenceService,
                                      AsynchronousSearchActiveStore asynchronousSearchActiveStore, Client client,
@@ -151,8 +151,8 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
         setMaxWaitForCompletionTimeout(MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING.get(settings));
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_SEARCH_RUNNING_TIME_SETTING, this::setMaxSearchRunningTime);
         setMaxSearchRunningTime(MAX_SEARCH_RUNNING_TIME_SETTING.get(settings));
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(STORE_SEARCH_FAILURES_SETTING, this::setStoreSearchFailure);
-        setStoreSearchFailure(STORE_SEARCH_FAILURES_SETTING.get(clusterService.getSettings()));
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(PERSIST_SEARCH_FAILURES_SETTING, this::setPersistSearchFailure);
+        setPersistSearchFailure(PERSIST_SEARCH_FAILURES_SETTING.get(clusterService.getSettings()));
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.persistenceService = asynchronousSearchPersistenceService;
@@ -199,7 +199,7 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
                 reduceContextBuilder);
         AsynchronousSearchActiveContext asynchronousSearchContext = new AsynchronousSearchActiveContext(asynchronousSearchContextId,
                 clusterService.localNode().getId(), request.getKeepAlive(), request.getKeepOnCompletion(), threadPool, currentTimeSupplier,
-                progressActionListener, user, () -> storeSearchFailure);
+                progressActionListener, user, () -> persistSearchFailure);
         asynchronousSearchActiveStore.putContext(asynchronousSearchContextId, asynchronousSearchContext,
                 contextEventListener::onContextRejected);
         contextEventListener.onContextInitialized(asynchronousSearchContextId);
@@ -702,7 +702,7 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
         }
     }
 
-    private void setStoreSearchFailure(boolean storeSearchFailure) {
-        this.storeSearchFailure = storeSearchFailure;
+    private void setPersistSearchFailure(boolean persistSearchFailure) {
+        this.persistSearchFailure = persistSearchFailure;
     }
 }

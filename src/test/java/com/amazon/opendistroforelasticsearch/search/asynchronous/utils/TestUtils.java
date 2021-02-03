@@ -13,13 +13,13 @@ import org.elasticsearch.threadpool.ThreadPool;
 import static org.elasticsearch.test.ClusterServiceUtils.createClusterStatePublisher;
 import static org.elasticsearch.test.ClusterServiceUtils.createNoOpNodeConnectionsService;
 
-public class ClusterServiceUtils {
+public class TestUtils {
 
     public static ClusterService createClusterService(Settings settings, ThreadPool threadPool, DiscoveryNode localNode,
                                                       ClusterSettings clusterSettings) {
         ClusterService clusterService = new ClusterService(settings, clusterSettings, threadPool);
         clusterService.setNodeConnectionsService(createNoOpNodeConnectionsService());
-        ClusterState initialClusterState = ClusterState.builder(new ClusterName(ClusterServiceUtils.class.getSimpleName()))
+        ClusterState initialClusterState = ClusterState.builder(new ClusterName(TestUtils.class.getSimpleName()))
                 .nodes(DiscoveryNodes.builder()
                         .add(localNode)
                         .localNodeId(localNode.getId())

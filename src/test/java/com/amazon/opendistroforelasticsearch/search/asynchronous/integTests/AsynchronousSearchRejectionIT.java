@@ -72,7 +72,7 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                 .put("thread_pool.write.queue_size", 10)
                 .put("thread_pool.get.size", 1)
                 .put("thread_pool.get.queue_size", 10)
-                .put(AsynchronousSearchService.STORE_SEARCH_FAILURES_SETTING.getKey(), true)
+                .put(AsynchronousSearchService.PERSIST_SEARCH_FAILURES_SETTING.getKey(), true)
                 .build();
     }
 

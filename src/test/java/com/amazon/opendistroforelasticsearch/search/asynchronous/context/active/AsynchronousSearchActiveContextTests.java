@@ -79,8 +79,7 @@ public class AsynchronousSearchActiveContextTests extends AsynchronousSearchTest
             User user = TestClientUtils.randomUser();
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsynchronousSearchActiveContext context = new AsynchronousSearchActiveContext(asContextId, node,
-                    keepAlive, keepOnCompletion, threadPool,
-                    threadPool::absoluteTimeInMillis, asProgressListener, user, ()->true);
+                    keepAlive, keepOnCompletion, threadPool, threadPool::absoluteTimeInMillis, asProgressListener, user, () -> true);
             assertEquals(AsynchronousSearchState.INIT, context.getAsynchronousSearchState());
             assertNull(context.getTask());
             assertNull(context.getAsynchronousSearchId());
