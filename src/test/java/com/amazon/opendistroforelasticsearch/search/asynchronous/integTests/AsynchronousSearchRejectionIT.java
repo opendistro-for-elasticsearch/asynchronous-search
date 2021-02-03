@@ -125,6 +125,7 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                                                         } else if (cause instanceof ElasticsearchTimeoutException) {
                                                             numTimeouts.incrementAndGet();
                                                         } else {
+                                                            logger.error("Unexpected failure : ", e);
                                                             numFailures.incrementAndGet();
                                                         }
                                                     }
