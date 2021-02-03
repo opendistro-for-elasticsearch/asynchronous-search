@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.A
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchStateMachineClosedException;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.BeginPersistEvent;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.SearchDeletedEvent;
+import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.SearchFailureEvent;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.SearchStartedEvent;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.event.SearchSuccessfulEvent;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.listener.AsynchronousSearchContextEventListener;
@@ -59,7 +60,6 @@ import org.elasticsearch.search.internal.InternalSearchResponse;
 import org.elasticsearch.search.profile.SearchProfileShardResults;
 import org.elasticsearch.search.suggest.Suggest;
 import org.elasticsearch.tasks.TaskId;
-import org.elasticsearch.test.ClusterServiceUtils;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.test.client.NoOpClient;
 import org.elasticsearch.threadpool.ExecutorBuilder;
@@ -82,10 +82,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState.CLOSED;
+import static com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState.FAILED;
 import static com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState.INIT;
 import static com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState.PERSISTING;
 import static com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState.RUNNING;
 import static com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState.SUCCEEDED;
+import static com.amazon.opendistroforelasticsearch.search.asynchronous.utils.ClusterServiceUtils.createClusterService;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 
@@ -93,13 +95,15 @@ public class AsynchronousSearchStateMachineTests extends AsynchronousSearchTestC
 
     private ClusterSettings clusterSettings;
     private ExecutorBuilder<?> executorBuilder;
+    private Settings settings;
 
     @Before
     public void createObjects() {
-        Settings settings = Settings.builder()
+        settings = Settings.builder()
                 .put("node.name", "test")
                 .put("cluster.name", "ClusterServiceTests")
                 .put(AsynchronousSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING.getKey(), 10)
+                .put(AsynchronousSearchPostProcessor.STORE_SEARCH_FAILURES_SETTING.getKey(), true)
                 .build();
         final Set<Setting<?>> settingsSet =
                 Stream.concat(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(), Stream.of(
@@ -122,7 +126,7 @@ public class AsynchronousSearchStateMachineTests extends AsynchronousSearchTestC
         TestThreadPool threadPool = null;
         try {
             threadPool = new TestThreadPool("test", executorBuilder);
-            ClusterService mockClusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
+            ClusterService mockClusterService = createClusterService(settings, threadPool, discoveryNode, clusterSettings);
             FakeClient fakeClient = new FakeClient(threadPool);
             AsynchronousSearchActiveStore asActiveStore = new AsynchronousSearchActiveStore(mockClusterService);
             AsynchronousSearchPersistenceService persistenceService = new AsynchronousSearchPersistenceService(fakeClient,
@@ -148,14 +152,21 @@ public class AsynchronousSearchStateMachineTests extends AsynchronousSearchTestC
                     randomNonNegativeLong(), "transport", SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null,
                             (a) -> {})),
                     RUNNING, IllegalStateException.class, Optional.empty());
+            boolean success = randomBoolean();
             assertNotNull(context.getTask());
             if (randomBoolean()) { //delete running context
                 doConcurrentStateMachineTrigger(stateMachine, new SearchDeletedEvent(context), CLOSED,
                         AsynchronousSearchStateMachineClosedException.class, Optional.empty());
             } else {
-                doConcurrentStateMachineTrigger(stateMachine, new SearchSuccessfulEvent(context, getMockSearchResponse()), SUCCEEDED,
-                        IllegalStateException.class, Optional.empty());
-                numCompleted.getAndIncrement();
+                if (success) {
+                    doConcurrentStateMachineTrigger(stateMachine, new SearchFailureEvent(context, new RuntimeException("test")), FAILED,
+                            IllegalStateException.class, Optional.empty());
+                    numFailure.getAndIncrement();
+                } else {//success or failure
+                    doConcurrentStateMachineTrigger(stateMachine, new SearchSuccessfulEvent(context, getMockSearchResponse()), SUCCEEDED,
+                            IllegalStateException.class, Optional.empty());
+                    numCompleted.getAndIncrement();
+                }
                 doConcurrentStateMachineTrigger(stateMachine, new BeginPersistEvent(context), PERSISTING,
                         IllegalStateException.class, Optional.of(AsynchronousSearchStateMachineClosedException.class));
                 waitUntil(() -> context.getAsynchronousSearchState().equals(CLOSED), 1, TimeUnit.MINUTES);
@@ -166,7 +177,7 @@ public class AsynchronousSearchStateMachineTests extends AsynchronousSearchTestC
             }
             assertEquals(numCompleted.get(), customContextListener.getCompletedCount());
             assertEquals(numFailure.get(), customContextListener.getFailedCount());
-            assertEquals(0, customContextListener.getRunningCount());
+            assertEquals("success:" + success, 0, customContextListener.getRunningCount());
             assertEquals(1, customContextListener.getDeletedCount());
         } finally {
             ThreadPool.terminate(threadPool, 100, TimeUnit.MILLISECONDS);
