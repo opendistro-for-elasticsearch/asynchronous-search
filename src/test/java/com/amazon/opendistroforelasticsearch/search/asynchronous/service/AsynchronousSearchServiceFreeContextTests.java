@@ -213,7 +213,7 @@ public class AsynchronousSearchServiceFreeContextTests extends ESTestCase {
             AsynchronousSearchContextId asContextId = new AsynchronousSearchContextId(UUID.randomUUID().toString(),
                     randomNonNegativeLong());
             AsynchronousSearchActiveContext asActiveContext = new AsynchronousSearchActiveContext(asContextId, discoveryNode.getId(),
-                    keepAlive, true, testThreadPool, testThreadPool::absoluteTimeInMillis, asProgressListener, user1, ()->true);
+                    keepAlive, true, testThreadPool, testThreadPool::absoluteTimeInMillis, asProgressListener, user1, () -> true);
             //bootstrap search
             AsynchronousSearchTask task = new AsynchronousSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME,
                     TaskId.EMPTY_TASK_ID,
@@ -271,7 +271,7 @@ public class AsynchronousSearchServiceFreeContextTests extends ESTestCase {
             AsynchronousSearchContextId asContextId = new AsynchronousSearchContextId(UUID.randomUUID().toString(),
                     randomNonNegativeLong());
             AsynchronousSearchActiveContext asActiveContext = new AsynchronousSearchActiveContext(asContextId, discoveryNode.getId(),
-                    keepAlive, true, testThreadPool, testThreadPool::absoluteTimeInMillis, asProgressListener, user1, ()->true);
+                    keepAlive, true, testThreadPool, testThreadPool::absoluteTimeInMillis, asProgressListener, user1, () -> true);
             //bootstrap search
             AsynchronousSearchTask task = new AsynchronousSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME,
                     TaskId.EMPTY_TASK_ID,
@@ -537,7 +537,7 @@ public class AsynchronousSearchServiceFreeContextTests extends ESTestCase {
             AsynchronousSearchContextId asContextId = new AsynchronousSearchContextId(UUID.randomUUID().toString(),
                     randomNonNegativeLong());
             AsynchronousSearchActiveContext asActiveContext = new AsynchronousSearchActiveContext(asContextId, discoveryNode.getId(),
-                    keepAlive, false, testThreadPool, testThreadPool::absoluteTimeInMillis, asProgressListener, user1, ()->true);
+                    keepAlive, false, testThreadPool, testThreadPool::absoluteTimeInMillis, asProgressListener, user1, () -> true);
             //bootstrap search
             AsynchronousSearchTask task = new AsynchronousSearchTask(randomNonNegativeLong(), "transport", SearchAction.NAME,
                     TaskId.EMPTY_TASK_ID,
@@ -655,7 +655,7 @@ public class AsynchronousSearchServiceFreeContextTests extends ESTestCase {
                                             boolean keepOnCompletion, ThreadPool threadPool, LongSupplier currentTimeSupplier,
                                             AsynchronousSearchProgressListener searchProgressActionListener, User user) {
             super(asContextId, nodeId, keepAlive, keepOnCompletion, threadPool, currentTimeSupplier, searchProgressActionListener,
-                    user, ()->true);
+                    user, () -> true);
         }
 
 

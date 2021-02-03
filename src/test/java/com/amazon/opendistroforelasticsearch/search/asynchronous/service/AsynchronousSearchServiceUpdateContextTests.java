@@ -415,7 +415,7 @@ public class AsynchronousSearchServiceUpdateContextTests extends ESTestCase {
             User user = TestClientUtils.randomUser();
             AsynchronousSearchActiveContext context = new AsynchronousSearchActiveContext(asContextId, node,
                     keepAlive, keepOnCompletion, testThreadPool,
-                    testThreadPool::absoluteTimeInMillis, asProgressListener, user, ()->true);
+                    testThreadPool::absoluteTimeInMillis, asProgressListener, user, () -> true);
             CountDownLatch latch = new CountDownLatch(1);
             docNotFound = true;
             asService.updateKeepAliveAndGetContext(context.getAsynchronousSearchId(), keepAlive, context.getContextId(),
@@ -604,7 +604,7 @@ public class AsynchronousSearchServiceUpdateContextTests extends ESTestCase {
                                             boolean keepOnCompletion, ThreadPool threadPool, LongSupplier currentTimeSupplier,
                                             AsynchronousSearchProgressListener searchProgressActionListener, User user) {
             super(asContextId, nodeId, keepAlive, keepOnCompletion, threadPool, currentTimeSupplier, searchProgressActionListener,
-                    user, ()->true);
+                    user, () -> true);
         }
 
         @Override

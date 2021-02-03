@@ -140,7 +140,7 @@ public class AsynchronousSearchStateMachineTests extends AsynchronousSearchTestC
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsynchronousSearchActiveContext context = new AsynchronousSearchActiveContext(asContextId, discoveryNode.getId(),
                     keepAlive, true, threadPool,
-                    threadPool::absoluteTimeInMillis, asProgressListener, null, ()->true);
+                    threadPool::absoluteTimeInMillis, asProgressListener, null, () -> true);
             assertNull(context.getTask());
             assertEquals(context.getAsynchronousSearchState(), INIT);
             AsynchronousSearchStateMachine stateMachine = asService.getStateMachine();
