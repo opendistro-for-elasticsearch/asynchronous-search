@@ -45,6 +45,7 @@ import org.elasticsearch.search.SearchService;
 import org.elasticsearch.search.aggregations.InternalAggregation;
 import org.elasticsearch.tasks.TaskId;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.test.junit.annotations.TestLogging;
 import org.elasticsearch.threadpool.TestThreadPool;
 import org.elasticsearch.threadpool.ThreadPool;
 
@@ -77,7 +78,7 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                 .build();
     }
 
-
+    @TestLogging(value = "_root:DEBUG", reason = "flaky")
     public void testSimulatedSearchRejectionLoad() throws Throwable {
         for (int i = 0; i < 10; i++) {
             client().prepareIndex("test", "type", Integer.toString(i)).setSource("field", "1").get();
@@ -126,11 +127,10 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                                                             numRejections.incrementAndGet();
                                                         } else if (cause instanceof ElasticsearchTimeoutException) {
                                                             numTimeouts.incrementAndGet();
-                                                        } else if(e instanceof ResourceNotFoundException) {
+                                                        } else if(cause instanceof ResourceNotFoundException) {
                                                             // deletion is in race with task cancellation due to partial merge failure
                                                             numRnf.getAndIncrement();
                                                         } else {
-                                                            logger.error("Unexpected failure : ", e);
                                                             numFailures.incrementAndGet();
                                                         }
                                                     }

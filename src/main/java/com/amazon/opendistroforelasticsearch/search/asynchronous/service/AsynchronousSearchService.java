@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.context.Asynchr
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.AsynchronousSearchContextId;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.AsynchronousSearchActiveContext;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.AsynchronousSearchActiveStore;
+import com.amazon.opendistroforelasticsearch.search.asynchronous.context.permits.AsynchronousSearchContextPermits;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.persistence.AsynchronousSearchPersistenceContext;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchState;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.state.AsynchronousSearchStateMachine;
@@ -483,7 +484,7 @@ public class AsynchronousSearchService extends AbstractLifecycleComponent implem
 
     /**
      * If an active context is found, a permit is acquired from
-     * {@linkplain com.amazon.opendistroforelasticsearch.search.asynchronous.context.permits.AsynchronousSearchContextPermits}
+     * {@linkplain AsynchronousSearchContextPermits}
      * and on acquisition of permit, a check is performed to see if response has been persisted in system index. If true, we update
      * expiration in index. Else we update expiration field in {@linkplain AsynchronousSearchActiveContext}.
      *
