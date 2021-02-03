@@ -28,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.service.Asynchr
 import com.amazon.opendistroforelasticsearch.search.asynchronous.utils.AsynchronousSearchAssertions;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.ExceptionsHelper;
+import org.elasticsearch.ResourceNotFoundException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.LatchedActionListener;
 import org.elasticsearch.action.search.SearchAction;
@@ -82,6 +83,7 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
             client().prepareIndex("test", "type", Integer.toString(i)).setSource("field", "1").get();
         }
         AtomicInteger numRejections = new AtomicInteger();
+        AtomicInteger numRnf = new AtomicInteger();
         AtomicInteger numTimeouts = new AtomicInteger();
         AtomicInteger numFailures = new AtomicInteger();
         int numberOfAsyncOps = randomIntBetween(100, 200);
@@ -124,6 +126,9 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                                                             numRejections.incrementAndGet();
                                                         } else if (cause instanceof ElasticsearchTimeoutException) {
                                                             numTimeouts.incrementAndGet();
+                                                        } else if(e instanceof ResourceNotFoundException) {
+                                                            // deletion is in race with task cancellation due to partial merge failure
+                                                            numRnf.getAndIncrement();
                                                         } else {
                                                             logger.error("Unexpected failure : ", e);
                                                             numFailures.incrementAndGet();
