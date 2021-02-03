@@ -80,7 +80,7 @@ public class AsynchronousSearchActiveContextTests extends AsynchronousSearchTest
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsynchronousSearchActiveContext context = new AsynchronousSearchActiveContext(asContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
-                    threadPool::absoluteTimeInMillis, asProgressListener, user);
+                    threadPool::absoluteTimeInMillis, asProgressListener, user, ()->true);
             assertEquals(AsynchronousSearchState.INIT, context.getAsynchronousSearchState());
             assertNull(context.getTask());
             assertNull(context.getAsynchronousSearchId());
@@ -115,7 +115,7 @@ public class AsynchronousSearchActiveContextTests extends AsynchronousSearchTest
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsynchronousSearchActiveContext context = new AsynchronousSearchActiveContext(asContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
-                    threadPool::absoluteTimeInMillis, asProgressListener, user);
+                    threadPool::absoluteTimeInMillis, asProgressListener, user, ()->true);
             SubmitAsynchronousSearchRequest request = new SubmitAsynchronousSearchRequest(new SearchRequest("test"));
             request.keepAlive(keepAlive);
             request.keepOnCompletion(keepOnCompletion);
@@ -168,7 +168,7 @@ public class AsynchronousSearchActiveContextTests extends AsynchronousSearchTest
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsynchronousSearchActiveContext context = new AsynchronousSearchActiveContext(asContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
-            threadPool::absoluteTimeInMillis, asProgressListener, null);
+            threadPool::absoluteTimeInMillis, asProgressListener, null, ()->true);
             if (randomBoolean()) {
                 SearchResponse mockSearchResponse = getMockSearchResponse();
                 try {
@@ -221,7 +221,7 @@ public class AsynchronousSearchActiveContextTests extends AsynchronousSearchTest
             TimeValue keepAlive = TimeValue.timeValueDays(randomInt(100));
             AsynchronousSearchActiveContext context = new AsynchronousSearchActiveContext(asContextId, node,
                     keepAlive, keepOnCompletion, threadPool,
-                    threadPool::absoluteTimeInMillis, asProgressListener, null);
+                    threadPool::absoluteTimeInMillis, asProgressListener, null, ()->true);
             AsynchronousSearchTask task = new AsynchronousSearchTask(randomNonNegativeLong(), "transport",
                     SearchAction.NAME, TaskId.EMPTY_TASK_ID, emptyMap(), context, null, (c) -> {
             });

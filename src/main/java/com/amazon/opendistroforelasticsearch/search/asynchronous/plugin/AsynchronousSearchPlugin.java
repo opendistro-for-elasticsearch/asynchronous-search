@@ -20,7 +20,6 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.action.DeleteAs
 import com.amazon.opendistroforelasticsearch.search.asynchronous.action.GetAsynchronousSearchAction;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.action.SubmitAsynchronousSearchAction;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.AsynchronousSearchActiveStore;
-import com.amazon.opendistroforelasticsearch.search.asynchronous.processor.AsynchronousSearchPostProcessor;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.service.AsynchronousSearchPersistenceService;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.management.AsynchronousSearchManagementService;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.rest.RestAsynchronousSearchStatsAction;
@@ -136,7 +135,7 @@ public class AsynchronousSearchPlugin extends Plugin implements ActionPlugin, Sy
                 AsynchronousSearchService.MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING,
                 AsynchronousSearchManagementService.PERSISTED_RESPONSE_CLEAN_UP_INTERVAL_SETTING,
                 AsynchronousSearchManagementService.ACTIVE_CONTEXT_REAPER_INTERVAL_SETTING,
-                AsynchronousSearchPostProcessor.STORE_SEARCH_FAILURES_SETTING
+                AsynchronousSearchService.STORE_SEARCH_FAILURES_SETTING
         );
     }
 

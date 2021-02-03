@@ -7,7 +7,6 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.AsynchronousSearchActiveStore;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.persistence.AsynchronousSearchPersistenceContext;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.listener.AsynchronousSearchProgressListener;
-import com.amazon.opendistroforelasticsearch.search.asynchronous.processor.AsynchronousSearchPostProcessor;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.request.SubmitAsynchronousSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.stats.InternalAsynchronousSearchStats;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.task.AsynchronousSearchTask;
@@ -115,7 +114,7 @@ public class AsynchronousSearchServiceUpdateContextTests extends ESTestCase {
                 Stream.concat(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(), Stream.of(
                         AsynchronousSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING,
                         AsynchronousSearchService.MAX_KEEP_ALIVE_SETTING,
-                        AsynchronousSearchPostProcessor.STORE_SEARCH_FAILURES_SETTING,
+                        AsynchronousSearchService.STORE_SEARCH_FAILURES_SETTING,
                         AsynchronousSearchService.MAX_SEARCH_RUNNING_TIME_SETTING,
                         AsynchronousSearchService.MAX_WAIT_FOR_COMPLETION_TIMEOUT_SETTING)).collect(Collectors.toSet());
         final int availableProcessors = EsExecutors.allocatedProcessors(settings);
@@ -416,7 +415,7 @@ public class AsynchronousSearchServiceUpdateContextTests extends ESTestCase {
             User user = TestClientUtils.randomUser();
             AsynchronousSearchActiveContext context = new AsynchronousSearchActiveContext(asContextId, node,
                     keepAlive, keepOnCompletion, testThreadPool,
-                    testThreadPool::absoluteTimeInMillis, asProgressListener, user);
+                    testThreadPool::absoluteTimeInMillis, asProgressListener, user, ()->true);
             CountDownLatch latch = new CountDownLatch(1);
             docNotFound = true;
             asService.updateKeepAliveAndGetContext(context.getAsynchronousSearchId(), keepAlive, context.getContextId(),
@@ -605,7 +604,7 @@ public class AsynchronousSearchServiceUpdateContextTests extends ESTestCase {
                                             boolean keepOnCompletion, ThreadPool threadPool, LongSupplier currentTimeSupplier,
                                             AsynchronousSearchProgressListener searchProgressActionListener, User user) {
             super(asContextId, nodeId, keepAlive, keepOnCompletion, threadPool, currentTimeSupplier, searchProgressActionListener,
-                    user);
+                    user, ()->true);
         }
 
         @Override

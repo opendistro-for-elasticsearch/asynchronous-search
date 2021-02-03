@@ -20,11 +20,11 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.action.SubmitAs
 import com.amazon.opendistroforelasticsearch.search.asynchronous.commons.AsynchronousSearchIntegTestCase;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.listener.AsynchronousSearchProgressListener;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.listener.AsynchronousSearchProgressListenerIT;
-import com.amazon.opendistroforelasticsearch.search.asynchronous.processor.AsynchronousSearchPostProcessor;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.request.DeleteAsynchronousSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.request.SubmitAsynchronousSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.response.AcknowledgedResponse;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.response.AsynchronousSearchResponse;
+import com.amazon.opendistroforelasticsearch.search.asynchronous.service.AsynchronousSearchService;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.utils.AsynchronousSearchAssertions;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.ExceptionsHelper;
@@ -72,7 +72,7 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                 .put("thread_pool.write.queue_size", 10)
                 .put("thread_pool.get.size", 1)
                 .put("thread_pool.get.queue_size", 10)
-                .put(AsynchronousSearchPostProcessor.STORE_SEARCH_FAILURES_SETTING.getKey(), true)
+                .put(AsynchronousSearchService.STORE_SEARCH_FAILURES_SETTING.getKey(), true)
                 .build();
     }
 

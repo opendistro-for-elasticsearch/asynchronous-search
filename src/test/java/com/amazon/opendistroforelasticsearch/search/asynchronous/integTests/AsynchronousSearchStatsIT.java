@@ -18,11 +18,11 @@ package com.amazon.opendistroforelasticsearch.search.asynchronous.integTests;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.action.AsynchronousSearchStatsAction;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.commons.AsynchronousSearchIntegTestCase;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.context.active.AsynchronousSearchActiveStore;
-import com.amazon.opendistroforelasticsearch.search.asynchronous.processor.AsynchronousSearchPostProcessor;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.request.AsynchronousSearchStatsRequest;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.request.SubmitAsynchronousSearchRequest;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.response.AsynchronousSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.response.AsynchronousSearchStatsResponse;
+import com.amazon.opendistroforelasticsearch.search.asynchronous.service.AsynchronousSearchService;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.stats.AsynchronousSearchCountStats;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.stats.AsynchronousSearchStats;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.utils.TestClientUtils;
@@ -61,7 +61,7 @@ public class AsynchronousSearchStatsIT extends AsynchronousSearchIntegTestCase {
         return Settings.builder()
                 .put(super.nodeSettings(nodeOrdinal))
                 .put(AsynchronousSearchActiveStore.MAX_RUNNING_SEARCHES_SETTING.getKey(), asConcurrentLimit)
-                .put(AsynchronousSearchPostProcessor.STORE_SEARCH_FAILURES_SETTING.getKey(), true)
+                .put(AsynchronousSearchService.STORE_SEARCH_FAILURES_SETTING.getKey(), true)
                 .build();
     }
 
