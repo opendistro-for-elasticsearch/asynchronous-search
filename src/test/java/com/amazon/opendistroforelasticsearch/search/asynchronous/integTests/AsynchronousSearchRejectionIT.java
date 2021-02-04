@@ -87,7 +87,7 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
         AtomicInteger numRnf = new AtomicInteger();
         AtomicInteger numTimeouts = new AtomicInteger();
         AtomicInteger numFailures = new AtomicInteger();
-        int numberOfAsyncOps = randomIntBetween(100, 200);
+        int numberOfAsyncOps = 200;
         final CountDownLatch latch = new CountDownLatch(numberOfAsyncOps * 2);
         final CopyOnWriteArrayList<Object> responses = new CopyOnWriteArrayList<>();
         for (int i = 0; i < numberOfAsyncOps; i++) {
@@ -124,11 +124,14 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                                                     public void onFailure(Exception e) {
                                                         Throwable cause = ExceptionsHelper.unwrapCause(e);
                                                         if (cause instanceof EsRejectedExecutionException) {
+                                                            logger.warn("Acceptable failure :", e);
                                                             numRejections.incrementAndGet();
                                                         } else if (cause instanceof ElasticsearchTimeoutException) {
+                                                            logger.warn("Acceptable failure :", e);
                                                             numTimeouts.incrementAndGet();
                                                         } else if(cause instanceof ResourceNotFoundException) {
                                                             // deletion is in race with task cancellation due to partial merge failure
+                                                            logger.warn("Acceptable failure :", e);
                                                             numRnf.getAndIncrement();
                                                         } else {
                                                             numFailures.incrementAndGet();
