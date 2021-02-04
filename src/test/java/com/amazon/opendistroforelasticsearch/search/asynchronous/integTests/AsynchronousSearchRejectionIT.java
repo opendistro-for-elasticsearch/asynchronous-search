@@ -96,7 +96,7 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                     .setQuery(QueryBuilders.matchQuery("field", "1"))
                     .request();
             SubmitAsynchronousSearchRequest submitAsynchronousSearchRequest = new SubmitAsynchronousSearchRequest(request);
-            submitAsynchronousSearchRequest.keepOnCompletion(false);
+            submitAsynchronousSearchRequest.keepOnCompletion(randomBoolean());
                     client().execute(SubmitAsynchronousSearchAction.INSTANCE, submitAsynchronousSearchRequest,
                             new LatchedActionListener<>(new ActionListener<AsynchronousSearchResponse>() {
                                 @Override
@@ -167,7 +167,8 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                                 failure.reason().toLowerCase(Locale.ENGLISH).contains("cancelled") ||
                                 failure.reason().toLowerCase(Locale.ENGLISH).contains("rejected"));
                     }
-                } else if ((unwrap instanceof EsRejectedExecutionException) == false) {
+                    // we have have null responses if submit completes before search starts
+                } else if (response != null && (unwrap instanceof EsRejectedExecutionException) == false) {
                     throw new AssertionError("unexpected failure + ", (Throwable) response);
                 }
             }
