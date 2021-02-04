@@ -168,7 +168,7 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                                 failure.reason().toLowerCase(Locale.ENGLISH).contains("rejected"));
                     }
                 } else if ((unwrap instanceof EsRejectedExecutionException) == false) {
-                    throw new AssertionError("unexpected failure", (Throwable) response);
+                    throw new AssertionError("unexpected failure + " +t.getClass() + " " + t.getMessage(), (Throwable) response);
                 }
             }
         }
