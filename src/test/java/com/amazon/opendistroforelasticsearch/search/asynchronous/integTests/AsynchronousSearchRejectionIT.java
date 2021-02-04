@@ -96,7 +96,7 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                     .setQuery(QueryBuilders.matchQuery("field", "1"))
                     .request();
             SubmitAsynchronousSearchRequest submitAsynchronousSearchRequest = new SubmitAsynchronousSearchRequest(request);
-            submitAsynchronousSearchRequest.keepOnCompletion(true);
+            submitAsynchronousSearchRequest.keepOnCompletion(false);
                     client().execute(SubmitAsynchronousSearchAction.INSTANCE, submitAsynchronousSearchRequest,
                             new LatchedActionListener<>(new ActionListener<AsynchronousSearchResponse>() {
                                 @Override
@@ -168,7 +168,7 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                                 failure.reason().toLowerCase(Locale.ENGLISH).contains("rejected"));
                     }
                 } else if ((unwrap instanceof EsRejectedExecutionException) == false) {
-                    throw new AssertionError("unexpected failure + " +t.getClass() + " " + t.getMessage(), (Throwable) response);
+                    throw new AssertionError("unexpected failure + ", (Throwable) response);
                 }
             }
         }
