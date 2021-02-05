@@ -14,5 +14,5 @@ The asynchronous search APIs let you asynchronously execute a search request, mo
 ### Features
 * Listener framework for asynchronous search ([#2](https://github.com/opendistro-for-elasticsearch/asynchronous-search/pull/2))
 * Service layer and Transport Handlers ([#8](https://github.com/opendistro-for-elasticsearch/asynchronous-search/pull/8))
-* Rest Layer and Async Search Cleanup Management ([#9](https://github.com/opendistro-for-elasticsearch/asynchronous-search/pull/9))
+* Rest Layer and Asynchronous Search Cleanup Management ([#9](https://github.com/opendistro-for-elasticsearch/asynchronous-search/pull/9))
 * Integrates security with asynchronous search ([#11](https://github.com/opendistro-for-elasticsearch/asynchronous-search/pull/11))
