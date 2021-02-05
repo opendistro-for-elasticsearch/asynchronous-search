@@ -108,8 +108,6 @@ public class AsynchronousSearchRejectionIT extends AsynchronousSearchIntegTestCa
                                         responses.add(asynchronousSearchResponse.getSearchResponse());
                                     } else if(asynchronousSearchResponse.getError() != null){
                                         responses.add(asynchronousSearchResponse.getError());
-                                    } else {
-                                        logger.debug("No error or response received : " + asynchronousSearchResponse);
                                     }
                                     if (asynchronousSearchResponse.getId() == null) {
                                         // task cancelled by the time we process final response/error due to during partial merge failure.
