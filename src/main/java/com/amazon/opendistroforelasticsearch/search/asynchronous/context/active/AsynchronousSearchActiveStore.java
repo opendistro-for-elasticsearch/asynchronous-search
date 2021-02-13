@@ -40,7 +40,7 @@ public class AsynchronousSearchActiveStore {
     private volatile int maxRunningSearches;
     public static final int DEFAULT_MAX_RUNNING_SEARCHES = 20;
     public static final Setting<Integer> MAX_RUNNING_SEARCHES_SETTING = Setting.intSetting(
-            "opendistro.asynchronous_search.max_running_searches", DEFAULT_MAX_RUNNING_SEARCHES, 0, Setting.Property.Dynamic,
+            "opendistro.asynchronous_search.node.max_running_searches", DEFAULT_MAX_RUNNING_SEARCHES, 0, Setting.Property.Dynamic,
             Setting.Property.NodeScope);
 
     private final ConcurrentMapLong<AsynchronousSearchActiveContext> activeContexts = newConcurrentMapLongWithAggressiveConcurrency();
