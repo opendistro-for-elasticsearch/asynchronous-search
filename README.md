@@ -35,7 +35,7 @@ DELETE /_opendistro/_asynchronous_search/FjdITFhYbC1zVFdHVVV1MUd3UkxkMFEFMjQ1MzY
 **4. Stats for asynchronous search**
 
 ```
-GET /_opendistro/_asynchronous_search/_stats
+GET /_opendistro/_asynchronous_search/stats
 ```
 
 **Tunable Settings**
