@@ -106,7 +106,7 @@ public class AsynchronousSearchActiveContext extends AsynchronousSearchContext i
         // we don't want to process stack traces
         try {
             if (e.getCause() != null) {
-                e.getCause().setStackTrace(new StackTraceElement[0]);
+                e.setStackTrace(new StackTraceElement[0]);
             }
             this.error.set(e);
         } finally {
