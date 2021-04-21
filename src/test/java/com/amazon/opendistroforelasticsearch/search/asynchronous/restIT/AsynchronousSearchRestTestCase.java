@@ -98,8 +98,9 @@ public abstract class AsynchronousSearchRestTestCase extends ODFERestTestCase {
                         "/_opendistro/_security/api/rolesmapping/asynchronous_search_full_access");
                 roleMapping.setJsonEntity("{ \"users\": [\"admin\"] }");
                 try {
-                    client().performRequest(roleMapping);
-                }catch (Exception e) { //security plugin not enabled
+                    LogManager.getLogger().info("create asynchronous search role mapping");
+                    LogManager.getLogger().info(client().performRequest(roleMapping));
+                } catch (Exception e) { //security plugin not enabled
                     LogManager.getLogger().error(e);
                 }
             }
