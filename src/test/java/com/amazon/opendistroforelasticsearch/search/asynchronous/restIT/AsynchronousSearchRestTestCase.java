@@ -92,8 +92,18 @@ public abstract class AsynchronousSearchRestTestCase extends ODFERestTestCase {
                 doc6.setJsonEntity("{ \"id\":1, \"num\":10, \"num2\":50}");
                 client().performRequest(doc6);
             }
+            {
+                Request roleMapping = new Request(HttpPut.METHOD_NAME,
+                        "/_opendistro/_security/api/rolesmapping/asynchronous_search_full_access");
+                roleMapping.setJsonEntity("{ \"users\": [\"admin\"] }");
+                try {
+                    client().performRequest(roleMapping);
+                }catch (Exception ignored) { //security plugin not enabled
+                }
+            }
         }
         client().performRequest(new Request(HttpPost.METHOD_NAME, "/_refresh"));
+
     }
 
     AsynchronousSearchResponse executeGetAsynchronousSearch(GetAsynchronousSearchRequest getAsynchronousSearchRequest) throws IOException {
