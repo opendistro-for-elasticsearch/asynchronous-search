@@ -21,8 +21,10 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.request.SubmitA
 import com.amazon.opendistroforelasticsearch.search.asynchronous.response.AsynchronousSearchResponse;
 import com.amazon.opendistroforelasticsearch.search.asynchronous.utils.RestTestUtils;
 import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.logging.log4j.LogManager;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Request;
@@ -40,8 +42,6 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.SearchModule;
-import org.elasticsearch.test.rest.ESRestTestCase;
-import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 
@@ -62,7 +62,7 @@ import static org.hamcrest.Matchers.containsString;
 /**
  * Verifies asynchronous search APIs - submit, get, delete end to end using rest client
  */
-public abstract class AsynchronousSearchRestTestCase extends ESRestTestCase {
+public abstract class AsynchronousSearchRestTestCase extends ODFERestTestCase {
 
     private final NamedXContentRegistry registry = new NamedXContentRegistry(
             new SearchModule(Settings.EMPTY, false, Collections.emptyList()).getNamedXContents());
@@ -94,8 +94,33 @@ public abstract class AsynchronousSearchRestTestCase extends ESRestTestCase {
                 doc6.setJsonEntity("{ \"id\":1, \"num\":10, \"num2\":50}");
                 client().performRequest(doc6);
             }
+            {
+                Request roleMapping = new Request(HttpPut.METHOD_NAME,
+                        "/_opendistro/_security/api/rolesmapping/asynchronous_search_full_access");
+                roleMapping.setJsonEntity("{ \"users\": [\"admin\"] }");
+                try {
+                    LogManager.getLogger().info("create asynchronous search role mapping");
+                    LogManager.getLogger().info(client().performRequest(roleMapping));
+
+                    Request users = new Request(HttpGet.METHOD_NAME,
+                            "/_opendistro/_security/api/internalusers");
+                    LogManager.getLogger().info("get security users");
+                    LogManager.getLogger().info(client().performRequest(users));
+                    Request roles = new Request(HttpGet.METHOD_NAME,
+                            "/_opendistro/_security/api/roles");
+                    LogManager.getLogger().info("get security roles");
+                    LogManager.getLogger().info(client().performRequest(roles));
+                    Request rolesMappings = new Request(HttpGet.METHOD_NAME,
+                            "/_opendistro/_security/api/rolesmapping");
+                    LogManager.getLogger().info("get all security role mappings");
+                    LogManager.getLogger().info(client().performRequest(rolesMappings));
+                } catch (Exception e) { //security plugin not enabled
+                    LogManager.getLogger().error(e);
+                }
+            }
         }
         client().performRequest(new Request(HttpPost.METHOD_NAME, "/_refresh"));
+
     }
 
     AsynchronousSearchResponse executeGetAsynchronousSearch(GetAsynchronousSearchRequest getAsynchronousSearchRequest) throws IOException {
@@ -155,11 +180,6 @@ public abstract class AsynchronousSearchRestTestCase extends ESRestTestCase {
         }
     }
 
-    @After
-    public void closeClient() throws Exception {
-        ESRestTestCase.closeClients();
-    }
-
     protected final <Resp> Resp parseEntity(final HttpEntity entity,
                                             final CheckedFunction<XContentParser, Resp, IOException> entityParser)
             throws IOException {
@@ -180,7 +200,7 @@ public abstract class AsynchronousSearchRestTestCase extends ESRestTestCase {
     }
 
     protected AsynchronousSearchResponse getAssertedAsynchronousSearchResponse(AsynchronousSearchResponse submitResponse,
-                                                                 GetAsynchronousSearchRequest getAsynchronousSearchRequest)
+                                                                               GetAsynchronousSearchRequest getAsynchronousSearchRequest)
             throws IOException {
         AsynchronousSearchResponse getResponse;
         getResponse = executeGetAsynchronousSearch(getAsynchronousSearchRequest);
