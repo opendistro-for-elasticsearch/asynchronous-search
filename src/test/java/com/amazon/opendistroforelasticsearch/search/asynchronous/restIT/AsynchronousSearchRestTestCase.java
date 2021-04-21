@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.search.asynchronous.utils.RestTestU
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.logging.log4j.LogManager;
 import org.apache.lucene.search.TotalHits;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Request;
@@ -98,7 +99,8 @@ public abstract class AsynchronousSearchRestTestCase extends ODFERestTestCase {
                 roleMapping.setJsonEntity("{ \"users\": [\"admin\"] }");
                 try {
                     client().performRequest(roleMapping);
-                }catch (Exception ignored) { //security plugin not enabled
+                }catch (Exception e) { //security plugin not enabled
+                    LogManager.getLogger().error(e);
                 }
             }
         }
