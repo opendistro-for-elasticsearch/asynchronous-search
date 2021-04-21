@@ -101,21 +101,22 @@ public abstract class AsynchronousSearchRestTestCase extends ODFERestTestCase {
                 try {
                     LogManager.getLogger().info("create asynchronous search role mapping");
                     LogManager.getLogger().info(client().performRequest(roleMapping));
+
+                    Request users = new Request(HttpGet.METHOD_NAME,
+                            "/_opendistro/_security/api/internalusers");
+                    LogManager.getLogger().info("get security users");
+                    LogManager.getLogger().info(client().performRequest(users));
+                    Request roles = new Request(HttpGet.METHOD_NAME,
+                            "/_opendistro/_security/api/roles");
+                    LogManager.getLogger().info("get security roles");
+                    LogManager.getLogger().info(client().performRequest(roles));
+                    Request rolesMappings = new Request(HttpGet.METHOD_NAME,
+                            "/_opendistro/_security/api/rolesmapping");
+                    LogManager.getLogger().info("get all security role mappings");
+                    LogManager.getLogger().info(client().performRequest(rolesMappings));
                 } catch (Exception e) { //security plugin not enabled
                     LogManager.getLogger().error(e);
                 }
-                Request rolesMappings = new Request(HttpGet.METHOD_NAME,
-                        "/_opendistro/_security/api/rolesmapping");
-                LogManager.getLogger().info("get all security role mappings");
-                LogManager.getLogger().info(client().performRequest(rolesMappings));
-                Request users = new Request(HttpGet.METHOD_NAME,
-                        "/_opendistro/_security/api/internalusers");
-                LogManager.getLogger().info("get security users");
-                LogManager.getLogger().info(client().performRequest(users));
-                Request roles = new Request(HttpGet.METHOD_NAME,
-                        "/_opendistro/_security/api/roles");
-                LogManager.getLogger().info("get security roles");
-                LogManager.getLogger().info(client().performRequest(roles));
             }
         }
         client().performRequest(new Request(HttpPost.METHOD_NAME, "/_refresh"));
